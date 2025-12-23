@@ -271,7 +271,6 @@ class ImageOptimizationConfigData(BaseModel):
     strategy: str = "phash"
     phash_threshold: int = 10
     min_interval: float = 0.5
-    max_images: int = 10
     enable_content_analysis: bool = True
     enable_text_detection: bool = True
 

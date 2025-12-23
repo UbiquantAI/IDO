@@ -90,7 +90,7 @@ min_sampling_interval = 1.5  # Optimized: balanced for ~12 second span
 # - 3-5: Minimal mode (significant cost savings, suitable for simple tasks)
 # - 6-8: Standard mode (recommended, balances information and cost) ⭐ Recommended
 # - 10-15: Rich mode (more context, suitable for complex tasks)
-max_images_per_event = 8
+# Note: This is controlled by processing.max_screenshots_per_extraction instead
 
 # ========== Content Analysis Configuration ==========
 # Enable content analysis
@@ -165,8 +165,7 @@ memory_cache_size = 500
 
 # Processing configuration
 [processing]
-# Perception layer configuration
-screenshot_interval = 1  # Screenshot interval (seconds)
+# Perception layer configuration (screenshot_interval controlled by monitoring.capture_interval)
 enable_screenshot_deduplication = true  # Enable screenshot deduplication
 
 # ========== Session Agent Merging Configuration ==========

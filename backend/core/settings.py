@@ -376,9 +376,6 @@ class SettingsManager:
             min_interval = float(
                 self.config_loader.get("image_optimization.min_sampling_interval", 2.0)
             )
-            max_images = int(
-                self.config_loader.get("image_optimization.max_images_per_event", 8)
-            )
             enable_content = self.config_loader.get(
                 "image_optimization.enable_content_analysis", True
             )
@@ -391,7 +388,6 @@ class SettingsManager:
                 "strategy": strategy,
                 "phash_threshold": phash_threshold,
                 "min_interval": min_interval,
-                "max_images": max_images,
                 "enable_content_analysis": enable_content,
                 "enable_text_detection": enable_text,
             }
@@ -422,9 +418,6 @@ class SettingsManager:
                 config.get("min_interval", 2.0),
             )
             self.config_loader.set(
-                "image_optimization.max_images_per_event", config.get("max_images", 8)
-            )
-            self.config_loader.set(
                 "image_optimization.enable_content_analysis",
                 config.get("enable_content_analysis", True),
             )
@@ -446,7 +439,6 @@ class SettingsManager:
             "strategy": "hybrid",
             "phash_threshold": 0.15,
             "min_interval": 2.0,
-            "max_images": 8,
             "enable_content_analysis": True,
             "enable_text_detection": False,
         }

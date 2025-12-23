@@ -30,7 +30,7 @@ class PipelineCoordinator:
         self.config = config
         self.processing_interval = config.get("monitoring.processing_interval", 30)
         self.window_size = config.get("monitoring.window_size", 60)
-        self.capture_interval = config.get("monitoring.capture_interval", 0.2)
+        self.capture_interval = config.get("monitoring.capture_interval", 1.0)
 
         # Initialize managers (lazy import to avoid circular dependencies)
         self.perception_manager = None
