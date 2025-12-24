@@ -929,6 +929,57 @@ export async function restartApp(
 }
 
 /**
+ * Start a new Pomodoro session
+ *
+ * Args:
+ *     body: Request containing user_intent and duration_minutes
+ *
+ * Returns:
+ *     StartPomodoroResponse with session data
+ *
+ * Raises:
+ *     ValueError: If a Pomodoro session is already active or previous session is still processing
+ */
+export async function startPomodoro(
+    body: Commands["start_pomodoro"]["input"],
+    options?: InvokeOptions
+): Promise<Commands["start_pomodoro"]["output"]> {
+    return await pyInvoke("start_pomodoro", body, options);
+}
+
+/**
+ * End current Pomodoro session
+ *
+ * Args:
+ *     body: Request containing status (completed/abandoned/interrupted)
+ *
+ * Returns:
+ *     EndPomodoroResponse with processing job info
+ *
+ * Raises:
+ *     ValueError: If no active Pomodoro session
+ */
+export async function endPomodoro(
+    body: Commands["end_pomodoro"]["input"],
+    options?: InvokeOptions
+): Promise<Commands["end_pomodoro"]["output"]> {
+    return await pyInvoke("end_pomodoro", body, options);
+}
+
+/**
+ * Get current Pomodoro session status
+ *
+ * Returns:
+ *     GetPomodoroStatusResponse with current session info or None if no active session
+ */
+export async function getPomodoroStatus(
+    body: Commands["get_pomodoro_status"]["input"],
+    options?: InvokeOptions
+): Promise<Commands["get_pomodoro_status"]["output"]> {
+    return await pyInvoke("get_pomodoro_status", body, options);
+}
+
+/**
  * Get processing module statistics.
  *
  * Returns statistics about event and activity processing.

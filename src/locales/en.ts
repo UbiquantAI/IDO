@@ -933,6 +933,40 @@ export const en = {
     description: 'AI-powered desktop activity monitoring and task recommendation system',
     allRightsReserved: 'All rights reserved'
   },
+  pomodoro: {
+    title: 'Pomodoro Timer',
+    description: 'Focus Mode: Start a Pomodoro session to capture and analyze your focused work.',
+    intent: {
+      label: 'What do you plan to work on?',
+      placeholder: 'e.g., Write project documentation',
+      hint: 'Describe your intention for this Pomodoro session',
+      current: 'Current task'
+    },
+    duration: {
+      label: 'Duration (minutes)',
+      hint: 'Recommended: 25 minutes'
+    },
+    start: 'Start Pomodoro',
+    end: 'End Session',
+    status: {
+      active: 'Session in progress',
+      ending: 'Ending session...',
+      processing: 'Analyzing session data...'
+    },
+    started: 'Pomodoro session started',
+    ended: 'Session ended. Analyzing {{count}} records...',
+    processing: {
+      progress: 'Processed {{count}} records',
+      complete: 'Analysis complete! Processed {{count}} records.',
+      failed: 'Analysis failed: {{error}}'
+    },
+    error: {
+      title: 'Error',
+      noIntent: 'Please describe what you plan to work on',
+      startFailed: 'Failed to start Pomodoro: {{error}}',
+      endFailed: 'Failed to end Pomodoro: {{error}}'
+    }
+  },
   debug: {
     welcomeFlowReset: '🔄 Welcome flow reset',
     setupAlreadyActive: 'ℹ️ Setup is already active',

@@ -43,6 +43,11 @@ class PipelineCoordinator:
         self.knowledge_agent = None
         self.diary_agent = None
         self.cleanup_agent = None
+        self.pomodoro_manager = None
+
+        # Pomodoro mode state
+        self.pomodoro_mode = False
+        self.current_pomodoro_session_id: Optional[str] = None
 
         # Running state
         self.is_running = False
@@ -315,6 +320,11 @@ class PipelineCoordinator:
                 ),
             )
 
+        if self.pomodoro_manager is None:
+            from core.pomodoro_manager import PomodoroManager
+
+            self.pomodoro_manager = PomodoroManager(self)
+
         # Link agents
         if self.processing_pipeline:
             # Link action_agent to pipeline for action extraction
@@ -401,13 +411,15 @@ class PipelineCoordinator:
                 raise Exception("Cleanup agent initialization failed")
 
             # Start all components in parallel (they are independent)
+            # NOTE: Perception manager is NOT started by default - it will be started
+            # when a Pomodoro session begins (Active mode strategy)
             logger.debug(
-                "Starting perception manager, processing pipeline, agents in parallel..."
+                "Starting processing pipeline and agents (perception will start with Pomodoro)..."
             )
             start_time = datetime.now()
 
             await asyncio.gather(
-                self.perception_manager.start(),
+                # self.perception_manager.start(),  # Disabled: starts with Pomodoro
                 self.processing_pipeline.start(),
                 self.event_agent.start(),
                 self.session_agent.start(),
@@ -419,6 +431,12 @@ class PipelineCoordinator:
             logger.debug(
                 f"All components started (took {elapsed:.2f}s)"
             )
+
+            # Check for orphaned Pomodoro sessions from previous run
+            if self.pomodoro_manager:
+                orphaned_count = await self.pomodoro_manager.check_orphaned_sessions()
+                if orphaned_count > 0:
+                    logger.info(f"✓ Recovered {orphaned_count} orphaned Pomodoro session(s)")
 
             # Start scheduled processing loop
             self.is_running = True
@@ -661,6 +679,106 @@ class PipelineCoordinator:
         except Exception as e:
             logger.error(f"Failed to get statistics: {e}")
             return {"error": str(e)}
+
+
+    async def enter_pomodoro_mode(self, session_id: str) -> None:
+        """
+        Enter Pomodoro mode - start perception and disable continuous processing
+
+        Changes:
+        1. Start perception manager (if not already running)
+        2. Stop processing_loop (cancel task)
+        3. Set pomodoro_mode = True
+        4. Set current_pomodoro_session_id
+        5. Perception captures and tags records
+        6. Records are saved to DB instead of processed
+
+        Args:
+            session_id: Pomodoro session identifier
+        """
+        logger.info(f"→ Entering Pomodoro mode: {session_id}")
+
+        self.pomodoro_mode = True
+        self.current_pomodoro_session_id = session_id
+
+        # Start perception manager if not already running
+        if self.perception_manager and not self.perception_manager.is_running:
+            try:
+                logger.info("Starting perception manager for Pomodoro mode...")
+                await self.perception_manager.start()
+                logger.info("✓ Perception manager started")
+            except Exception as e:
+                logger.error(f"Failed to start perception manager: {e}", exc_info=True)
+                raise
+        elif not self.perception_manager:
+            logger.error("Perception manager is None, cannot start")
+        else:
+            logger.debug("Perception manager already running")
+
+        # Keep processing loop running - do NOT cancel it
+        # This allows Actions (30s) and Events (10min) to continue normally
+
+        # Pause only SessionAgent (activity generation deferred)
+        try:
+            if self.session_agent:
+                self.session_agent.pause()
+                logger.debug("✓ SessionAgent paused (activity generation deferred)")
+        except Exception as e:
+            logger.error(f"Failed to pause SessionAgent: {e}")
+
+        # Notify perception manager of Pomodoro mode (for tagging records)
+        if self.perception_manager:
+            self.perception_manager.set_pomodoro_session(session_id)
+
+        logger.info(
+            "✓ Pomodoro mode active - normal processing continues, "
+            "activity generation paused until session ends"
+        )
+
+    async def exit_pomodoro_mode(self) -> None:
+        """
+        Exit Pomodoro mode - stop perception and trigger activity generation
+
+        When Pomodoro ends:
+        - Stop perception manager
+        - Resume SessionAgent
+        - Trigger immediate activity aggregation for accumulated Events
+        """
+        logger.info("→ Exiting Pomodoro mode")
+
+        self.pomodoro_mode = False
+        session_id = self.current_pomodoro_session_id
+        self.current_pomodoro_session_id = None
+
+        # Stop perception manager
+        if self.perception_manager and self.perception_manager.is_running:
+            try:
+                logger.debug("Stopping perception manager...")
+                await self.perception_manager.stop()
+                logger.debug("✓ Perception manager stopped")
+            except Exception as e:
+                logger.error(f"Failed to stop perception manager: {e}")
+
+        # Processing loop is still running - no need to resume
+
+        # Resume SessionAgent and trigger immediate activity aggregation
+        try:
+            if self.session_agent:
+                self.session_agent.resume()
+                logger.debug("✓ SessionAgent resumed")
+
+                # Trigger immediate activity aggregation for Pomodoro session
+                logger.info("→ Triggering activity aggregation for Pomodoro session...")
+                await self.session_agent._aggregate_sessions()
+                logger.info("✓ Activity aggregation complete for Pomodoro session")
+        except Exception as e:
+            logger.error(f"Failed to resume SessionAgent or aggregate activities: {e}")
+
+        # Notify perception manager to exit Pomodoro mode
+        if self.perception_manager:
+            self.perception_manager.clear_pomodoro_session()
+
+        logger.info(f"✓ Idle mode resumed - perception stopped (exited session: {session_id})")
 
 
 def get_coordinator() -> PipelineCoordinator:

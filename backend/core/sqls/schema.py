@@ -228,6 +228,29 @@ CREATE_SESSION_PREFERENCES_TABLE = """
     )
 """
 
+CREATE_POMODORO_SESSIONS_TABLE = """
+    CREATE TABLE IF NOT EXISTS pomodoro_sessions (
+        id TEXT PRIMARY KEY,
+        user_intent TEXT NOT NULL,
+        planned_duration_minutes INTEGER DEFAULT 25,
+        actual_duration_minutes INTEGER,
+        start_time TEXT NOT NULL,
+        end_time TEXT,
+        status TEXT NOT NULL,
+        processing_status TEXT DEFAULT 'pending',
+        processing_started_at TEXT,
+        processing_completed_at TEXT,
+        processing_error TEXT,
+        interruption_count INTEGER DEFAULT 0,
+        interruption_reasons TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        deleted BOOLEAN DEFAULT 0,
+        CHECK(status IN ('active', 'completed', 'abandoned', 'interrupted', 'too_short')),
+        CHECK(processing_status IN ('pending', 'processing', 'completed', 'failed', 'skipped'))
+    )
+"""
+
 CREATE_KNOWLEDGE_CREATED_INDEX = """
     CREATE INDEX IF NOT EXISTS idx_knowledge_created
     ON knowledge(created_at DESC)
@@ -386,6 +409,28 @@ CREATE_SESSION_PREFERENCES_CONFIDENCE_INDEX = """
     ON session_preferences(confidence_score DESC)
 """
 
+# ============ Pomodoro Sessions Indexes ============
+
+CREATE_POMODORO_SESSIONS_STATUS_INDEX = """
+    CREATE INDEX IF NOT EXISTS idx_pomodoro_sessions_status
+    ON pomodoro_sessions(status)
+"""
+
+CREATE_POMODORO_SESSIONS_PROCESSING_STATUS_INDEX = """
+    CREATE INDEX IF NOT EXISTS idx_pomodoro_sessions_processing_status
+    ON pomodoro_sessions(processing_status)
+"""
+
+CREATE_POMODORO_SESSIONS_START_TIME_INDEX = """
+    CREATE INDEX IF NOT EXISTS idx_pomodoro_sessions_start_time
+    ON pomodoro_sessions(start_time DESC)
+"""
+
+CREATE_POMODORO_SESSIONS_CREATED_INDEX = """
+    CREATE INDEX IF NOT EXISTS idx_pomodoro_sessions_created
+    ON pomodoro_sessions(created_at DESC)
+"""
+
 # All table creation statements in order
 ALL_TABLES = [
     CREATE_RAW_RECORDS_TABLE,
@@ -405,6 +450,8 @@ ALL_TABLES = [
     CREATE_ACTIONS_TABLE,
     CREATE_ACTION_IMAGES_TABLE,
     CREATE_SESSION_PREFERENCES_TABLE,
+    # Pomodoro feature
+    CREATE_POMODORO_SESSIONS_TABLE,
 ]
 
 # All index creation statements
@@ -441,4 +488,9 @@ ALL_INDEXES = [
     CREATE_ACTION_IMAGES_HASH_INDEX,
     CREATE_SESSION_PREFERENCES_TYPE_INDEX,
     CREATE_SESSION_PREFERENCES_CONFIDENCE_INDEX,
+    # Pomodoro sessions indexes
+    CREATE_POMODORO_SESSIONS_STATUS_INDEX,
+    CREATE_POMODORO_SESSIONS_PROCESSING_STATUS_INDEX,
+    CREATE_POMODORO_SESSIONS_START_TIME_INDEX,
+    CREATE_POMODORO_SESSIONS_CREATED_INDEX,
 ]

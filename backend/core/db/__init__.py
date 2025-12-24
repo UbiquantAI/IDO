@@ -22,6 +22,8 @@ from .diaries import DiariesRepository
 from .events import EventsRepository
 from .knowledge import KnowledgeRepository
 from .models import LLMModelsRepository
+from .pomodoro_sessions import PomodoroSessionsRepository
+from .raw_records import RawRecordsRepository
 from .session_preferences import SessionPreferencesRepository
 from .settings import SettingsRepository
 from .todos import TodosRepository
@@ -69,76 +71,37 @@ class DatabaseManager:
         self.actions = ActionsRepository(db_path)
         self.session_preferences = SessionPreferencesRepository(db_path)
 
+        # Pomodoro feature repositories
+        self.pomodoro_sessions = PomodoroSessionsRepository(db_path)
+        self.raw_records = RawRecordsRepository(db_path)
+
         logger.debug(f"✓ DatabaseManager initialized with path: {db_path}")
 
     def _initialize_database(self):
         """
-        Initialize database schema - create all tables and indexes
+        Initialize database schema using version-based migrations
 
         This is called automatically when DatabaseManager is instantiated.
-        It ensures all required tables and indexes exist.
+        It runs all pending migrations to ensure database is up to date.
         """
-        import sqlite3
-
-        from core.sqls import migrations, schema
+        from migrations import MigrationRunner
 
         try:
-            conn = sqlite3.connect(str(self.db_path))
-            cursor = conn.cursor()
+            # Create migration runner
+            runner = MigrationRunner(self.db_path)
 
-            # Create all tables
-            for table_sql in schema.ALL_TABLES:
-                cursor.execute(table_sql)
+            # Run all pending migrations
+            executed_count = runner.run_migrations()
 
-            # Create all indexes
-            for index_sql in schema.ALL_INDEXES:
-                cursor.execute(index_sql)
-
-            # Run migrations for new columns
-            self._run_migrations(cursor)
-
-            conn.commit()
-            conn.close()
-
-            logger.debug(f"✓ Database schema initialized: {len(schema.ALL_TABLES)} tables, {len(schema.ALL_INDEXES)} indexes")
+            if executed_count > 0:
+                logger.info(f"✓ Database schema initialized: {executed_count} migration(s) executed")
+            else:
+                logger.debug("✓ Database schema up to date")
 
         except Exception as e:
             logger.error(f"Failed to initialize database schema: {e}", exc_info=True)
             raise
 
-    def _run_migrations(self, cursor):
-        """
-        Run database migrations to add new columns to existing tables
-
-        Args:
-            cursor: Database cursor
-        """
-        import sqlite3
-
-        from core.sqls import migrations
-
-        # List of migrations to run (column name, migration SQL)
-        migration_list = [
-            ("actions.extract_knowledge", migrations.ADD_ACTIONS_EXTRACT_KNOWLEDGE_COLUMN),
-            ("actions.knowledge_extracted", migrations.ADD_ACTIONS_KNOWLEDGE_EXTRACTED_COLUMN),
-            ("knowledge.source_action_id", migrations.ADD_KNOWLEDGE_SOURCE_ACTION_ID_COLUMN),
-        ]
-
-        for column_desc, migration_sql in migration_list:
-            try:
-                cursor.execute(migration_sql)
-                logger.info(f"✓ Migration applied: {column_desc}")
-            except sqlite3.OperationalError as e:
-                error_msg = str(e).lower()
-                # Column might already exist, which is fine
-                if "duplicate column" in error_msg or "already exists" in error_msg:
-                    logger.debug(f"Column {column_desc} already exists, skipping")
-                else:
-                    # Real error, log as warning but continue
-                    logger.warning(f"Migration failed for {column_desc}: {e}")
-            except Exception as e:
-                # Unexpected error
-                logger.error(f"Unexpected error in migration for {column_desc}: {e}", exc_info=True)
 
     def get_connection(self):
         """
@@ -380,6 +343,8 @@ __all__ = [
     "LLMModelsRepository",
     "ActionsRepository",
     "SessionPreferencesRepository",
+    "PomodoroSessionsRepository",
+    "RawRecordsRepository",
     # Unified manager
     "DatabaseManager",
     # Global access functions

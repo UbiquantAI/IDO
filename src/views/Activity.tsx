@@ -14,10 +14,12 @@ import { TimelineDay, Activity } from '@/lib/types/activity'
 import { format, parseISO } from 'date-fns'
 import { getDateLocale } from '@/lib/utils/date-i18n'
 import { MergeActivitiesDialog } from '@/components/activity/MergeActivitiesDialog'
+import { PomodoroTimer } from '@/components/pomodoro/PomodoroTimer'
 
 /**
  * Activity view with timeline list layout
  * Features:
+ * - Pomodoro timer for focused work sessions
  * - Timeline view with date grouping
  * - Category filtering (work, personal, distraction, idle)
  * - Activity statistics per day
@@ -316,6 +318,12 @@ export default function ActivityView() {
 
       {/* Main Content: Timeline */}
       <div className="flex-1 overflow-y-auto px-6 py-4">
+        {/* Pomodoro Timer */}
+        <div className="mb-6">
+          <PomodoroTimer />
+        </div>
+
+        {/* Timeline Content */}
         {isLoading ? (
           <div className="flex h-full items-center justify-center">
             <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />

@@ -343,3 +343,41 @@ class CompleteInitialSetupResponse(TimedOperationResponse):
     pass
 
 
+# Pomodoro Feature Response Models
+class PomodoroSessionData(BaseModel):
+    """Pomodoro session data"""
+
+    session_id: str
+    user_intent: str
+    start_time: str
+    elapsed_minutes: int
+    planned_duration_minutes: int
+
+
+class StartPomodoroResponse(TimedOperationResponse):
+    """Response after starting a Pomodoro session"""
+
+    data: Optional[PomodoroSessionData] = None
+
+
+class EndPomodoroData(BaseModel):
+    """End Pomodoro session result data"""
+
+    session_id: str
+    processing_job_id: Optional[str] = None
+    raw_records_count: int = 0
+    message: str = ""
+
+
+class EndPomodoroResponse(TimedOperationResponse):
+    """Response after ending a Pomodoro session"""
+
+    data: Optional[EndPomodoroData] = None
+
+
+class GetPomodoroStatusResponse(TimedOperationResponse):
+    """Response for getting current Pomodoro session status"""
+
+    data: Optional[PomodoroSessionData] = None
+
+

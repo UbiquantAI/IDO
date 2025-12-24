@@ -323,7 +323,9 @@ class ScreenshotCapture(BaseCapture):
             return
 
         current_time = time.time()
-        if current_time - self._last_screenshot_time >= interval:
+        time_since_last = current_time - self._last_screenshot_time
+
+        if time_since_last >= interval:
             self.capture()
             self._last_screenshot_time = current_time
 
