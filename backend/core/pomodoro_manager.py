@@ -355,25 +355,34 @@ class PomodoroManager:
         self, session_id: str, job_id: str, processed: int
     ) -> None:
         """Emit progress event for frontend"""
-        # TODO: Implement dedicated Pomodoro progress event emitter
-        # For now, events are not critical for functionality
-        pass
+        try:
+            from core.events import emit_pomodoro_processing_progress
+
+            emit_pomodoro_processing_progress(session_id, job_id, processed)
+        except Exception as e:
+            logger.debug(f"Failed to emit progress event: {e}")
 
     def _emit_completion_event(
         self, session_id: str, job_id: str, total_processed: int
     ) -> None:
         """Emit completion event for frontend"""
-        # TODO: Implement dedicated Pomodoro completion event emitter
-        # For now, events are not critical for functionality
-        pass
+        try:
+            from core.events import emit_pomodoro_processing_complete
+
+            emit_pomodoro_processing_complete(session_id, job_id, total_processed)
+        except Exception as e:
+            logger.debug(f"Failed to emit completion event: {e}")
 
     def _emit_failure_event(
         self, session_id: str, job_id: str, error: str
     ) -> None:
         """Emit failure event for frontend"""
-        # TODO: Implement dedicated Pomodoro failure event emitter
-        # For now, events are not critical for functionality
-        pass
+        try:
+            from core.events import emit_pomodoro_processing_failed
+
+            emit_pomodoro_processing_failed(session_id, job_id, error)
+        except Exception as e:
+            logger.debug(f"Failed to emit failure event: {e}")
 
     async def check_orphaned_sessions(self) -> int:
         """

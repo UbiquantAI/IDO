@@ -544,3 +544,85 @@ def emit_todo_deleted(todo_id: str, timestamp: Optional[str] = None) -> bool:
     if success:
         logger.debug(f"✅ TODO deletion event sent: {todo_id}")
     return success
+
+
+
+def emit_pomodoro_processing_progress(
+    session_id: str, job_id: str, processed: int
+) -> bool:
+    """
+    Send Pomodoro processing progress event to frontend
+
+    Args:
+        session_id: Pomodoro session ID
+        job_id: Processing job ID
+        processed: Number of records processed
+
+    Returns:
+        True if sent successfully, False otherwise
+    """
+    payload = {
+        "session_id": session_id,
+        "job_id": job_id,
+        "processed": processed,
+    }
+
+    logger.debug(
+        f"[emit_pomodoro_processing_progress] Session: {session_id}, "
+        f"Job: {job_id}, Processed: {processed}"
+    )
+    return _emit("pomodoro-processing-progress", payload)
+
+
+def emit_pomodoro_processing_complete(
+    session_id: str, job_id: str, total_processed: int
+) -> bool:
+    """
+    Send Pomodoro processing completion event to frontend
+
+    Args:
+        session_id: Pomodoro session ID
+        job_id: Processing job ID
+        total_processed: Total number of records processed
+
+    Returns:
+        True if sent successfully, False otherwise
+    """
+    payload = {
+        "session_id": session_id,
+        "job_id": job_id,
+        "total_processed": total_processed,
+    }
+
+    logger.debug(
+        f"[emit_pomodoro_processing_complete] Session: {session_id}, "
+        f"Job: {job_id}, Total: {total_processed}"
+    )
+    return _emit("pomodoro-processing-complete", payload)
+
+
+def emit_pomodoro_processing_failed(
+    session_id: str, job_id: str, error: str
+) -> bool:
+    """
+    Send Pomodoro processing failure event to frontend
+
+    Args:
+        session_id: Pomodoro session ID
+        job_id: Processing job ID
+        error: Error message
+
+    Returns:
+        True if sent successfully, False otherwise
+    """
+    payload = {
+        "session_id": session_id,
+        "job_id": job_id,
+        "error": error,
+    }
+
+    logger.debug(
+        f"[emit_pomodoro_processing_failed] Session: {session_id}, "
+        f"Job: {job_id}, Error: {error}"
+    )
+    return _emit("pomodoro-processing-failed", payload)
