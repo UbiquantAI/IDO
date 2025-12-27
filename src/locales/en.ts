@@ -960,6 +960,10 @@ export const en = {
       summary: 'Summary',
       totalTime: 'Total Time'
     },
+    presets: {
+      quickSetup: 'Quick Setup',
+      orCustomize: 'or customize'
+    },
     phase: {
       work: 'Work',
       break: 'Break',
@@ -985,8 +989,8 @@ export const en = {
       unlinkTodo: 'Unlink TODO',
       selectTodo: 'Select a TODO (optional)',
       noTodoSelected: 'No TODO selected',
+      optional: 'Optional',
       linkedTodo: 'Linked TODO',
-      optional: 'optional',
       noTodos: 'No pending TODOs available'
     },
     start: 'Start Pomodoro',

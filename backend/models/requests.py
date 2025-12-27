@@ -4,7 +4,7 @@ Request models for PyTauri commands
 """
 
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 from pydantic import Field
 
@@ -618,6 +618,17 @@ class ReadImageFileRequest(BaseModel):
     """
 
     file_path: str
+
+
+class CleanupBrokenActionsRequest(BaseModel):
+    """Request parameters for cleaning up actions with missing images.
+
+    @property strategy - Cleanup strategy: delete_actions, remove_references, or dry_run.
+    @property actionIds - Optional list of specific action IDs to process.
+    """
+
+    strategy: Literal["delete_actions", "remove_references", "dry_run"]
+    action_ids: Optional[List[str]] = None
 
 
 # ============================================================================

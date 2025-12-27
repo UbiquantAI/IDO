@@ -28,9 +28,9 @@ enable_phash = true
 
 # Memory-first storage configuration
 enable_memory_first = true          # Master switch
-memory_ttl_multiplier = 2.5         # TTL = processing_interval * multiplier
+memory_ttl_multiplier = 5.0         # TTL = processing_interval * multiplier (increased for better persistence)
 memory_ttl_min = 60                 # Minimum TTL (seconds)
-memory_ttl_max = 120                # Maximum TTL (seconds)
+memory_ttl_max = 300                # Maximum TTL (seconds) (increased from 120 to prevent eviction during LLM processing)
 
 # Screenshot configuration
 [screenshot]
@@ -141,7 +141,8 @@ crop_threshold = 30
 # Memory cache size (images)
 # Description: Cache recent image base64 data in memory
 # Recommendation: 200-500 (memory usage ~100-250MB)
-memory_cache_size = 500
+# Increased to 1000 for better persistence reliability (memory usage ~500-1000MB)
+memory_cache_size = 1000
 
 # ========== Optimization Effect Estimation ==========
 # Based on default configuration (aggressive + hybrid), with 20 original screenshots as example:

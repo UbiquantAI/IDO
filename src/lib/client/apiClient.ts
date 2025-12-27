@@ -1310,6 +1310,43 @@ export async function readImageFile(
 }
 
 /**
+ * Check health of image persistence system
+ *
+ * Analyzes all actions with screenshots to determine how many have missing
+ * image files on disk. Provides statistics for diagnostics.
+ *
+ * Returns:
+ *     Health check results with statistics
+ */
+export async function checkImagePersistenceHealth(
+    body: Commands["check_image_persistence_health"]["input"],
+    options?: InvokeOptions
+): Promise<Commands["check_image_persistence_health"]["output"]> {
+    return await pyInvoke("check_image_persistence_health", body, options);
+}
+
+/**
+ * Clean up actions with missing image references
+ *
+ * Supports three strategies:
+ * - delete_actions: Soft-delete actions with all images missing
+ * - remove_references: Clear image references, keep action metadata
+ * - dry_run: Report what would be cleaned without making changes
+ *
+ * Args:
+ *     body: Cleanup request with strategy and optional action IDs
+ *
+ * Returns:
+ *     Cleanup results with statistics
+ */
+export async function cleanupBrokenActionImages(
+    body: Commands["cleanup_broken_action_images"]["input"],
+    options?: InvokeOptions
+): Promise<Commands["cleanup_broken_action_images"]["output"]> {
+    return await pyInvoke("cleanup_broken_action_images", body, options);
+}
+
+/**
  * Create new model configuration
  *
  * @param body Model configuration information (includes API key)

@@ -90,7 +90,7 @@ export function ActionCard({ action, isExpanded = false, onToggleExpand }: Actio
 
         {/* Title - takes up remaining space and wraps */}
         <div className="min-w-0 flex-1">
-          <h5 className="text-foreground text-sm leading-relaxed font-medium break-words">{action.title}</h5>
+          <h5 className="text-foreground wrap-break-words text-sm leading-relaxed font-medium">{action.title}</h5>
         </div>
 
         {/* Timestamp and Screenshots button - takes up actual space */}
@@ -164,8 +164,14 @@ export function ActionCard({ action, isExpanded = false, onToggleExpand }: Actio
                         <div className="absolute inset-0 bg-black/0 transition-colors group-hover:bg-black/10" />
                       </>
                     ) : (
-                      <div className="text-muted-foreground flex h-full items-center justify-center text-xs">
+                      <div className="text-muted-foreground flex h-full flex-col items-center justify-center gap-1">
                         <ImageIcon className="h-8 w-8 opacity-30" />
+                        <span className="text-[10px] font-medium">Image Lost</span>
+                        {import.meta.env.DEV && (
+                          <span className="font-mono text-[9px] opacity-50" title={screenshot}>
+                            {screenshot.substring(0, 8)}...
+                          </span>
+                        )}
                       </div>
                     )}
                   </div>

@@ -358,6 +358,33 @@ export type Success30 = boolean
 export type Message29 = string
 export type Error29 = string
 export type Dataurl = string
+export type Success31 = boolean
+export type Message30 = string
+export type Error30 = string
+export type Totalactions = number
+export type Actionswithscreenshots = number
+export type Actionsallimagesok = number
+export type Actionspartialmissing = number
+export type Actionsallmissing = number
+export type Totalimagereferences = number
+export type Imagesfound = number
+export type Imagesmissing = number
+export type Missingratepercent = number
+export type Memorycachecurrentsize = number
+export type Memorycachemaxsize = number
+export type Memoryttlseconds = number
+export type Actionswithissues = {
+[k: string]: unknown
+}[]
+export type Strategy2 = ("delete_actions" | "remove_references" | "dry_run")
+export type Actionids = (string[] | null)
+export type Success32 = boolean
+export type Message31 = string
+export type Error31 = string
+export type Actionsprocessed = number
+export type Actionsdeleted = number
+export type Referencesremoved = number
+export type Imagesremoved = number
 export type Name2 = string
 /**
  * Provider identifier
@@ -369,9 +396,9 @@ export type Inputtokenprice = number
 export type Outputtokenprice = number
 export type Currency = string
 export type Apikey = string
-export type Success31 = boolean
-export type Message30 = string
-export type Error30 = string
+export type Success33 = boolean
+export type Message32 = string
+export type Error32 = string
 export type Data6 = ({
 [k: string]: unknown
 } | {
@@ -393,9 +420,9 @@ export type Apikey1 = (string | null)
 export type Modelid3 = string
 export type Modelid4 = string
 export type Modelid5 = string
-export type Success32 = boolean
-export type Message31 = string
-export type Error31 = string
+export type Success34 = boolean
+export type Message33 = string
+export type Error33 = string
 export type Timestamp17 = string
 export type Modelid6 = string
 export type Model2 = string
@@ -409,32 +436,32 @@ export type Days1 = number
 export type Startdate4 = (string | null)
 export type Enddate4 = (string | null)
 export type Modelconfigid = (string | null)
-export type Success33 = boolean
-export type Message32 = string
-export type Error32 = string
+export type Success35 = boolean
+export type Message34 = string
+export type Error34 = string
 export type Timestamp18 = string
 export type Dimension4 = (string | null)
 export type Days2 = (number | null)
-export type Success34 = boolean
-export type Message33 = string
+export type Success36 = boolean
+export type Message35 = string
 export type Timestamp19 = string
-export type Success35 = boolean
+export type Success37 = boolean
 export type Path = string
 export type Timestamp20 = string
-export type Success36 = boolean
-export type Message34 = string
-export type Error33 = string
+export type Success38 = boolean
+export type Message36 = string
+export type Error35 = string
 export type Language = string
 export type Timestamp21 = string
 export type Databasepath = (string | null)
 export type Screenshotsavepath = (string | null)
 export type Language1 = (string | null)
-export type Success37 = boolean
-export type Message35 = string
+export type Success39 = boolean
+export type Message37 = string
 export type Timestamp22 = string
-export type Success38 = boolean
-export type Message36 = string
-export type Error34 = string
+export type Success40 = boolean
+export type Message38 = string
+export type Error36 = string
 export type Compressionlevel = number
 export type Enableregioncropping = boolean
 export type Cropthreshold = number
@@ -442,29 +469,29 @@ export type Timestamp23 = string
 export type Compressionlevel1 = (string | null)
 export type Enableregioncropping1 = (boolean | null)
 export type Cropthreshold1 = (number | null)
-export type Success39 = boolean
-export type Message37 = string
-export type Error35 = string
+export type Success41 = boolean
+export type Message39 = string
+export type Error37 = string
 export type Timestamp24 = string
-export type Success40 = boolean
-export type Message38 = string
-export type Error36 = string
+export type Success42 = boolean
+export type Message40 = string
+export type Error38 = string
 export type Totalprocessed = number
 export type Totalsavedbytes = number
 export type Averagecompressionratio = number
 export type Timestamp25 = string
-export type Success41 = boolean
-export type Message39 = string
-export type Error37 = string
+export type Success43 = boolean
+export type Message41 = string
+export type Error39 = string
 export type Hasmodels = boolean
 export type Hasactivemodel = boolean
 export type Hascompletedsetup = boolean
 export type Needssetup = boolean
 export type Modelcount = number
 export type Timestamp26 = string
-export type Success42 = boolean
-export type Message40 = string
-export type Error38 = string
+export type Success44 = boolean
+export type Message42 = string
+export type Error40 = string
 export type Timestamp27 = string
 export type Show = string
 export type Hide = string
@@ -475,13 +502,13 @@ export type Agents = string
 export type Settings1 = string
 export type About = string
 export type Quit = string
-export type Success43 = boolean
-export type Message41 = string
-export type Error39 = string
+export type Success45 = boolean
+export type Message43 = string
+export type Error41 = string
 export type Visible = boolean
-export type Success44 = boolean
-export type Message42 = string
-export type Error40 = string
+export type Success46 = boolean
+export type Message44 = string
+export type Error42 = string
 export type Visible1 = boolean
 export type Name4 = string
 export type RootModelStr = string
@@ -869,6 +896,14 @@ output: UpdateImageOptimizationConfigResponseV2
 read_image_file: {
 input: ReadImageFileRequest
 output: ReadImageFileResponse
+}
+check_image_persistence_health: {
+input: void | undefined
+output: ImagePersistenceHealthResponse
+}
+cleanup_broken_action_images: {
+input: CleanupBrokenActionsRequest
+output: CleanupBrokenActionsResponse
 }
 create_model: {
 input: CreateModelRequest
@@ -2037,6 +2072,55 @@ error?: Error29
 dataUrl?: Dataurl
 }
 /**
+ * Response containing image persistence health check results
+ */
+export interface ImagePersistenceHealthResponse {
+success: Success31
+message?: Message30
+error?: Error30
+data?: (ImagePersistenceHealthData | null)
+}
+/**
+ * Data model for image persistence health check
+ */
+export interface ImagePersistenceHealthData {
+totalActions: Totalactions
+actionsWithScreenshots: Actionswithscreenshots
+actionsAllImagesOk: Actionsallimagesok
+actionsPartialMissing: Actionspartialmissing
+actionsAllMissing: Actionsallmissing
+totalImageReferences: Totalimagereferences
+imagesFound: Imagesfound
+imagesMissing: Imagesmissing
+missingRatePercent: Missingratepercent
+memoryCacheCurrentSize: Memorycachecurrentsize
+memoryCacheMaxSize: Memorycachemaxsize
+memoryTtlSeconds: Memoryttlseconds
+actionsWithIssues: Actionswithissues
+}
+/**
+ * Request parameters for cleaning up actions with missing images.
+ * 
+ * @property strategy - Cleanup strategy: delete_actions, remove_references, or dry_run.
+ * @property actionIds - Optional list of specific action IDs to process.
+ */
+export interface CleanupBrokenActionsRequest {
+strategy: Strategy2
+actionIds?: Actionids
+}
+/**
+ * Response after cleaning up broken action images
+ */
+export interface CleanupBrokenActionsResponse {
+success: Success32
+message?: Message31
+error?: Error31
+actionsProcessed?: Actionsprocessed
+actionsDeleted?: Actionsdeleted
+referencesRemoved?: Referencesremoved
+imagesRemoved?: Imagesremoved
+}
+/**
  * Request parameters for creating a new model configuration.
  * 
  * @property name - Display name for the model.
@@ -2063,9 +2147,9 @@ apiKey: Apikey
  * Generic model management response with optional payload and timestamp.
  */
 export interface ModelOperationResponse {
-success: Success31
-message?: Message30
-error?: Error30
+success: Success33
+message?: Message32
+error?: Error32
 data?: Data6
 timestamp?: Timestamp16
 }
@@ -2122,9 +2206,9 @@ modelId: Modelid5
  * Standard dashboard response with optional data payload.
  */
 export interface DashboardResponse {
-success: Success32
-message?: Message31
-error?: Error31
+success: Success34
+message?: Message33
+error?: Error33
 data?: unknown
 timestamp?: Timestamp17
 }
@@ -2174,9 +2258,9 @@ modelConfigId?: Modelconfigid
  * Dashboard trend response with dimension metadata.
  */
 export interface LLMUsageTrendResponse {
-success: Success33
-message?: Message32
-error?: Error32
+success: Success35
+message?: Message34
+error?: Error34
 data?: unknown
 timestamp?: Timestamp18
 dimension?: Dimension4
@@ -2186,8 +2270,8 @@ days?: Days2
  * Common system operation response
  */
 export interface SystemResponse {
-success: Success34
-message?: Message33
+success: Success36
+message?: Message35
 data?: unknown
 timestamp: Timestamp19
 }
@@ -2195,7 +2279,7 @@ timestamp: Timestamp19
  * Database path response
  */
 export interface DatabasePathResponse {
-success: Success35
+success: Success37
 data: DatabasePathData
 timestamp: Timestamp20
 }
@@ -2209,9 +2293,9 @@ path: Path
  * Response for get_settings_info handler
  */
 export interface GetSettingsInfoResponse {
-success: Success36
-message?: Message34
-error?: Error33
+success: Success38
+message?: Message36
+error?: Error35
 data?: (SettingsInfoData | null)
 timestamp?: Timestamp21
 }
@@ -2256,17 +2340,17 @@ language?: Language1
  * Update settings response
  */
 export interface UpdateSettingsResponse {
-success: Success37
-message: Message35
+success: Success39
+message: Message37
 timestamp: Timestamp22
 }
 /**
  * Response for get_image_compression_config handler
  */
 export interface GetImageCompressionConfigResponse {
-success: Success38
-message?: Message36
-error?: Error34
+success: Success40
+message?: Message38
+error?: Error36
 data?: (ImageCompressionConfigData | null)
 timestamp?: Timestamp23
 }
@@ -2294,9 +2378,9 @@ cropThreshold?: Cropthreshold1
  * Response for update_image_compression_config handler
  */
 export interface UpdateImageCompressionConfigResponseV2 {
-success: Success39
-message?: Message37
-error?: Error35
+success: Success41
+message?: Message39
+error?: Error37
 data?: (ImageCompressionConfigData | null)
 timestamp?: Timestamp24
 }
@@ -2304,9 +2388,9 @@ timestamp?: Timestamp24
  * Response for get_image_compression_stats handler
  */
 export interface GetImageCompressionStatsResponse {
-success: Success40
-message?: Message38
-error?: Error36
+success: Success42
+message?: Message40
+error?: Error38
 data?: (ImageCompressionStatsData | null)
 timestamp?: Timestamp25
 }
@@ -2322,9 +2406,9 @@ averageCompressionRatio?: Averagecompressionratio
  * Response for check_initial_setup handler
  */
 export interface CheckInitialSetupResponse {
-success: Success41
-message?: Message39
-error?: Error37
+success: Success43
+message?: Message41
+error?: Error39
 data?: (InitialSetupData | null)
 timestamp?: Timestamp26
 }
@@ -2342,9 +2426,9 @@ modelCount: Modelcount
  * Response for complete_initial_setup handler
  */
 export interface CompleteInitialSetupResponse {
-success: Success42
-message?: Message40
-error?: Error38
+success: Success44
+message?: Message42
+error?: Error40
 data?: unknown
 timestamp?: Timestamp27
 }
@@ -2366,9 +2450,9 @@ quit: Quit
  * Response from tray update operation.
  */
 export interface TrayUpdateResponse {
-success: Success43
-message?: Message41
-error?: Error39
+success: Success45
+message?: Message43
+error?: Error41
 }
 /**
  * Request to change tray icon visibility.
@@ -2380,9 +2464,9 @@ visible: Visible
  * Response from tray visibility operation.
  */
 export interface TrayVisibilityResponse {
-success: Success44
-message?: Message42
-error?: Error40
+success: Success46
+message?: Message44
+error?: Error42
 visible: Visible1
 }
 /**

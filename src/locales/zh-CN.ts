@@ -950,6 +950,10 @@ export const zhCN = {
       summary: '摘要',
       totalTime: '总时长'
     },
+    presets: {
+      quickSetup: '快速设置',
+      orCustomize: '或自定义'
+    },
     phase: {
       work: '工作',
       break: '休息',
@@ -975,8 +979,8 @@ export const zhCN = {
       unlinkTodo: '取消关联',
       selectTodo: '选择待办（可选）',
       noTodoSelected: '未选择待办',
-      linkedTodo: '已关联待办',
       optional: '可选',
+      linkedTodo: '已关联待办',
       noTodos: '暂无待办事项'
     },
     start: '开始番茄钟',

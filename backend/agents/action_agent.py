@@ -92,6 +92,36 @@ class ActionAgent:
         try:
             logger.debug(f"ActionAgent: Processing {len(records)} records")
 
+            # Pre-persist all screenshots to prevent cache eviction during LLM processing
+            screenshot_records = [
+                r for r in records if r.type == RecordType.SCREENSHOT_RECORD
+            ]
+            screenshot_hashes = [
+                r.data.get("hash")
+                for r in screenshot_records
+                if r.data and r.data.get("hash")
+            ]
+
+            if screenshot_hashes:
+                logger.debug(
+                    f"ActionAgent: Pre-persisting {len(screenshot_hashes)} screenshots "
+                    f"before LLM call to prevent cache eviction"
+                )
+                persist_results = self.image_manager.persist_images_batch(screenshot_hashes)
+
+                # Log pre-persistence results
+                success_count = sum(1 for success in persist_results.values() if success)
+                if success_count < len(screenshot_hashes):
+                    logger.warning(
+                        f"ActionAgent: Pre-persistence incomplete: "
+                        f"{success_count}/{len(screenshot_hashes)} images persisted. "
+                        f"Some images may already be evicted from cache."
+                    )
+                else:
+                    logger.debug(
+                        f"ActionAgent: Successfully pre-persisted all {len(screenshot_hashes)} screenshots"
+                    )
+
             # Step 1: Extract actions using LLM
             actions = await self._extract_actions(
                 records, input_usage_hint, keyboard_records, mouse_records, enable_supervisor
@@ -102,10 +132,7 @@ class ActionAgent:
                 return 0
 
             # Step 2: Validate and resolve screenshot hashes
-            screenshot_records = [
-                r for r in records if r.type == RecordType.SCREENSHOT_RECORD
-            ]
-
+            # (screenshot_records already created above for pre-persistence)
             resolved_actions: List[Dict[str, Any]] = []
             for action_data in actions:
                 action_hashes = self._resolve_action_screenshot_hashes(
@@ -455,12 +482,24 @@ class ActionAgent:
 
             results = self.image_manager.persist_images_batch(screenshot_hashes)
 
-            # Log warnings for failed persists
+            # Enhanced logging for failed persists
             failed = [h for h, success in results.items() if not success]
             if failed:
-                logger.warning(
-                    f"Failed to persist {len(failed)} screenshots (likely evicted from memory): "
-                    f"{[h[:8] for h in failed]}"
+                logger.error(
+                    f"ActionAgent: Image persistence FAILURE: {len(failed)}/{len(screenshot_hashes)} images lost. "
+                    f"Action will be saved with broken image references. "
+                    f"\nFailed hashes: {[h[:8] + '...' for h in failed[:5]]}"
+                    f"{' (and ' + str(len(failed) - 5) + ' more)' if len(failed) > 5 else ''}"
+                    f"\nRoot cause: Images evicted from memory cache before persistence."
+                    f"\nRecommendations:"
+                    f"\n  1. Increase memory_ttl in config.toml (current: {self.image_manager.memory_ttl}s, recommended: ≥180s)"
+                    f"\n  2. Run GET /image/persistence-health to check system health"
+                    f"\n  3. Run POST /image/cleanup-broken-actions to fix existing issues"
+                    f"\n  4. Consider increasing memory_cache_size (current: {self.image_manager.memory_cache_size}, recommended: ≥1000)"
+                )
+            else:
+                logger.debug(
+                    f"ActionAgent: Successfully persisted all {len(screenshot_hashes)} screenshots"
                 )
 
         except Exception as e:

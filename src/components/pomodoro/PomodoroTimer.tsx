@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Clock, Play, Square, CheckSquare, ChevronDown, ChevronUp } from 'lucide-react'
+import { Clock, Play, Square, ChevronDown, ChevronUp, Coffee, Settings } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
@@ -13,6 +13,8 @@ import { useInsightsStore } from '@/lib/stores/insights'
 import { usePomodoroPhaseSwitched } from '@/hooks/useTauriEvents'
 import { PomodoroCountdown } from './PomodoroCountdown'
 import { PomodoroProgress } from './PomodoroProgress'
+import { PresetButtons } from './PresetButtons'
+import { SessionInfoCard } from './SessionInfoCard'
 import { TodoAssociationSelector } from './TodoAssociationSelector'
 import { cn } from '@/lib/utils'
 
@@ -227,140 +229,187 @@ export function PomodoroTimer() {
   )
 
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Clock className="h-5 w-5" />
-          {t('pomodoro.title')}
-        </CardTitle>
-        <CardDescription>{t('pomodoro.description')}</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
+    <Card className="w-full shadow-xl">
+      <CardContent className="space-y-8">
         {status === 'idle' && (
-          <div className="space-y-6">
-            {/* TODO Association */}
-            <TodoAssociationSelector selectedTodoId={selectedTodoId} onTodoSelect={setSelectedTodoId} />
+          <div className="space-y-8">
+            {/* TODO Association + Manual Input */}
+            <Card
+              className={cn(
+                'py-0 transition-all duration-300',
+                selectedTodoId
+                  ? 'border-primary/30 bg-primary/5 ring-primary/10 shadow-md ring-2'
+                  : 'border-border bg-muted/20'
+              )}>
+              <CardContent className="space-y-4 py-4">
+                {/* TODO Association */}
+                <TodoAssociationSelector selectedTodoId={selectedTodoId} onTodoSelect={setSelectedTodoId} />
 
-            {/* Main Input - Only show when no todo is selected */}
-            {!selectedTodoId && (
-              <div className="space-y-3">
-                <Label htmlFor="user-intent" className="text-base font-semibold">
-                  {t('pomodoro.intent.label')}
-                </Label>
-                <Input
-                  id="user-intent"
-                  placeholder={t('pomodoro.intent.placeholder')}
-                  value={userIntent}
-                  onChange={(e) => setUserIntent(e.target.value)}
-                  maxLength={200}
-                  className="text-base"
-                />
-                <p className="text-muted-foreground text-sm">{t('pomodoro.intent.hint')}</p>
+                {/* Main Input - Only show when no todo is selected */}
+                {!selectedTodoId && (
+                  <div className="space-y-2">
+                    <Label htmlFor="user-intent" className="text-base font-semibold">
+                      {t('pomodoro.intent.label')}
+                    </Label>
+                    <Input
+                      id="user-intent"
+                      placeholder={t('pomodoro.intent.placeholder')}
+                      value={userIntent}
+                      onChange={(e) => setUserIntent(e.target.value)}
+                      maxLength={200}
+                      className="text-base"
+                    />
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Configuration Section - Left: Custom Controls, Right: Presets */}
+            <div className="flex flex-col gap-4 md:flex-row md:gap-6">
+              {/* Left: Quick Setup Presets */}
+              <div className="flex flex-1 flex-col gap-4 pt-2">
+                <h3 className="flex items-center gap-2 text-lg font-semibold">
+                  <Settings className="h-5 w-5" />
+                  {t('pomodoro.presets.quickSetup')}
+                </h3>
+                <PresetButtons layout="vertical" />
               </div>
-            )}
-
-            {/* Circular Config Controls */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-center gap-8">
-                {/* Total Rounds */}
-                <div className="flex flex-col items-center gap-3">
-                  <div className="relative flex flex-col items-center">
-                    {/* Up Arrow */}
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="text-muted-foreground hover:text-foreground h-10 w-10 transition-colors"
-                      onClick={() => adjustValue('totalRounds', 1)}>
-                      <ChevronUp className="h-6 w-6" />
-                    </Button>
-                    {/* Circle with number */}
-                    <div
-                      className={cn(
-                        'flex h-28 w-28 items-center justify-center rounded-full border-4 shadow-lg transition-all',
-                        'border-border bg-card hover:border-primary hover:shadow-xl'
-                      )}>
-                      <span className="text-5xl font-bold tabular-nums">{config.totalRounds}</span>
+              {/* Right: Circular Config Controls */}
+              <Card className="bg-muted/30 flex-2 border-2 py-0">
+                <CardHeader className="pt-4">
+                  <h3 className="flex items-center gap-2 text-lg font-semibold">
+                    <Clock className="h-5 w-5" />
+                    {t('pomodoro.config.custom')}
+                  </h3>
+                </CardHeader>
+                <CardContent className="pb-6">
+                  <div className="flex items-center justify-center gap-8">
+                    {/* Total Rounds */}
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="relative flex flex-col items-center">
+                        {/* Up Arrow */}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="hover:bg-muted/50 h-10 w-10 transition-all duration-200 hover:scale-110 active:scale-95"
+                          onClick={() => adjustValue('totalRounds', 1)}>
+                          <ChevronUp className="h-6 w-6" />
+                        </Button>
+                        {/* Circle with number */}
+                        <div
+                          className={cn(
+                            'group relative flex h-32 w-32 items-center justify-center rounded-full border-4 shadow-lg',
+                            'transition-all duration-300 ease-out',
+                            'border-border hover:border-muted-foreground',
+                            'from-card to-muted/50 bg-liner-to-br',
+                            'hover:ring-muted/20 hover:scale-105 hover:shadow-2xl hover:ring-4'
+                          )}>
+                          <span className="text-6xl font-bold tabular-nums">{config.totalRounds}</span>
+                        </div>
+                        {/* Down Arrow */}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="hover:bg-muted/50 h-10 w-10 transition-all duration-200 hover:scale-110 active:scale-95"
+                          onClick={() => adjustValue('totalRounds', -1)}>
+                          <ChevronDown className="h-6 w-6" />
+                        </Button>
+                      </div>
+                      <span className="text-foreground text-sm font-semibold">{t('pomodoro.config.totalRounds')}</span>
                     </div>
-                    {/* Down Arrow */}
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="text-muted-foreground hover:text-foreground h-10 w-10 transition-colors"
-                      onClick={() => adjustValue('totalRounds', -1)}>
-                      <ChevronDown className="h-6 w-6" />
-                    </Button>
-                  </div>
-                  <span className="text-muted-foreground text-sm font-medium">{t('pomodoro.config.totalRounds')}</span>
-                </div>
 
-                {/* Work Duration */}
-                <div className="flex flex-col items-center gap-3">
-                  <div className="relative flex flex-col items-center">
-                    {/* Up Arrow */}
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="text-muted-foreground hover:text-foreground h-10 w-10 transition-colors"
-                      onClick={() => adjustValue('workDurationMinutes', 5)}>
-                      <ChevronUp className="h-6 w-6" />
-                    </Button>
-                    {/* Circle with number */}
-                    <div
-                      className={cn(
-                        'flex h-28 w-28 items-center justify-center rounded-full border-4 shadow-lg transition-all',
-                        'border-border bg-card hover:border-primary hover:shadow-xl'
-                      )}>
-                      <span className="text-5xl font-bold tabular-nums">{config.workDurationMinutes}</span>
+                    {/* Work Duration */}
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="relative flex flex-col items-center">
+                        {/* Up Arrow */}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="hover:bg-muted/50 h-10 w-10 transition-all duration-200 hover:scale-110 active:scale-95"
+                          onClick={() => adjustValue('workDurationMinutes', 5)}>
+                          <ChevronUp className="h-6 w-6" />
+                        </Button>
+                        {/* Circle with number */}
+                        <div
+                          className={cn(
+                            'group relative flex h-32 w-32 items-center justify-center rounded-full border-4 shadow-lg',
+                            'transition-all duration-300 ease-out',
+                            'border-primary/40 hover:border-primary',
+                            'from-card to-primary/5 bg-liner-to-br',
+                            'hover:ring-primary/10 hover:scale-105 hover:shadow-2xl hover:ring-4'
+                          )}>
+                          <span className="text-6xl font-bold tabular-nums">{config.workDurationMinutes}</span>
+                          {/* Optional watermark icon */}
+                          <div className="absolute inset-0 flex items-center justify-center opacity-5">
+                            <Clock className="h-16 w-16" />
+                          </div>
+                        </div>
+                        {/* Down Arrow */}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="hover:bg-muted/50 h-10 w-10 transition-all duration-200 hover:scale-110 active:scale-95"
+                          onClick={() => adjustValue('workDurationMinutes', -5)}>
+                          <ChevronDown className="h-6 w-6" />
+                        </Button>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Clock className="text-primary h-4 w-4" />
+                        <span className="text-foreground text-sm font-semibold">
+                          {t('pomodoro.config.workDuration')}
+                        </span>
+                      </div>
                     </div>
-                    {/* Down Arrow */}
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="text-muted-foreground hover:text-foreground h-10 w-10 transition-colors"
-                      onClick={() => adjustValue('workDurationMinutes', -5)}>
-                      <ChevronDown className="h-6 w-6" />
-                    </Button>
-                  </div>
-                  <span className="text-muted-foreground text-sm font-medium">{t('pomodoro.config.workDuration')}</span>
-                </div>
 
-                {/* Break Duration */}
-                <div className="flex flex-col items-center gap-3">
-                  <div className="relative flex flex-col items-center">
-                    {/* Up Arrow */}
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="text-muted-foreground hover:text-foreground h-10 w-10 transition-colors"
-                      onClick={() => adjustValue('breakDurationMinutes', 1)}>
-                      <ChevronUp className="h-6 w-6" />
-                    </Button>
-                    {/* Circle with number */}
-                    <div
-                      className={cn(
-                        'flex h-28 w-28 items-center justify-center rounded-full border-4 shadow-lg transition-all',
-                        'border-border bg-card hover:border-primary hover:shadow-xl'
-                      )}>
-                      <span className="text-5xl font-bold tabular-nums">{config.breakDurationMinutes}</span>
+                    {/* Break Duration */}
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="relative flex flex-col items-center">
+                        {/* Up Arrow */}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="hover:bg-muted/50 h-10 w-10 transition-all duration-200 hover:scale-110 active:scale-95"
+                          onClick={() => adjustValue('breakDurationMinutes', 1)}>
+                          <ChevronUp className="h-6 w-6" />
+                        </Button>
+                        {/* Circle with number */}
+                        <div
+                          className={cn(
+                            'group relative flex h-32 w-32 items-center justify-center rounded-full border-4 shadow-lg',
+                            'transition-all duration-300 ease-out',
+                            'border-chart-2/40 hover:border-chart-2',
+                            'from-card to-chart-2/5 bg-linear-to-br',
+                            'hover:ring-chart-2/10 hover:scale-105 hover:shadow-2xl hover:ring-4'
+                          )}>
+                          <span className="text-6xl font-bold tabular-nums">{config.breakDurationMinutes}</span>
+                          {/* Optional watermark icon */}
+                          <div className="absolute inset-0 flex items-center justify-center opacity-5">
+                            <Coffee className="h-16 w-16" />
+                          </div>
+                        </div>
+                        {/* Down Arrow */}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="hover:bg-muted/50 h-10 w-10 transition-all duration-200 hover:scale-110 active:scale-95"
+                          onClick={() => adjustValue('breakDurationMinutes', -1)}>
+                          <ChevronDown className="h-6 w-6" />
+                        </Button>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Coffee className="text-chart-2 h-4 w-4" />
+                        <span className="text-foreground text-sm font-semibold">
+                          {t('pomodoro.config.breakDuration')}
+                        </span>
+                      </div>
                     </div>
-                    {/* Down Arrow */}
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="text-muted-foreground hover:text-foreground h-10 w-10 transition-colors"
-                      onClick={() => adjustValue('breakDurationMinutes', -1)}>
-                      <ChevronDown className="h-6 w-6" />
-                    </Button>
                   </div>
-                  <span className="text-muted-foreground text-sm font-medium">
-                    {t('pomodoro.config.breakDuration')}
-                  </span>
-                </div>
-              </div>
+                </CardContent>
+              </Card>
             </div>
 
             {/* Start Button */}
-            <Button onClick={handleStart} className="w-full" size="lg">
+            <Button onClick={handleStart} className="w-full shadow-lg transition-all hover:shadow-xl" size="lg">
               <Play className="mr-2 h-5 w-5" />
               {t('pomodoro.start')}
             </Button>
@@ -368,27 +417,21 @@ export function PomodoroTimer() {
         )}
 
         {status === 'active' && session && (
-          <div className="space-y-6">
-            {/* Session Info */}
-            <div className="text-center">
-              {session.associatedTodoTitle ? (
-                // Show associated TODO with icon
-                <div className="flex items-center justify-center gap-2 text-base font-medium">
-                  <CheckSquare className="text-primary h-5 w-5" />
-                  <span>{session.associatedTodoTitle}</span>
-                </div>
-              ) : (
-                // Show user intent directly if no TODO associated
-                <p className="text-base font-medium">{session.userIntent}</p>
-              )}
-            </div>
+          <div className="space-y-4">
+            {/* Session Info Card */}
+            <SessionInfoCard />
 
-            {/* Countdown */}
-            <PomodoroCountdown />
+            {/* Countdown + Progress - Side by side */}
+            <div className="flex flex-col items-center gap-4 md:flex-row md:items-center">
+              {/* Countdown - Takes equal space */}
+              <div className="flex flex-1 items-center justify-center pl-2">
+                <PomodoroCountdown />
+              </div>
 
-            {/* Progress */}
-            <div className="px-4">
-              <PomodoroProgress />
+              {/* Progress - Takes equal space */}
+              <div className="flex flex-1 items-center justify-center">
+                <PomodoroProgress />
+              </div>
             </div>
 
             {/* End Button */}

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { CheckSquare, X } from 'lucide-react'
 
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -32,10 +33,12 @@ export function TodoAssociationSelector({ selectedTodoId, onTodoSelect }: TodoAs
 
   return (
     <div className="space-y-2">
-      <Label htmlFor="todo-selector" className="flex items-center gap-2">
-        <CheckSquare className="h-4 w-4" />
+      <Label htmlFor="todo-selector" className="flex items-center gap-2 text-base font-semibold">
+        <CheckSquare className="text-primary h-5 w-5" />
         {t('pomodoro.todoAssociation.linkTodo')}
-        <span className="text-muted-foreground text-xs">({t('pomodoro.todoAssociation.optional')})</span>
+        <Badge variant="outline" className="ml-auto text-xs">
+          {t('pomodoro.todoAssociation.optional')}
+        </Badge>
       </Label>
 
       {loadingTodos ? (
@@ -113,13 +116,13 @@ export function TodoAssociationSelector({ selectedTodoId, onTodoSelect }: TodoAs
       )}
 
       {selectedTodo && (
-        <div className="bg-muted/50 rounded-lg border p-3">
-          <div className="flex items-start gap-2">
-            <CheckSquare className="text-primary mt-0.5 h-4 w-4 shrink-0" />
-            <div className="flex-1 space-y-1 overflow-hidden">
-              <p className="truncate text-sm font-medium">{selectedTodo.title}</p>
+        <div className="border-primary/20 bg-primary/10 rounded-lg border-2 p-4">
+          <div className="flex items-start gap-3">
+            <CheckSquare className="text-primary mt-0.5 h-5 w-5 shrink-0" />
+            <div className="flex-1 space-y-2 overflow-hidden">
+              <p className="text-foreground font-semibold">{selectedTodo.title}</p>
               {selectedTodo.description && (
-                <p className="text-muted-foreground line-clamp-2 text-xs">{selectedTodo.description}</p>
+                <p className="text-muted-foreground line-clamp-3 text-sm">{selectedTodo.description}</p>
               )}
             </div>
           </div>

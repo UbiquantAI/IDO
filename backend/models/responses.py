@@ -197,6 +197,39 @@ class ImageOptimizationStatsResponse(OperationResponse):
     config: Optional[Dict[str, Any]] = None
 
 
+class ImagePersistenceHealthData(BaseModel):
+    """Data model for image persistence health check"""
+
+    total_actions: int
+    actions_with_screenshots: int
+    actions_all_images_ok: int
+    actions_partial_missing: int
+    actions_all_missing: int
+    total_image_references: int
+    images_found: int
+    images_missing: int
+    missing_rate_percent: float
+    memory_cache_current_size: int
+    memory_cache_max_size: int
+    memory_ttl_seconds: int
+    actions_with_issues: List[Dict[str, Any]]
+
+
+class ImagePersistenceHealthResponse(OperationResponse):
+    """Response containing image persistence health check results"""
+
+    data: Optional[ImagePersistenceHealthData] = None
+
+
+class CleanupBrokenActionsResponse(OperationResponse):
+    """Response after cleaning up broken action images"""
+
+    actions_processed: int = 0
+    actions_deleted: int = 0
+    references_removed: int = 0
+    images_removed: int = 0
+
+
 class UpdateImageOptimizationConfigResponse(OperationResponse):
     """Response after updating image optimization configuration"""
 

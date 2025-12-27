@@ -69,6 +69,15 @@ class ImageManager:
         # Image metadata: hash -> (timestamp, is_persisted)
         self._image_metadata: dict[str, Tuple[datetime, bool]] = {}
 
+        # Persistence statistics tracking
+        self.persistence_stats = {
+            "total_persist_attempts": 0,
+            "successful_persists": 0,
+            "failed_persists": 0,
+            "cache_misses": 0,
+            "already_persisted": 0,
+        }
+
         self._ensure_directories()
 
         logger.debug(
@@ -78,6 +87,14 @@ class ImageManager:
             f"scale_factor={self.scale_factor}, "
             f"quality={thumbnail_quality}, base_dir={self.base_dir}"
         )
+
+        # Validation: Warn if TTL seems too low for reliable persistence
+        if self.memory_ttl < 120:
+            logger.warning(
+                f"Memory TTL ({self.memory_ttl}s) is low and may cause image persistence failures. "
+                f"Recommended: ≥180s for reliable persistence. "
+                f"Increase 'image.memory_ttl_multiplier' in config.toml to fix."
+            )
 
     def _select_thumbnail_size(self, img: Image.Image) -> Tuple[int, int]:
         """Choose target size based on orientation and resolution"""
@@ -288,15 +305,19 @@ class ImageManager:
             True if persisted successfully, False otherwise
         """
         try:
+            self.persistence_stats["total_persist_attempts"] += 1
+
             # Check if already persisted
             metadata = self._image_metadata.get(img_hash)
             if metadata and metadata[1]:  # is_persisted = True
+                self.persistence_stats["already_persisted"] += 1
                 logger.debug(f"Image already persisted: {img_hash[:8]}...")
                 return True
 
             # Check if exists on disk already
             thumbnail_path = self.thumbnails_dir / f"{img_hash}.jpg"
             if thumbnail_path.exists():
+                self.persistence_stats["already_persisted"] += 1
                 # Update metadata
                 self._image_metadata[img_hash] = (datetime.now(), True)
                 logger.debug(f"Image already on disk: {img_hash[:8]}...")
@@ -305,6 +326,8 @@ class ImageManager:
             # Get from memory cache
             img_data = self.get_from_cache(img_hash)
             if not img_data:
+                self.persistence_stats["failed_persists"] += 1
+                self.persistence_stats["cache_misses"] += 1
                 logger.warning(
                     f"Image not found in memory cache (likely evicted): {img_hash[:8]}... "
                     f"Cannot persist to disk."
@@ -317,11 +340,13 @@ class ImageManager:
 
             # Update metadata
             self._image_metadata[img_hash] = (datetime.now(), True)
+            self.persistence_stats["successful_persists"] += 1
 
             logger.debug(f"Persisted image to disk: {img_hash[:8]}...")
             return True
 
         except Exception as e:
+            self.persistence_stats["failed_persists"] += 1
             logger.error(f"Failed to persist image {img_hash[:8]}: {e}")
             return False
 
@@ -557,6 +582,14 @@ class ImageManager:
                 else:
                     memory_only_count += 1
 
+            # Calculate persistence success rate
+            total_attempts = self.persistence_stats["total_persist_attempts"]
+            success_rate = (
+                self.persistence_stats["successful_persists"] / total_attempts
+                if total_attempts > 0
+                else 1.0
+            )
+
             return {
                 "memory_cache_count": memory_count,
                 "memory_cache_limit": self.memory_cache_size,
@@ -572,6 +605,9 @@ class ImageManager:
                 "memory_ttl_seconds": self.memory_ttl,
                 "memory_only_images": memory_only_count,
                 "persisted_images_in_cache": persisted_count,
+                # Persistence stats
+                "persistence_success_rate": round(success_rate, 4),
+                "persistence_stats": self.persistence_stats,
             }
 
         except Exception as e:

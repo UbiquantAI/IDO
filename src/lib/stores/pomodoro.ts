@@ -53,6 +53,7 @@ interface PomodoroState {
   // Configuration state
   config: PomodoroConfig
   presets: PomodoroPreset[]
+  selectedPresetId: string | null
 
   // Actions
   setStatus: (status: PomodoroStatus) => void
@@ -60,6 +61,7 @@ interface PomodoroState {
   setError: (error: string | null) => void
   setConfig: (config: PomodoroConfig) => void
   setPresets: (presets: PomodoroPreset[]) => void
+  setSelectedPresetId: (id: string | null) => void
   applyPreset: (presetId: string) => void
   reset: () => void
 }
@@ -77,6 +79,7 @@ export const usePomodoroStore = create<PomodoroState>((set, get) => ({
   error: null,
   config: DEFAULT_CONFIG,
   presets: [],
+  selectedPresetId: null,
 
   // Actions
   setStatus: (status) => set({ status }),
@@ -85,9 +88,11 @@ export const usePomodoroStore = create<PomodoroState>((set, get) => ({
 
   setError: (error) => set({ error }),
 
-  setConfig: (config) => set({ config }),
+  setConfig: (config) => set({ config, selectedPresetId: null }),
 
   setPresets: (presets) => set({ presets }),
+
+  setSelectedPresetId: (selectedPresetId) => set({ selectedPresetId }),
 
   applyPreset: (presetId) => {
     const preset = get().presets.find((p) => p.id === presetId)
