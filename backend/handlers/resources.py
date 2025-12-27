@@ -21,6 +21,7 @@ from core.logger import get_logger
 from core.settings import get_settings
 from models.base import OperationResponse, TimedOperationResponse
 from models.requests import (
+    CleanupBrokenActionsRequest,
     CleanupImagesRequest,
     CreateModelRequest,
     DeleteModelRequest,
@@ -36,10 +37,13 @@ from models.requests import (
 )
 from models.responses import (
     CachedImagesResponse,
+    CleanupBrokenActionsResponse,
     CleanupImagesResponse,
     ClearMemoryCacheResponse,
     ImageOptimizationConfigResponse,
     ImageOptimizationStatsResponse,
+    ImagePersistenceHealthData,
+    ImagePersistenceHealthResponse,
     ImageStatsResponse,
     ReadImageFileResponse,
     UpdateImageOptimizationConfigResponse,
@@ -371,6 +375,231 @@ async def read_image_file(body: ReadImageFileRequest) -> ReadImageFileResponse:
     except Exception as e:
         logger.error(f"Failed to read image file: {e}")
         return ReadImageFileResponse(success=False, error=str(e))
+
+
+@api_handler(
+    body=None, method="GET", path="/image/persistence-health", tags=["image"]
+)
+async def check_image_persistence_health() -> ImagePersistenceHealthResponse:
+    """
+    Check health of image persistence system
+
+    Analyzes all actions with screenshots to determine how many have missing
+    image files on disk. Provides statistics for diagnostics.
+
+    Returns:
+        Health check results with statistics
+    """
+    try:
+        db = get_db()
+        image_manager = get_image_manager()
+
+        # Get all actions with screenshots (limit to 1000 for performance)
+        actions = await db.actions.get_all_actions_with_screenshots(limit=1000)
+
+        total_actions = len(actions)
+        actions_all_ok = 0
+        actions_partial_missing = 0
+        actions_all_missing = 0
+        total_references = 0
+        images_found = 0
+        images_missing = 0
+        actions_with_issues = []
+
+        for action in actions:
+            screenshots = action.get("screenshots", [])
+            if not screenshots:
+                continue
+
+            total_references += len(screenshots)
+            missing_hashes = []
+
+            # Check each screenshot
+            for img_hash in screenshots:
+                thumbnail_path = image_manager.thumbnails_dir / f"{img_hash}.jpg"
+                if thumbnail_path.exists():
+                    images_found += 1
+                else:
+                    images_missing += 1
+                    missing_hashes.append(img_hash)
+
+            # Classify action based on missing images
+            if not missing_hashes:
+                actions_all_ok += 1
+            elif len(missing_hashes) == len(screenshots):
+                actions_all_missing += 1
+                # Sample first 10 actions with all images missing
+                if len(actions_with_issues) < 10:
+                    actions_with_issues.append({
+                        "id": action["id"],
+                        "created_at": action["created_at"],
+                        "total_screenshots": len(screenshots),
+                        "missing_screenshots": len(missing_hashes),
+                        "status": "all_missing",
+                    })
+            else:
+                actions_partial_missing += 1
+                # Sample first 10 actions with partial missing
+                if len(actions_with_issues) < 10:
+                    actions_with_issues.append({
+                        "id": action["id"],
+                        "created_at": action["created_at"],
+                        "total_screenshots": len(screenshots),
+                        "missing_screenshots": len(missing_hashes),
+                        "status": "partial_missing",
+                    })
+
+        # Calculate missing rate
+        missing_rate = (
+            (images_missing / total_references * 100) if total_references > 0 else 0.0
+        )
+
+        # Get cache stats
+        cache_stats = image_manager.get_stats()
+
+        data = ImagePersistenceHealthData(
+            total_actions=total_actions,
+            actions_with_screenshots=total_actions,
+            actions_all_images_ok=actions_all_ok,
+            actions_partial_missing=actions_partial_missing,
+            actions_all_missing=actions_all_missing,
+            total_image_references=total_references,
+            images_found=images_found,
+            images_missing=images_missing,
+            missing_rate_percent=round(missing_rate, 2),
+            memory_cache_current_size=cache_stats.get("cache_count", 0),
+            memory_cache_max_size=cache_stats.get("cache_limit", 0),
+            memory_ttl_seconds=cache_stats.get("memory_ttl", 0),
+            actions_with_issues=actions_with_issues,
+        )
+
+        logger.info(
+            f"Image persistence health check: {images_missing}/{total_references} images missing "
+            f"({missing_rate:.2f}%), {actions_all_missing} actions with all images missing"
+        )
+
+        return ImagePersistenceHealthResponse(
+            success=True,
+            message=f"Health check completed: {missing_rate:.2f}% images missing",
+            data=data,
+        )
+
+    except Exception as e:
+        logger.error(f"Failed to check image persistence health: {e}", exc_info=True)
+        return ImagePersistenceHealthResponse(success=False, error=str(e))
+
+
+@api_handler(
+    body=CleanupBrokenActionsRequest,
+    method="POST",
+    path="/image/cleanup-broken-actions",
+    tags=["image"],
+)
+async def cleanup_broken_action_images(
+    body: CleanupBrokenActionsRequest,
+) -> CleanupBrokenActionsResponse:
+    """
+    Clean up actions with missing image references
+
+    Supports three strategies:
+    - delete_actions: Soft-delete actions with all images missing
+    - remove_references: Clear image references, keep action metadata
+    - dry_run: Report what would be cleaned without making changes
+
+    Args:
+        body: Cleanup request with strategy and optional action IDs
+
+    Returns:
+        Cleanup results with statistics
+    """
+    try:
+        db = get_db()
+        image_manager = get_image_manager()
+
+        # Get actions to process
+        if body.action_ids:
+            # Process specific actions
+            actions = []
+            for action_id in body.action_ids:
+                action = await db.actions.get(action_id)
+                if action:
+                    actions.append(action)
+        else:
+            # Process all actions with screenshots
+            actions = await db.actions.get_all_actions_with_screenshots(limit=10000)
+
+        actions_processed = 0
+        actions_deleted = 0
+        references_removed = 0
+
+        for action in actions:
+            screenshots = action.get("screenshots", [])
+            if not screenshots:
+                continue
+
+            # Check which images are missing
+            missing_hashes = []
+            for img_hash in screenshots:
+                thumbnail_path = image_manager.thumbnails_dir / f"{img_hash}.jpg"
+                if not thumbnail_path.exists():
+                    missing_hashes.append(img_hash)
+
+            if not missing_hashes:
+                continue  # All images present
+
+            actions_processed += 1
+            all_missing = len(missing_hashes) == len(screenshots)
+
+            if body.strategy == "delete_actions" and all_missing:
+                # Only delete if all images are missing
+                logger.info(
+                    f"Deleted action {action['id']} with {len(screenshots)} missing images"
+                )
+                await db.actions.delete(action["id"])
+                actions_deleted += 1
+
+            elif body.strategy == "remove_references":
+                # Remove screenshot references
+                logger.info(
+                    f"Removed screenshot references from action {action['id']}"
+                )
+                removed = await db.actions.remove_screenshots(action["id"])
+                references_removed += removed
+
+            elif body.strategy == "dry_run":
+                # Dry run - just log what would be done
+                if all_missing:
+                    logger.info(
+                        f"[DRY RUN] Would delete action {action['id']} "
+                        f"with {len(screenshots)} missing images"
+                    )
+                else:
+                    logger.info(
+                        f"[DRY RUN] Would remove {len(missing_hashes)} "
+                        f"screenshot references from action {action['id']}"
+                    )
+
+        message = f"Cleanup completed ({body.strategy}): "
+        if body.strategy == "delete_actions":
+            message += f"deleted {actions_deleted} actions"
+        elif body.strategy == "remove_references":
+            message += f"removed {references_removed} references"
+        else:  # dry_run
+            message += f"would process {actions_processed} actions"
+
+        logger.info(message)
+
+        return CleanupBrokenActionsResponse(
+            success=True,
+            message=message,
+            actions_processed=actions_processed,
+            actions_deleted=actions_deleted,
+            references_removed=references_removed,
+        )
+
+    except Exception as e:
+        logger.error(f"Failed to cleanup broken actions: {e}", exc_info=True)
+        return CleanupBrokenActionsResponse(success=False, error=str(e))
 
 
 # ============================================================================

@@ -147,6 +147,46 @@ export async function splitActivityHandler(
 }
 
 /**
+ * Save or update an activity rating
+ *
+ * Supports multi-dimensional ratings:
+ * - focus_level: How focused were you? (1-5)
+ * - productivity: How productive was this session? (1-5)
+ * - importance: How important was this activity? (1-5)
+ * - satisfaction: How satisfied are you with the outcome? (1-5)
+ */
+export async function saveActivityRating(
+    body: Commands["save_activity_rating"]["input"],
+    options?: InvokeOptions
+): Promise<Commands["save_activity_rating"]["output"]> {
+    return await pyInvoke("save_activity_rating", body, options);
+}
+
+/**
+ * Get all ratings for an activity
+ *
+ * Returns ratings for all dimensions that have been rated.
+ */
+export async function getActivityRatings(
+    body: Commands["get_activity_ratings"]["input"],
+    options?: InvokeOptions
+): Promise<Commands["get_activity_ratings"]["output"]> {
+    return await pyInvoke("get_activity_ratings", body, options);
+}
+
+/**
+ * Delete a specific activity rating
+ *
+ * Removes the rating for a specific dimension.
+ */
+export async function deleteActivityRating(
+    body: Commands["delete_activity_rating"]["input"],
+    options?: InvokeOptions
+): Promise<Commands["delete_activity_rating"]["output"]> {
+    return await pyInvoke("delete_activity_rating", body, options);
+}
+
+/**
  * Create new agent task
  */
 export async function createTask(
@@ -929,6 +969,90 @@ export async function restartApp(
 }
 
 /**
+ * Start a new Pomodoro session
+ *
+ * Args:
+ *     body: Request containing user_intent and duration_minutes
+ *
+ * Returns:
+ *     StartPomodoroResponse with session data
+ *
+ * Raises:
+ *     ValueError: If a Pomodoro session is already active or previous session is still processing
+ */
+export async function startPomodoro(
+    body: Commands["start_pomodoro"]["input"],
+    options?: InvokeOptions
+): Promise<Commands["start_pomodoro"]["output"]> {
+    return await pyInvoke("start_pomodoro", body, options);
+}
+
+/**
+ * End current Pomodoro session
+ *
+ * Args:
+ *     body: Request containing status (completed/abandoned/interrupted)
+ *
+ * Returns:
+ *     EndPomodoroResponse with processing job info
+ *
+ * Raises:
+ *     ValueError: If no active Pomodoro session
+ */
+export async function endPomodoro(
+    body: Commands["end_pomodoro"]["input"],
+    options?: InvokeOptions
+): Promise<Commands["end_pomodoro"]["output"]> {
+    return await pyInvoke("end_pomodoro", body, options);
+}
+
+/**
+ * Get current Pomodoro session status
+ *
+ * Returns:
+ *     GetPomodoroStatusResponse with current session info or None if no active session
+ */
+export async function getPomodoroStatus(
+    body: Commands["get_pomodoro_status"]["input"],
+    options?: InvokeOptions
+): Promise<Commands["get_pomodoro_status"]["output"]> {
+    return await pyInvoke("get_pomodoro_status", body, options);
+}
+
+/**
+ * Get available Pomodoro configuration presets
+ *
+ * Returns a list of predefined configurations including:
+ * - Classic Pomodoro (25/5)
+ * - Deep Work (50/10)
+ * - Quick Sprint (15/3)
+ * - Ultra Focus (90/15)
+ * - Balanced Flow (40/8)
+ */
+export async function getPomodoroPresets(
+    body: Commands["get_pomodoro_presets"]["input"],
+    options?: InvokeOptions
+): Promise<Commands["get_pomodoro_presets"]["output"]> {
+    return await pyInvoke("get_pomodoro_presets", body, options);
+}
+
+/**
+ * Get Pomodoro statistics for a specific date
+ *
+ * Returns:
+ * - Number of completed sessions
+ * - Total focus time (minutes)
+ * - Average session duration (minutes)
+ * - List of all sessions for that day
+ */
+export async function getPomodoroStats(
+    body: Commands["get_pomodoro_stats"]["input"],
+    options?: InvokeOptions
+): Promise<Commands["get_pomodoro_stats"]["output"]> {
+    return await pyInvoke("get_pomodoro_stats", body, options);
+}
+
+/**
  * Get processing module statistics.
  *
  * Returns statistics about event and activity processing.
@@ -1183,6 +1307,43 @@ export async function readImageFile(
     options?: InvokeOptions
 ): Promise<Commands["read_image_file"]["output"]> {
     return await pyInvoke("read_image_file", body, options);
+}
+
+/**
+ * Check health of image persistence system
+ *
+ * Analyzes all actions with screenshots to determine how many have missing
+ * image files on disk. Provides statistics for diagnostics.
+ *
+ * Returns:
+ *     Health check results with statistics
+ */
+export async function checkImagePersistenceHealth(
+    body: Commands["check_image_persistence_health"]["input"],
+    options?: InvokeOptions
+): Promise<Commands["check_image_persistence_health"]["output"]> {
+    return await pyInvoke("check_image_persistence_health", body, options);
+}
+
+/**
+ * Clean up actions with missing image references
+ *
+ * Supports three strategies:
+ * - delete_actions: Soft-delete actions with all images missing
+ * - remove_references: Clear image references, keep action metadata
+ * - dry_run: Report what would be cleaned without making changes
+ *
+ * Args:
+ *     body: Cleanup request with strategy and optional action IDs
+ *
+ * Returns:
+ *     Cleanup results with statistics
+ */
+export async function cleanupBrokenActionImages(
+    body: Commands["cleanup_broken_action_images"]["input"],
+    options?: InvokeOptions
+): Promise<Commands["cleanup_broken_action_images"]["output"]> {
+    return await pyInvoke("cleanup_broken_action_images", body, options);
 }
 
 /**

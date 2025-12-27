@@ -2,6 +2,7 @@ import { create } from 'zustand'
 
 export type MenuItemId =
   | 'activity'
+  | 'pomodoro'
   | 'recent-events'
   | 'ai-summary'
   | 'ai-summary-knowledge'

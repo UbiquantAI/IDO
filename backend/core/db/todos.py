@@ -85,6 +85,55 @@ class TodosRepository(BaseRepository):
             raise
 
 
+    async def get_by_id(self, todo_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get a single todo by ID
+
+        Args:
+            todo_id: Todo ID
+
+        Returns:
+            Todo dict or None if not found
+        """
+        try:
+            with self._get_conn() as conn:
+                cursor = conn.execute(
+                    """
+                    SELECT id, title, description, keywords,
+                           created_at, completed, deleted, scheduled_date, scheduled_time,
+                           scheduled_end_time, recurrence_rule
+                    FROM todos
+                    WHERE id = ?
+                    """,
+                    (todo_id,),
+                )
+                row = cursor.fetchone()
+
+                if row:
+                    return {
+                        "id": row["id"],
+                        "title": row["title"],
+                        "description": row["description"],
+                        "keywords": json.loads(row["keywords"])
+                        if row["keywords"]
+                        else [],
+                        "created_at": row["created_at"],
+                        "completed": bool(row["completed"]),
+                        "deleted": bool(row["deleted"]),
+                        "scheduled_date": row["scheduled_date"],
+                        "scheduled_time": row["scheduled_time"],
+                        "scheduled_end_time": row["scheduled_end_time"],
+                        "recurrence_rule": json.loads(row["recurrence_rule"])
+                        if row["recurrence_rule"]
+                        else None,
+                    }
+
+                return None
+
+        except Exception as e:
+            logger.error(f"Failed to get todo by ID {todo_id}: {e}", exc_info=True)
+            return None
+
     async def get_list(
         self, include_completed: bool = False
     ) -> List[Dict[str, Any]]:

@@ -6,6 +6,7 @@ Uses factory pattern to create platform-specific monitors
 """
 
 import asyncio
+import time
 from datetime import datetime
 from typing import Any, Callable, Dict, Optional
 
@@ -89,6 +90,12 @@ class PerceptionManager:
         self.keyboard_enabled = True
         self.mouse_enabled = True
 
+        # Pomodoro mode state
+        self.pomodoro_session_id: Optional[str] = None
+
+        # Event loop reference (set when start() is called)
+        self._event_loop: Optional[asyncio.AbstractEventLoop] = None
+
     def _on_screen_lock(self) -> None:
         """Screen lock/system sleep callback"""
         if not self.is_running:
@@ -148,7 +155,11 @@ class PerceptionManager:
             return
 
         try:
-            # Record all keyboard events for subsequent processing to preserve usage context
+            # Tag with Pomodoro session ID if active (for future use)
+            if self.pomodoro_session_id:
+                record.data['pomodoro_session_id'] = self.pomodoro_session_id
+
+            # Always add to memory for real-time viewing and processing
             self.storage.add_record(record)
             self.event_buffer.add(record)
 
@@ -170,6 +181,11 @@ class PerceptionManager:
         try:
             # Only record important mouse events
             if self.mouse_capture.is_important_event(record.data):
+                # Tag with Pomodoro session ID if active (for future use)
+                if self.pomodoro_session_id:
+                    record.data['pomodoro_session_id'] = self.pomodoro_session_id
+
+                # Always add to memory for real-time viewing and processing
                 self.storage.add_record(record)
                 self.event_buffer.add(record)
 
@@ -201,6 +217,11 @@ class PerceptionManager:
 
         try:
             if record:  # Screenshot may be None (duplicate screenshots)
+                # Tag with Pomodoro session ID if active (for future use)
+                if self.pomodoro_session_id:
+                    record.data['pomodoro_session_id'] = self.pomodoro_session_id
+
+                # Always add to memory for real-time viewing and processing
                 self.storage.add_record(record)
                 self.event_buffer.add(record)
 
@@ -225,6 +246,9 @@ class PerceptionManager:
             start_total = datetime.now()
             self.is_running = True
             self.is_paused = False
+
+            # Store event loop reference for sync callbacks
+            self._event_loop = asyncio.get_running_loop()
 
             # Load perception settings
             from core.settings import get_settings
@@ -309,6 +333,9 @@ class PerceptionManager:
             self.is_running = False
             self.is_paused = False
 
+            # Clear event loop reference
+            self._event_loop = None
+
             # Stop screen state monitor
             self.screen_state_monitor.stop()
 
@@ -345,19 +372,29 @@ class PerceptionManager:
     async def _screenshot_loop(self) -> None:
         """Screenshot loop task"""
         try:
-            loop = asyncio.get_event_loop()
+            iteration = 0
+
             while self.is_running:
-                # Execute synchronous screenshot operation in thread pool to avoid blocking event loop
-                await loop.run_in_executor(
-                    None,
-                    self.screenshot_capture.capture_with_interval,
-                    self.capture_interval,
-                )
-                await asyncio.sleep(0.1)  # Brief sleep to avoid excessive CPU usage
+                iteration += 1
+                loop_start = time.time()
+
+                # Directly call capture() without interval checking
+                # The loop itself controls the timing
+                try:
+                    self.screenshot_capture.capture()
+                except Exception as e:
+                    logger.error(f"Screenshot capture failed: {e}", exc_info=True)
+
+                elapsed = time.time() - loop_start
+
+                # Sleep for the interval, accounting for capture time
+                sleep_time = max(0.1, self.capture_interval - elapsed)
+                await asyncio.sleep(sleep_time)
+
         except asyncio.CancelledError:
             logger.debug("Screenshot loop task cancelled")
         except Exception as e:
-            logger.error(f"Screenshot loop task failed: {e}")
+            logger.error(f"Screenshot loop task failed: {e}", exc_info=True)
 
     async def _cleanup_loop(self) -> None:
         """Cleanup loop task"""
@@ -523,3 +560,40 @@ class PerceptionManager:
         logger.debug(
             f"Perception settings updated: keyboard={self.keyboard_enabled}, mouse={self.mouse_enabled}"
         )
+
+    def set_pomodoro_session(self, session_id: str) -> None:
+        """
+        Set Pomodoro session ID for tagging captured records
+
+        Args:
+            session_id: Pomodoro session identifier
+        """
+        self.pomodoro_session_id = session_id
+        logger.debug(f"✓ Pomodoro session set: {session_id}")
+
+    def clear_pomodoro_session(self) -> None:
+        """Clear Pomodoro session ID (exit Pomodoro mode)"""
+        session_id = self.pomodoro_session_id
+        self.pomodoro_session_id = None
+        logger.debug(f"✓ Pomodoro session cleared: {session_id}")
+
+    async def _persist_raw_record(self, record: RawRecord) -> None:
+        """
+        Persist raw record to database (Pomodoro mode)
+
+        Args:
+            record: RawRecord to persist
+        """
+        try:
+            import json
+            from core.db import get_db
+
+            db = get_db()
+            await db.raw_records.save(
+                timestamp=record.timestamp.isoformat(),
+                record_type=record.type.value,  # Convert enum to string
+                data=json.dumps(record.data),
+                pomodoro_session_id=record.data.get('pomodoro_session_id'),
+            )
+        except Exception as e:
+            logger.error(f"Failed to persist raw record: {e}", exc_info=True)

@@ -165,6 +165,7 @@ export const zhCN = {
   menu: {
     dashboard: '仪表盘',
     activity: '活动记录',
+    pomodoro: '番茄钟',
     recentEvents: '最近事件',
     aiSummary: 'AI 总结',
     aiSummaryKnowledge: '知识整理',
@@ -922,6 +923,87 @@ export const zhCN = {
   about: {
     description: 'AI 驱动的桌面活动监控与任务推荐系统',
     allRightsReserved: '版权所有'
+  },
+  pomodoro: {
+    title: '番茄钟',
+    description: '专注模式：开启番茄钟会话以捕获并分析您的专注工作。',
+    intent: {
+      label: '或者，手动输入计划',
+      placeholder: '例如：编写项目文档',
+      hint: '描述你在这个番茄钟期间的工作意图',
+      current: '当前任务'
+    },
+    duration: {
+      label: '时长（分钟）',
+      hint: '推荐：25 分钟'
+    },
+    config: {
+      title: '番茄钟配置',
+      description: '自定义你的专注会话设置',
+      presets: '预设方案',
+      custom: '自定义',
+      workDuration: '工作时长',
+      breakDuration: '休息时长',
+      totalRounds: '总轮次',
+      rounds: '轮',
+      minutes: '分钟',
+      summary: '摘要',
+      totalTime: '总时长'
+    },
+    presets: {
+      quickSetup: '快速设置',
+      orCustomize: '或自定义'
+    },
+    phase: {
+      work: '工作',
+      break: '休息',
+      completed: '已完成'
+    },
+    countdown: {
+      remaining: '剩余时间',
+      round: '轮次',
+      workDuration: '工作时长',
+      breakDuration: '休息时长',
+      allRoundsComplete: '所有轮次已完成！'
+    },
+    progress: {
+      roundIndicator: '第 {{current}}/{{total}} 轮',
+      roundsComplete: '轮已完成',
+      completed: '所有轮次已完成'
+    },
+    phaseSwitch: {
+      notification: '切换到{{phase}} - 第 {{round}}/{{total}} 轮'
+    },
+    todoAssociation: {
+      linkTodo: '关联待办',
+      unlinkTodo: '取消关联',
+      selectTodo: '选择待办（可选）',
+      noTodoSelected: '未选择待办',
+      optional: '可选',
+      linkedTodo: '已关联待办',
+      noTodos: '暂无待办事项'
+    },
+    start: '开始番茄钟',
+    end: '结束会话',
+    status: {
+      active: '会话进行中',
+      ending: '正在结束会话...',
+      processing: '正在分析会话数据...'
+    },
+    started: '番茄钟会话已开始',
+    ended: '会话已结束，捕获了 {{count}} 条记录',
+    processing: {
+      background: '正在后台分析活动数据...',
+      progress: '已处理 {{count}} 条记录',
+      complete: '分析完成！已处理 {{count}} 条记录。',
+      failed: '分析失败：{{error}}'
+    },
+    error: {
+      title: '错误',
+      noIntent: '请描述你计划做什么',
+      startFailed: '启动番茄钟失败：{{error}}',
+      endFailed: '结束番茄钟失败：{{error}}'
+    }
   },
   debug: {
     welcomeFlowReset: '🔄 欢迎流程已重置',

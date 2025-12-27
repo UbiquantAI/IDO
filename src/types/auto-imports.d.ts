@@ -17,6 +17,7 @@ declare global {
   const Chat: typeof import('../views/Chat')['default']
   const Dashboard: typeof import('../views/Dashboard')['default']
   const MainLayout: typeof import('../layouts/MainLayout')['MainLayout']
+  const Pomodoro: typeof import('../views/Pomodoro')['default']
   const RecentEvents: typeof import('../views/RecentEvents')['default']
   const Settings: typeof import('../views/Settings')['default']
   const createRef: typeof import('react')['createRef']

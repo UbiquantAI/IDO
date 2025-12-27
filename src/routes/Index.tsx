@@ -6,6 +6,7 @@ import { LoadingPage } from '@/components/shared/LoadingPage'
 
 // Lazy-load page components
 const ActivityView = lazy(() => import('@/views/Activity'))
+const PomodoroView = lazy(() => import('@/views/Pomodoro'))
 const AIKnowledgeView = lazy(() => import('@/views/AIKnowledge'))
 const AITodosView = lazy(() => import('@/views/AITodos'))
 const AIDiaryView = lazy(() => import('@/views/AIDiary'))
@@ -37,6 +38,14 @@ export const router = createBrowserRouter([
             element: <Navigate to="/activity" replace />
           },
           {
+            path: 'pomodoro',
+            element: (
+              <Suspense fallback={<LoadingPage />}>
+                <PomodoroView />
+              </Suspense>
+            )
+          },
+          {
             path: 'activity',
             element: (
               <Suspense fallback={<LoadingPage />}>
@@ -44,14 +53,6 @@ export const router = createBrowserRouter([
               </Suspense>
             )
           },
-          // {
-          //   path: 'events',
-          //   element: (
-          //     <Suspense fallback={<LoadingPage />}>
-          //       <RecentEventsView />
-          //     </Suspense>
-          //   )
-          // },
           {
             path: 'insights',
             element: <Navigate to="/insights/knowledge" replace />

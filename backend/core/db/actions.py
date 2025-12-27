@@ -508,3 +508,90 @@ class ActionsRepository(BaseRepository):
         except Exception as e:
             logger.error(f"Failed to get referenced image hashes: {e}", exc_info=True)
             return set()
+
+    async def get_all_actions_with_screenshots(
+        self, limit: Optional[int] = None
+    ) -> List[Dict[str, Any]]:
+        """Get all actions that have screenshot references
+
+        Used for image persistence health checks to validate that referenced
+        images actually exist on disk.
+
+        Args:
+            limit: Maximum number of actions to return (None = unlimited)
+
+        Returns:
+            List of {id, created_at, screenshots: [...hashes]}
+        """
+        try:
+            query = """
+                SELECT DISTINCT a.id, a.created_at
+                FROM actions a
+                INNER JOIN action_images ai ON a.id = ai.action_id
+                WHERE a.deleted = 0
+                ORDER BY a.created_at DESC
+            """
+            if limit:
+                query += f" LIMIT {limit}"
+
+            with self._get_conn() as conn:
+                cursor = conn.execute(query)
+                rows = cursor.fetchall()
+
+            actions = []
+            for row in rows:
+                screenshots = await self._load_screenshots(row["id"])
+                if screenshots:  # Only include if has screenshots
+                    actions.append({
+                        "id": row["id"],
+                        "created_at": row["created_at"],
+                        "screenshots": screenshots,
+                    })
+
+            logger.debug(
+                f"Found {len(actions)} actions with screenshots"
+                + (f" (limit: {limit})" if limit else "")
+            )
+            return actions
+
+        except Exception as e:
+            logger.error(f"Failed to get actions with screenshots: {e}", exc_info=True)
+            return []
+
+    async def remove_screenshots(self, action_id: str) -> int:
+        """Remove all screenshot references from an action
+
+        Deletes all entries in action_images table for the given action,
+        effectively clearing the image references while keeping the action itself.
+
+        Args:
+            action_id: Action ID
+
+        Returns:
+            Number of references removed
+        """
+        try:
+            with self._get_conn() as conn:
+                cursor = conn.execute(
+                    "SELECT COUNT(*) as count FROM action_images WHERE action_id = ?",
+                    (action_id,),
+                )
+                count = cursor.fetchone()["count"]
+
+                conn.execute(
+                    "DELETE FROM action_images WHERE action_id = ?",
+                    (action_id,),
+                )
+                conn.commit()
+
+                logger.debug(
+                    f"Removed {count} screenshot references from action {action_id}"
+                )
+                return count
+
+        except Exception as e:
+            logger.error(
+                f"Failed to remove screenshots from action {action_id}: {e}",
+                exc_info=True,
+            )
+            raise

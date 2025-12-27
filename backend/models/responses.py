@@ -3,7 +3,7 @@ Response models for API handlers
 Provides strongly typed response models for better type safety and auto-generation
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from models.base import BaseModel, OperationResponse, TimedOperationResponse
 
@@ -197,6 +197,39 @@ class ImageOptimizationStatsResponse(OperationResponse):
     config: Optional[Dict[str, Any]] = None
 
 
+class ImagePersistenceHealthData(BaseModel):
+    """Data model for image persistence health check"""
+
+    total_actions: int
+    actions_with_screenshots: int
+    actions_all_images_ok: int
+    actions_partial_missing: int
+    actions_all_missing: int
+    total_image_references: int
+    images_found: int
+    images_missing: int
+    missing_rate_percent: float
+    memory_cache_current_size: int
+    memory_cache_max_size: int
+    memory_ttl_seconds: int
+    actions_with_issues: List[Dict[str, Any]]
+
+
+class ImagePersistenceHealthResponse(OperationResponse):
+    """Response containing image persistence health check results"""
+
+    data: Optional[ImagePersistenceHealthData] = None
+
+
+class CleanupBrokenActionsResponse(OperationResponse):
+    """Response after cleaning up broken action images"""
+
+    actions_processed: int = 0
+    actions_deleted: int = 0
+    references_removed: int = 0
+    images_removed: int = 0
+
+
 class UpdateImageOptimizationConfigResponse(OperationResponse):
     """Response after updating image optimization configuration"""
 
@@ -341,5 +374,55 @@ class CompleteInitialSetupResponse(TimedOperationResponse):
     """Response for complete_initial_setup handler"""
 
     pass
+
+
+# Pomodoro Feature Response Models
+class PomodoroSessionData(BaseModel):
+    """Pomodoro session data with rounds support"""
+
+    session_id: str
+    user_intent: str
+    start_time: str
+    elapsed_minutes: int
+    planned_duration_minutes: int
+    associated_todo_id: Optional[str] = None
+    associated_todo_title: Optional[str] = None
+    # Rounds configuration
+    work_duration_minutes: int = 25
+    break_duration_minutes: int = 5
+    total_rounds: int = 4
+    current_round: int = 1
+    current_phase: Literal["work", "break", "completed"] = "work"
+    phase_start_time: Optional[str] = None
+    completed_rounds: int = 0
+    # Calculated fields for frontend
+    remaining_phase_seconds: Optional[int] = None
+
+
+class StartPomodoroResponse(TimedOperationResponse):
+    """Response after starting a Pomodoro session"""
+
+    data: Optional[PomodoroSessionData] = None
+
+
+class EndPomodoroData(BaseModel):
+    """End Pomodoro session result data"""
+
+    session_id: str
+    processing_job_id: Optional[str] = None
+    raw_records_count: int = 0
+    message: str = ""
+
+
+class EndPomodoroResponse(TimedOperationResponse):
+    """Response after ending a Pomodoro session"""
+
+    data: Optional[EndPomodoroData] = None
+
+
+class GetPomodoroStatusResponse(TimedOperationResponse):
+    """Response for getting current Pomodoro session status"""
+
+    data: Optional[PomodoroSessionData] = None
 
 
