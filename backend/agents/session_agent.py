@@ -1366,8 +1366,10 @@ class SessionAgent:
                 f"phase={work_phase}, duration={(phase_end_time - phase_start_time).total_seconds() / 60:.1f}min"
             )
 
-            # Step 1: Wait briefly for events to be generated (Action → Event aggregation may have delay)
-            await asyncio.sleep(10)
+            # Step 1: Wait for events to be generated (Event extraction runs every 30s)
+            # We wait 35 seconds to ensure at least one extraction cycle has completed
+            logger.debug(f"Waiting 35s for event extraction to complete for work phase {work_phase}")
+            await asyncio.sleep(35)
 
             # Step 2: Get events for this work phase (with retry mechanism)
             events = await self._get_work_phase_events(
@@ -1375,9 +1377,19 @@ class SessionAgent:
             )
 
             if not events or len(events) == 0:
+                # Retry after another 15 seconds in case extraction was delayed
+                logger.debug(
+                    f"No events found for work phase {work_phase}, retrying after 15s..."
+                )
+                await asyncio.sleep(15)
+                events = await self._get_work_phase_events(
+                    session_id, phase_start_time, phase_end_time
+                )
+
+            if not events or len(events) == 0:
                 logger.warning(
-                    f"No events found for work phase {work_phase} after waiting. "
-                    f"User may have been idle during this phase."
+                    f"No events found for work phase {work_phase} after waiting 50s total. "
+                    f"User may have been idle during this phase, or event extraction may have failed."
                 )
                 return []
 

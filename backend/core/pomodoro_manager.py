@@ -242,12 +242,6 @@ class PomodoroManager:
                 # Stop perception during break
                 await self.coordinator.exit_pomodoro_mode()
 
-                # Check if this was the last round
-                if current_round >= total_rounds:
-                    # All rounds completed, end session
-                    await self._complete_session(session_id)
-                    return
-
             elif current_phase == "break":
                 # Break completed, switch to next work round
                 new_phase = "work"
@@ -260,11 +254,17 @@ class PomodoroManager:
                 logger.warning(f"Unknown phase '{current_phase}' for session {session_id}")
                 return
 
-            # Update session phase in database
+            # Update session phase in database (this increments completed_rounds for work→break)
             phase_start_time = datetime.now().isoformat()
             updated_session = await self.db.pomodoro_sessions.switch_phase(
                 session_id, new_phase, phase_start_time
             )
+
+            # Check if session completed after phase switch (all rounds done)
+            if updated_session.get("status") == "completed":
+                # All rounds completed, end session
+                await self._complete_session(session_id)
+                return
 
             # Start timer for next phase
             self._start_phase_timer(session_id, next_duration)
@@ -400,6 +400,40 @@ class PomodoroManager:
                     "raw_records_count": 0,
                     "message": "Session too short, data discarded",
                 }
+
+            # ★ NEW: If ending during work phase, aggregate activities for current work phase ★
+            session = await self.db.pomodoro_sessions.get_by_id(session_id)
+            if session and session.get("current_phase") == "work":
+                current_round = session.get("current_round", 1)
+                phase_start_time_str = session.get("phase_start_time")
+
+                if phase_start_time_str:
+                    phase_start_time = datetime.fromisoformat(phase_start_time_str)
+                else:
+                    # Fallback to session start if phase start time not available
+                    phase_start_time = datetime.fromisoformat(
+                        session.get("start_time", datetime.now().isoformat())
+                    )
+
+                logger.info(
+                    f"Manual session end during work phase {current_round}, "
+                    f"triggering activity aggregation"
+                )
+
+                # Trigger activity aggregation for the current (incomplete) work phase
+                await self._aggregate_work_phase_activities(
+                    session_id=session_id,
+                    work_phase=current_round,
+                    phase_start_time=phase_start_time,
+                    phase_end_time=end_time,
+                )
+
+                # Increment completed_rounds to reflect this work phase
+                completed_rounds = session.get("completed_rounds", 0) + 1
+                await self.db.pomodoro_sessions.update(
+                    session_id=session_id,
+                    completed_rounds=completed_rounds,
+                )
 
             # Update database
             await self.db.pomodoro_sessions.update(
