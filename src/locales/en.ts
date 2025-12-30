@@ -743,7 +743,8 @@ export const en = {
         activity: 'activity',
         activities: 'activities',
         noActivities: 'No activities recorded for this session',
-        noActivitiesInPhase: 'No activities in this phase'
+        noActivitiesInPhase: 'No activities in this phase',
+        breakTime: 'Break Time'
       },
       phaseTimeline: {
         title: 'Session Timeline',

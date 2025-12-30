@@ -1428,6 +1428,15 @@ class SessionAgent:
                 )
                 return []
 
+            # Step 2.3: Filter out short-duration activities (< 2 minutes)
+            activities = self._filter_activities_by_duration(activities, min_duration_minutes=2)
+
+            if not activities:
+                logger.debug(
+                    f"No activities remaining after duration filtering for work phase {work_phase}"
+                )
+                return []
+
             # Step 2.5: Validate activities with supervisor (check temporal continuity and semantic accuracy)
             activities = await self._validate_activities_with_supervisor(
                 activities, source_actions=actions
@@ -2090,6 +2099,60 @@ class SessionAgent:
                 f"Failed to cluster actions to activities: {e}", exc_info=True
             )
             return []
+
+    def _filter_activities_by_duration(
+        self, activities: List[Dict[str, Any]], min_duration_minutes: int = 2
+    ) -> List[Dict[str, Any]]:
+        """
+        Filter out activities with duration less than min_duration_minutes
+
+        Args:
+            activities: List of activities to filter
+            min_duration_minutes: Minimum duration in minutes (default: 2)
+
+        Returns:
+            Filtered list of activities
+        """
+        if not activities:
+            return activities
+
+        filtered_activities = []
+        filtered_count = 0
+
+        for activity in activities:
+            # Calculate duration
+            start_time = activity.get("start_time")
+            end_time = activity.get("end_time")
+
+            if not start_time or not end_time:
+                # No time info, keep it
+                filtered_activities.append(activity)
+                continue
+
+            # Convert to datetime if needed
+            if isinstance(start_time, str):
+                start_time = datetime.fromisoformat(start_time)
+            if isinstance(end_time, str):
+                end_time = datetime.fromisoformat(end_time)
+
+            # Calculate duration in minutes
+            duration_minutes = (end_time - start_time).total_seconds() / 60
+
+            if duration_minutes >= min_duration_minutes:
+                filtered_activities.append(activity)
+            else:
+                filtered_count += 1
+                logger.debug(
+                    f"Filtered out short activity '{activity.get('title', 'Unnamed')}' "
+                    f"(duration: {duration_minutes:.1f}min < {min_duration_minutes}min)"
+                )
+
+        if filtered_count > 0:
+            logger.info(
+                f"Filtered out {filtered_count} activities with duration < {min_duration_minutes} minutes"
+            )
+
+        return filtered_activities
 
     def _calculate_focus_score_from_actions(self, activity: Dict[str, Any]) -> float:
         """

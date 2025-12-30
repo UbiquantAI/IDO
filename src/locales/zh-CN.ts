@@ -739,7 +739,8 @@ export const zhCN = {
         activity: '个活动',
         activities: '个活动',
         noActivities: '该会话没有记录活动',
-        noActivitiesInPhase: '该阶段没有活动'
+        noActivitiesInPhase: '该阶段没有活动',
+        breakTime: '休息时间'
       },
       phaseTimeline: {
         title: '会话时间线',

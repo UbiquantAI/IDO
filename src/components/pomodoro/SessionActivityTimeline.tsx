@@ -3,7 +3,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { FocusScoreVisualization } from './FocusScoreVisualization'
 import { ActionCard } from '@/components/activity/ActionCard'
-import { Clock, Hash, RefreshCw, ChevronDown, ChevronRight, Loader2, Layers } from 'lucide-react'
+import { Clock, Hash, RefreshCw, ChevronDown, ChevronRight, Loader2, Layers, Coffee } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useState } from 'react'
 import { toast } from 'sonner'
@@ -28,10 +28,19 @@ interface Activity {
   topic_tags?: string[]
 }
 
+interface PhaseInfo {
+  phaseType: 'work' | 'break'
+  phaseNumber: number
+  startTime: string
+  endTime: string
+  durationMinutes: number
+}
+
 interface SessionActivityTimelineProps {
   sessionId: string
   activities: Activity[]
   totalRounds: number
+  phaseTimeline?: PhaseInfo[]
   onRetrySuccess?: () => void
 }
 
@@ -39,6 +48,7 @@ export function SessionActivityTimeline({
   sessionId,
   activities,
   totalRounds,
+  phaseTimeline = [],
   onRetrySuccess
 }: SessionActivityTimelineProps) {
   const { t } = useTranslation()
@@ -137,6 +147,18 @@ export function SessionActivityTimeline({
     return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
   }
 
+  // Get phase info for a specific phase number
+  const getPhaseInfo = (phaseNumber: number): PhaseInfo | null => {
+    const phase = phaseTimeline.find((p) => p.phaseType === 'work' && p.phaseNumber === phaseNumber)
+    return phase || null
+  }
+
+  // Get break info after a specific work phase
+  const getBreakInfo = (afterPhaseNumber: number): PhaseInfo | null => {
+    const breakPhase = phaseTimeline.find((p) => p.phaseType === 'break' && p.phaseNumber === afterPhaseNumber)
+    return breakPhase || null
+  }
+
   if (activities.length === 0) {
     return (
       <div className="flex items-center justify-center rounded-lg border border-dashed p-8 text-center">
@@ -149,6 +171,7 @@ export function SessionActivityTimeline({
     <div className="space-y-6">
       {Array.from({ length: totalRounds }, (_, i) => i + 1).map((phase) => {
         const phaseActivities = activityGroups[phase] || []
+        const phaseInfo = getPhaseInfo(phase)
 
         return (
           <div key={phase} className="border-primary relative border-l-2 pl-6">
@@ -157,9 +180,17 @@ export function SessionActivityTimeline({
               {phase}
             </div>
             <div className="mb-4">
-              <h4 className="font-semibold">
-                {t('pomodoro.review.activityTimeline.workPhase')} {phase}
-              </h4>
+              <div className="flex items-baseline justify-between">
+                <h4 className="font-semibold">
+                  {t('pomodoro.review.activityTimeline.workPhase')} {phase}
+                </h4>
+                {phaseInfo && (
+                  <div className="text-muted-foreground text-xs">
+                    {formatTime(phaseInfo.startTime)} - {formatTime(phaseInfo.endTime)}{' '}
+                    <span className="text-muted-foreground/70">({phaseInfo.durationMinutes} min)</span>
+                  </div>
+                )}
+              </div>
               <p className="text-muted-foreground text-sm">
                 {phaseActivities.length}{' '}
                 {phaseActivities.length === 1
@@ -289,6 +320,28 @@ export function SessionActivityTimeline({
                 ))
               )}
             </div>
+
+            {/* Break period after this work phase (if exists and not the last phase) */}
+            {phase < totalRounds &&
+              (() => {
+                const breakInfo = getBreakInfo(phase)
+                if (!breakInfo) return null
+
+                return (
+                  <div className="bg-muted/30 mt-4 flex items-center gap-3 rounded-lg border border-dashed p-3">
+                    <Coffee className="text-muted-foreground h-4 w-4 flex-shrink-0" />
+                    <div className="flex-1">
+                      <div className="text-muted-foreground text-sm font-medium">
+                        {t('pomodoro.review.activityTimeline.breakTime')}
+                      </div>
+                      <div className="text-muted-foreground/70 text-xs">
+                        {formatTime(breakInfo.startTime)} - {formatTime(breakInfo.endTime)} ({breakInfo.durationMinutes}{' '}
+                        min)
+                      </div>
+                    </div>
+                  </div>
+                )
+              })()}
           </div>
         )
       })}

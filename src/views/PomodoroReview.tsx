@@ -10,7 +10,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { SessionReviewCard } from '@/components/pomodoro/SessionReviewCard'
 import { SessionActivityTimeline } from '@/components/pomodoro/SessionActivityTimeline'
 import { FocusScoreVisualization } from '@/components/pomodoro/FocusScoreVisualization'
-import { PhaseTimeline } from '@/components/pomodoro/PhaseTimeline'
 import { LinkActivitiesDialog } from '@/components/pomodoro/LinkActivitiesDialog'
 import { usePomodoroEvents } from '@/hooks/usePomodoroEvents'
 import { getPomodoroStats, getPomodoroSessionDetail } from '@/lib/client/apiClient'
@@ -209,14 +208,7 @@ export default function PomodoroReview() {
                   </CardContent>
                 </Card>
 
-                {/* Phase timeline */}
-                <PhaseTimeline
-                  sessionStart={(detailData.session as any).start_time}
-                  sessionEnd={(detailData.session as any).end_time || new Date().toISOString()}
-                  phaseTimeline={detailData.phaseTimeline || []}
-                />
-
-                {/* Activity timeline */}
+                {/* Activity timeline with integrated phase timeline */}
                 <Card>
                   <CardHeader>
                     <CardTitle>{t('pomodoro.review.activityTimeline.title')}</CardTitle>
@@ -226,6 +218,7 @@ export default function PomodoroReview() {
                       sessionId={selectedSessionId}
                       activities={detailData.activities as any}
                       totalRounds={(detailData.session as any).total_rounds || 4}
+                      phaseTimeline={detailData.phaseTimeline as any}
                       onRetrySuccess={() => refetchDetail()}
                     />
                   </CardContent>
