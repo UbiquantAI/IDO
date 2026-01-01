@@ -866,10 +866,15 @@ export const zhCN = {
         dimensionScores: '专注度维度评分',
         dimensions: {
           topic_consistency: '主题一致性',
+          topicConsistency: '主题一致性',
           duration_depth: '时长深度',
+          durationDepth: '时长深度',
           switching_rhythm: '切换节奏',
+          switchingRhythm: '切换节奏',
           work_quality: '工作质量',
-          goal_orientation: '目标导向'
+          workQuality: '工作质量',
+          goal_orientation: '目标导向',
+          goalOrientation: '目标导向'
         },
         workContext: '工作上下文',
         workTypes: {
@@ -878,6 +883,7 @@ export const zhCN = {
           learning: '学习',
           research: '研究',
           communication: '沟通',
+          productivity_analysis: '效率分析',
           unclear: '混合活动'
         },
         focusedWork: '高质量专注',
