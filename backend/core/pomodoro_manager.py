@@ -309,14 +309,20 @@ class PomodoroManager:
             session = await self.db.pomodoro_sessions.get_by_id(session_id)
 
             if session:
-                start_time = datetime.fromisoformat(session["start_time"])
-                actual_duration = int((end_time - start_time).total_seconds() / 60)
+                # Calculate actual work duration based on completed rounds
+                completed_rounds = session.get("completed_rounds", 0)
+                work_duration = session.get("work_duration_minutes", 25)
+                actual_work_minutes = completed_rounds * work_duration
+
+                logger.info(
+                    f"Session completed: {completed_rounds} rounds × {work_duration}min = {actual_work_minutes}min"
+                )
 
                 await self.db.pomodoro_sessions.update(
                     session_id,
                     status="completed",
                     end_time=end_time.isoformat(),
-                    actual_duration_minutes=actual_duration,
+                    actual_duration_minutes=actual_work_minutes,
                     current_phase="completed",
                 )
 
@@ -369,7 +375,7 @@ class PomodoroManager:
 
         session_id = self.current_session.id
         end_time = datetime.now()
-        duration = (end_time - self.current_session.start_time).total_seconds() / 60
+        elapsed_duration = (end_time - self.current_session.start_time).total_seconds() / 60
 
         # Cancel phase timer if running
         if session_id in self._processing_tasks:
@@ -379,14 +385,14 @@ class PomodoroManager:
 
         try:
             # Check if session is too short (< 2 minutes)
-            if duration < 2:
+            if elapsed_duration < 2:
                 logger.warning(
-                    f"Pomodoro session {session_id} too short ({duration:.1f}min), skipping analysis"
+                    f"Pomodoro session {session_id} too short ({elapsed_duration:.1f}min), skipping analysis"
                 )
                 await self.db.pomodoro_sessions.update(
                     session_id=session_id,
                     end_time=end_time.isoformat(),
-                    actual_duration_minutes=int(duration),
+                    actual_duration_minutes=int(elapsed_duration),
                     status="too_short",
                     processing_status="skipped",
                 )
@@ -440,11 +446,30 @@ class PomodoroManager:
                     )
                 )
 
+            # ★ Calculate actual work duration based on completed rounds (not elapsed time) ★
+            # This ensures statistics reflect pure focus time, excluding breaks
+            if session:
+                completed_rounds = session.get("completed_rounds", 0)
+                # If we just ended during a work phase, include it
+                if session.get("current_phase") == "work":
+                    completed_rounds = session.get("completed_rounds", 0) + 1
+
+                work_duration = session.get("work_duration_minutes", 25)
+                actual_work_minutes = completed_rounds * work_duration
+
+                logger.info(
+                    f"Session duration: elapsed={elapsed_duration:.1f}min, "
+                    f"actual_work={actual_work_minutes}min (based on {completed_rounds} completed rounds)"
+                )
+            else:
+                # Fallback: use elapsed time if we can't get session data
+                actual_work_minutes = int(elapsed_duration)
+
             # Update database
             await self.db.pomodoro_sessions.update(
                 session_id=session_id,
                 end_time=end_time.isoformat(),
-                actual_duration_minutes=int(duration),
+                actual_duration_minutes=actual_work_minutes,
                 status=status,
                 processing_status="pending",
             )
@@ -457,7 +482,8 @@ class PomodoroManager:
 
             logger.info(
                 f"✓ Pomodoro session ended: {session_id}, "
-                f"status={status}, duration={duration:.1f}min, records={raw_count}"
+                f"status={status}, elapsed={elapsed_duration:.1f}min, "
+                f"actual_work={actual_work_minutes}min, records={raw_count}"
             )
 
             # Trigger batch processing in background
@@ -577,6 +603,9 @@ class PomodoroManager:
                 processing_completed_at=datetime.now().isoformat(),
             )
 
+            # Trigger LLM focus evaluation (async, non-blocking)
+            await self._compute_and_cache_llm_evaluation(session_id)
+
             logger.info(
                 f"✓ Pomodoro session processed: {session_id}, records={total_processed}"
             )
@@ -636,6 +665,59 @@ class PomodoroManager:
         except Exception as e:
             logger.debug(f"Failed to emit failure event: {e}")
 
+    async def _compute_and_cache_llm_evaluation(self, session_id: str) -> None:
+        """
+        Compute LLM focus evaluation and cache to database
+
+        Called after batch processing completes to pre-compute evaluation.
+        Failures are logged but don't block session completion.
+
+        Args:
+            session_id: Pomodoro session ID
+        """
+        try:
+            logger.info(f"Computing LLM focus evaluation for session {session_id}")
+
+            # Get session and activities
+            session = await self.db.pomodoro_sessions.get_by_id(session_id)
+            if not session:
+                logger.warning(f"Session {session_id} not found for LLM evaluation")
+                return
+
+            activities = await self.db.activities.get_by_pomodoro_session(session_id)
+
+            if not activities:
+                logger.info(f"No activities for session {session_id}, skipping LLM evaluation")
+                return
+
+            # Compute LLM evaluation
+            from llm.focus_evaluator import get_focus_evaluator
+
+            focus_evaluator = get_focus_evaluator()
+            llm_result = await focus_evaluator.evaluate_focus(
+                activities=activities,
+                session_info=session,
+            )
+
+            # Cache result to database
+            await self.db.pomodoro_sessions.update_llm_evaluation(
+                session_id, llm_result
+            )
+
+            logger.info(
+                f"✓ LLM evaluation cached for session {session_id}: "
+                f"score={llm_result.get('focus_score')}, "
+                f"level={llm_result.get('focus_level')}"
+            )
+
+        except Exception as e:
+            # Don't crash session completion if LLM evaluation fails
+            logger.error(
+                f"Failed to compute LLM evaluation for session {session_id}: {e}",
+                exc_info=True,
+            )
+            # Continue gracefully - evaluation can be computed on-demand later
+
     async def check_orphaned_sessions(self) -> int:
         """
         Check for orphaned sessions from previous runs
@@ -659,10 +741,20 @@ class PomodoroManager:
             for session in orphaned:
                 session_id = session["id"]
 
+                # Calculate actual work duration based on completed rounds
+                completed_rounds = session.get("completed_rounds", 0)
+                # If session was interrupted during a work phase, include it
+                if session.get("current_phase") == "work":
+                    completed_rounds += 1
+
+                work_duration = session.get("work_duration_minutes", 25)
+                actual_work_minutes = completed_rounds * work_duration
+
                 # Auto-end as 'interrupted'
                 await self.db.pomodoro_sessions.update(
                     session_id=session_id,
                     end_time=datetime.now().isoformat(),
+                    actual_duration_minutes=actual_work_minutes,
                     status="interrupted",
                     processing_status="pending",
                 )
@@ -671,7 +763,8 @@ class PomodoroManager:
                 await self._trigger_batch_processing(session_id)
 
                 logger.info(
-                    f"✓ Recovered orphaned session: {session_id}, triggering analysis"
+                    f"✓ Recovered orphaned session: {session_id}, "
+                    f"actual_work={actual_work_minutes}min, triggering analysis"
                 )
 
             return len(orphaned)

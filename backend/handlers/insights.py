@@ -11,20 +11,25 @@ from core.coordinator import get_coordinator
 from core.db import get_db
 from core.logger import get_logger
 from models.requests import (
+    CreateKnowledgeRequest,
     DeleteItemRequest,
     GenerateDiaryRequest,
     GetDiaryListRequest,
     GetRecentEventsRequest,
     GetTodoListRequest,
     ScheduleTodoRequest,
+    ToggleKnowledgeFavoriteRequest,
     UnscheduleTodoRequest,
 )
 from models.responses import (
+    CreateKnowledgeResponse,
     DeleteDiaryResponse,
     DiaryData,
     DiaryListData,
     GenerateDiaryResponse,
     GetDiaryListResponse,
+    KnowledgeData,
+    ToggleKnowledgeFavoriteResponse,
 )
 from perception.image_manager import get_image_manager
 
@@ -210,6 +215,119 @@ async def delete_knowledge(body: DeleteItemRequest) -> Dict[str, Any]:
             "message": f"Failed to delete knowledge: {str(e)}",
             "timestamp": datetime.now().isoformat(),
         }
+
+
+@api_handler(
+    body=ToggleKnowledgeFavoriteRequest,
+    method="POST",
+    path="/insights/toggle-knowledge-favorite",
+    tags=["insights"],
+    summary="Toggle knowledge favorite status",
+    description="Toggle the favorite status of a knowledge item",
+)
+async def toggle_knowledge_favorite(body: ToggleKnowledgeFavoriteRequest) -> ToggleKnowledgeFavoriteResponse:
+    """Toggle knowledge favorite status
+
+    @param body - Contains knowledge ID
+    @returns Updated knowledge data with new favorite status
+    """
+    try:
+        db, _ = _get_data_access()
+        new_favorite = await db.knowledge.toggle_favorite(body.id)
+
+        if new_favorite is None:
+            return ToggleKnowledgeFavoriteResponse(
+                success=False,
+                message="Knowledge not found",
+                timestamp=datetime.now().isoformat(),
+            )
+
+        # Get updated knowledge data
+        knowledge_list = await db.knowledge.get_list()
+        knowledge_item = next((k for k in knowledge_list if k["id"] == body.id), None)
+
+        if knowledge_item:
+            knowledge_data = KnowledgeData(**knowledge_item)
+            return ToggleKnowledgeFavoriteResponse(
+                success=True,
+                data=knowledge_data,
+                message=f"Knowledge {'favorited' if new_favorite else 'unfavorited'}",
+                timestamp=datetime.now().isoformat(),
+            )
+        else:
+            return ToggleKnowledgeFavoriteResponse(
+                success=False,
+                message="Failed to retrieve updated knowledge",
+                timestamp=datetime.now().isoformat(),
+            )
+
+    except Exception as e:
+        logger.error(f"Failed to toggle knowledge favorite: {e}", exc_info=True)
+        return ToggleKnowledgeFavoriteResponse(
+            success=False,
+            message=f"Failed to toggle knowledge favorite: {str(e)}",
+            timestamp=datetime.now().isoformat(),
+        )
+
+
+@api_handler(
+    body=CreateKnowledgeRequest,
+    method="POST",
+    path="/insights/create-knowledge",
+    tags=["insights"],
+    summary="Create knowledge manually",
+    description="Create a new knowledge item manually",
+)
+async def create_knowledge(body: CreateKnowledgeRequest) -> CreateKnowledgeResponse:
+    """Create knowledge manually
+
+    @param body - Contains title, description, and keywords
+    @returns Created knowledge data
+    """
+    try:
+        db, _ = _get_data_access()
+
+        # Generate unique ID
+        knowledge_id = str(uuid.uuid4())
+        created_at = datetime.now().isoformat()
+
+        # Save knowledge
+        await db.knowledge.save(
+            knowledge_id=knowledge_id,
+            title=body.title,
+            description=body.description,
+            keywords=body.keywords,
+            created_at=created_at,
+            source_action_id=None,  # Manual creation has no source action
+            favorite=False,
+        )
+
+        # Return created knowledge
+        knowledge_data = KnowledgeData(
+            id=knowledge_id,
+            title=body.title,
+            description=body.description,
+            keywords=body.keywords,
+            created_at=created_at,
+            source_action_id=None,
+            favorite=False,
+            deleted=False,
+        )
+
+        return CreateKnowledgeResponse(
+            success=True,
+            data=knowledge_data,
+            message="Knowledge created successfully",
+            timestamp=datetime.now().isoformat(),
+        )
+
+    except Exception as e:
+        logger.error(f"Failed to create knowledge: {e}", exc_info=True)
+        return CreateKnowledgeResponse(
+            success=False,
+            message=f"Failed to create knowledge: {str(e)}",
+            timestamp=datetime.now().isoformat(),
+        )
 
 
 # ============ Todo Related Interfaces ============

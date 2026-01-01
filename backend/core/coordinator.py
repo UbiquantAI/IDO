@@ -37,7 +37,8 @@ class PipelineCoordinator:
         self.processing_pipeline = None
         self.action_agent = None
         self.raw_agent = None
-        self.event_agent = None
+        # DISABLED: EventAgent removed - using action-based aggregation only
+        # self.event_agent = None
         self.session_agent = None
         self.todo_agent = None
         self.knowledge_agent = None
@@ -164,8 +165,9 @@ class PipelineCoordinator:
 
         # Pause all agents
         try:
-            if self.event_agent:
-                self.event_agent.pause()
+            # DISABLED: EventAgent removed - using action-based aggregation only
+            # if self.event_agent:
+            #     self.event_agent.pause()
             if self.session_agent:
                 self.session_agent.pause()
             if self.cleanup_agent:
@@ -184,8 +186,9 @@ class PipelineCoordinator:
 
         # Resume all agents
         try:
-            if self.event_agent:
-                self.event_agent.resume()
+            # DISABLED: EventAgent removed - using action-based aggregation only
+            # if self.event_agent:
+            #     self.event_agent.resume()
             if self.session_agent:
                 self.session_agent.resume()
             if self.cleanup_agent:
@@ -254,17 +257,18 @@ class PipelineCoordinator:
                 )
             )
 
-        if self.event_agent is None:
-            from agents.event_agent import EventAgent
-
-            processing_config = self.config.get("processing", {})
-            self.event_agent = EventAgent(
-                coordinator=self,
-                aggregation_interval=processing_config.get(
-                    "event_aggregation_interval", 600
-                ),
-                time_window_hours=processing_config.get("event_time_window_hours", 1),
-            )
+        # DISABLED: EventAgent removed - using action-based aggregation only
+        # if self.event_agent is None:
+        #     from agents.event_agent import EventAgent
+        #
+        #     processing_config = self.config.get("processing", {})
+        #     self.event_agent = EventAgent(
+        #         coordinator=self,
+        #         aggregation_interval=processing_config.get(
+        #             "event_aggregation_interval", 600
+        #         ),
+        #         time_window_hours=processing_config.get("event_time_window_hours", 1),
+        #     )
 
         if self.session_agent is None:
             from agents.session_agent import SessionAgent
@@ -387,9 +391,10 @@ class PipelineCoordinator:
                 logger.error("Action agent initialization failed")
                 raise Exception("Action agent initialization failed")
 
-            if not self.event_agent:
-                logger.error("Event agent initialization failed")
-                raise Exception("Event agent initialization failed")
+            # DISABLED: EventAgent removed - using action-based aggregation only
+            # if not self.event_agent:
+            #     logger.error("Event agent initialization failed")
+            #     raise Exception("Event agent initialization failed")
 
             if not self.session_agent:
                 logger.error("Session agent initialization failed")
@@ -422,7 +427,8 @@ class PipelineCoordinator:
             await asyncio.gather(
                 # self.perception_manager.start(),  # Disabled: starts with Pomodoro
                 self.processing_pipeline.start(),
-                self.event_agent.start(),
+                # DISABLED: EventAgent removed - using action-based aggregation only
+                # self.event_agent.start(),
                 self.session_agent.start(),
                 self.diary_agent.start(),
                 self.cleanup_agent.start(),
@@ -492,9 +498,10 @@ class PipelineCoordinator:
                 await self.session_agent.stop()
                 log("Session agent stopped")
 
-            if self.event_agent:
-                await self.event_agent.stop()
-                log("Event agent stopped")
+            # DISABLED: EventAgent removed - using action-based aggregation only
+            # if self.event_agent:
+            #     await self.event_agent.stop()
+            #     log("Event agent stopped")
 
             # Note: ActionAgent has no start/stop methods (it's stateless)
 
@@ -615,7 +622,8 @@ class PipelineCoordinator:
             perception_stats = {}
             processing_stats = {}
             action_agent_stats = {}
-            event_agent_stats = {}
+            # DISABLED: EventAgent removed - using action-based aggregation only
+            # event_agent_stats = {}
             session_agent_stats = {}
             todo_agent_stats = {}
             knowledge_agent_stats = {}
@@ -630,8 +638,9 @@ class PipelineCoordinator:
             if self.action_agent:
                 action_agent_stats = self.action_agent.get_stats()
 
-            if self.event_agent:
-                event_agent_stats = self.event_agent.get_stats()
+            # DISABLED: EventAgent removed - using action-based aggregation only
+            # if self.event_agent:
+            #     event_agent_stats = self.event_agent.get_stats()
 
             if self.session_agent:
                 session_agent_stats = self.session_agent.get_stats()
@@ -668,7 +677,8 @@ class PipelineCoordinator:
                 "perception": perception_stats,
                 "processing": processing_stats,
                 "action_agent": action_agent_stats,
-                "event_agent": event_agent_stats,
+                # DISABLED: EventAgent removed - using action-based aggregation only
+                # "event_agent": event_agent_stats,
                 "session_agent": session_agent_stats,
                 "todo_agent": todo_agent_stats,
                 "knowledge_agent": knowledge_agent_stats,
@@ -719,14 +729,15 @@ class PipelineCoordinator:
         # Keep processing loop running - do NOT cancel it
         # This allows Actions (30s) to continue normally
 
-        # NEW: Pause EventAgent during Pomodoro mode (action-based aggregation)
-        # We directly aggregate Actions → Activities, bypassing Events layer
-        try:
-            if self.event_agent:
-                self.event_agent.pause()
-                logger.debug("✓ EventAgent paused (using action-based aggregation)")
-        except Exception as e:
-            logger.error(f"Failed to pause EventAgent: {e}")
+        # DISABLED: EventAgent removed - using action-based aggregation only
+        # # NEW: Pause EventAgent during Pomodoro mode (action-based aggregation)
+        # # We directly aggregate Actions → Activities, bypassing Events layer
+        # try:
+        #     if self.event_agent:
+        #         self.event_agent.pause()
+        #         logger.debug("✓ EventAgent paused (using action-based aggregation)")
+        # except Exception as e:
+        #     logger.error(f"Failed to pause EventAgent: {e}")
 
         # Pause SessionAgent (activity generation deferred until phase ends)
         try:
@@ -771,13 +782,14 @@ class PipelineCoordinator:
 
         # Processing loop is still running - no need to resume
 
-        # Resume EventAgent (for Normal Mode event generation)
-        try:
-            if self.event_agent:
-                self.event_agent.resume()
-                logger.debug("✓ EventAgent resumed (Normal Mode event generation)")
-        except Exception as e:
-            logger.error(f"Failed to resume EventAgent: {e}")
+        # DISABLED: EventAgent removed - using action-based aggregation only
+        # # Resume EventAgent (for Normal Mode event generation)
+        # try:
+        #     if self.event_agent:
+        #         self.event_agent.resume()
+        #         logger.debug("✓ EventAgent resumed (Normal Mode event generation)")
+        # except Exception as e:
+        #     logger.error(f"Failed to resume EventAgent: {e}")
 
         # Resume SessionAgent and trigger immediate activity aggregation
         try:

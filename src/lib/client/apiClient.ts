@@ -610,6 +610,32 @@ export async function deleteKnowledge(
 }
 
 /**
+ * Toggle knowledge favorite status
+ *
+ * @param body - Contains knowledge ID
+ * @returns Updated knowledge data with new favorite status
+ */
+export async function toggleKnowledgeFavorite(
+    body: Commands["toggle_knowledge_favorite"]["input"],
+    options?: InvokeOptions
+): Promise<Commands["toggle_knowledge_favorite"]["output"]> {
+    return await pyInvoke("toggle_knowledge_favorite", body, options);
+}
+
+/**
+ * Create knowledge manually
+ *
+ * @param body - Contains title, description, and keywords
+ * @returns Created knowledge data
+ */
+export async function createKnowledge(
+    body: Commands["create_knowledge"]["input"],
+    options?: InvokeOptions
+): Promise<Commands["create_knowledge"]["output"]> {
+    return await pyInvoke("create_knowledge", body, options);
+}
+
+/**
  * Get todo list
  *
  * @param body - Request parameters, include include_completed
@@ -1125,6 +1151,20 @@ export async function getPomodoroSessionDetail(
     options?: InvokeOptions
 ): Promise<Commands["get_pomodoro_session_detail"]["output"]> {
     return await pyInvoke("get_pomodoro_session_detail", body, options);
+}
+
+/**
+ * Get Pomodoro statistics for a time period (week/month/year)
+ *
+ * Returns:
+ * - Period summary statistics (total sessions, focus hours, daily average, completion rate)
+ * - Daily breakdown data for visualization
+ */
+export async function getPomodoroPeriodStats(
+    body: Commands["get_pomodoro_period_stats"]["input"],
+    options?: InvokeOptions
+): Promise<Commands["get_pomodoro_period_stats"]["output"]> {
+    return await pyInvoke("get_pomodoro_period_stats", body, options);
 }
 
 /**

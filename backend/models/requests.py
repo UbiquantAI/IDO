@@ -833,3 +833,25 @@ class DeleteDiariesByDateRequest(BaseModel):
 
     start_date: str = Field(..., pattern=r"^\d{4}-\d{2}-\d{2}$")
     end_date: str = Field(..., pattern=r"^\d{4}-\d{2}-\d{2}$")
+
+
+class ToggleKnowledgeFavoriteRequest(BaseModel):
+    """Request parameters for toggling knowledge favorite status.
+
+    @property id - Knowledge ID to toggle favorite status
+    """
+
+    id: str
+
+
+class CreateKnowledgeRequest(BaseModel):
+    """Request parameters for manually creating knowledge.
+
+    @property title - Knowledge title
+    @property description - Knowledge description
+    @property keywords - List of keywords/tags
+    """
+
+    title: str = Field(..., min_length=1, max_length=500)
+    description: str = Field(..., min_length=1)
+    keywords: List[str] = Field(default_factory=list)

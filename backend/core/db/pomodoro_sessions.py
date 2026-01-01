@@ -546,3 +546,64 @@ class PomodoroSessionsRepository(BaseRepository):
                 exc_info=True,
             )
             raise
+
+    async def update_llm_evaluation(
+        self,
+        session_id: str,
+        evaluation_result: Dict[str, Any]
+    ) -> None:
+        """
+        Save LLM evaluation result to database
+
+        Args:
+            session_id: Session ID
+            evaluation_result: Complete LLM evaluation dict (will be JSON-serialized)
+        """
+        try:
+            from datetime import datetime
+
+            with self._get_conn() as conn:
+                conn.execute(
+                    """
+                    UPDATE pomodoro_sessions
+                    SET llm_evaluation_result = ?,
+                        llm_evaluation_computed_at = ?,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE id = ?
+                    """,
+                    (
+                        json.dumps(evaluation_result),
+                        datetime.now().isoformat(),
+                        session_id,
+                    ),
+                )
+                conn.commit()
+                logger.debug(f"Saved LLM evaluation for session {session_id}")
+        except Exception as e:
+            logger.error(
+                f"Failed to save LLM evaluation for session {session_id}: {e}",
+                exc_info=True,
+            )
+            raise
+
+    async def get_llm_evaluation(self, session_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Retrieve cached LLM evaluation result
+
+        Args:
+            session_id: Session ID
+
+        Returns:
+            LLM evaluation dict or None if not cached
+        """
+        try:
+            session = await self.get_by_id(session_id)
+            if not session or not session.get("llm_evaluation_result"):
+                return None
+
+            return json.loads(session["llm_evaluation_result"])
+        except Exception as e:
+            logger.warning(
+                f"Failed to retrieve cached LLM evaluation for {session_id}: {e}"
+            )
+            return None

@@ -29,6 +29,7 @@ class KnowledgeRepository(BaseRepository):
         *,
         created_at: Optional[str] = None,
         source_action_id: Optional[str] = None,
+        favorite: bool = False,
     ) -> None:
         """Save or update knowledge"""
         try:
@@ -38,8 +39,8 @@ class KnowledgeRepository(BaseRepository):
                     """
                     INSERT OR REPLACE INTO knowledge (
                         id, title, description, keywords,
-                        source_action_id, created_at, deleted
-                    ) VALUES (?, ?, ?, ?, ?, ?, 0)
+                        source_action_id, created_at, deleted, favorite
+                    ) VALUES (?, ?, ?, ?, ?, ?, 0, ?)
                     """,
                     (
                         knowledge_id,
@@ -48,6 +49,7 @@ class KnowledgeRepository(BaseRepository):
                         json.dumps(keywords, ensure_ascii=False),
                         source_action_id,
                         created,
+                        int(favorite),
                     ),
                 )
                 conn.commit()
@@ -66,6 +68,7 @@ class KnowledgeRepository(BaseRepository):
                         "keywords": keywords,
                         "created_at": created,
                         "source_action_id": source_action_id,
+                        "favorite": favorite,
                         "type": "original",
                     }
                 )
@@ -89,7 +92,7 @@ class KnowledgeRepository(BaseRepository):
             with self._get_conn() as conn:
                 cursor = conn.execute(
                     f"""
-                    SELECT id, title, description, keywords, source_action_id, created_at, deleted
+                    SELECT id, title, description, keywords, source_action_id, created_at, deleted, favorite
                     FROM knowledge
                     {base_where}
                     ORDER BY created_at DESC
@@ -99,6 +102,12 @@ class KnowledgeRepository(BaseRepository):
 
             knowledge_list: List[Dict[str, Any]] = []
             for row in rows:
+                # Handle favorite field which might not exist in older databases
+                try:
+                    favorite = bool(row["favorite"])
+                except (KeyError, IndexError):
+                    favorite = False
+
                 knowledge_list.append(
                     {
                         "id": row["id"],
@@ -110,6 +119,7 @@ class KnowledgeRepository(BaseRepository):
                         "source_action_id": row["source_action_id"],
                         "created_at": row["created_at"],
                         "deleted": bool(row["deleted"]),
+                        "favorite": favorite,
                     }
                 )
 
@@ -187,6 +197,51 @@ class KnowledgeRepository(BaseRepository):
                 exc_info=True,
             )
             return 0
+
+    async def toggle_favorite(self, knowledge_id: str) -> Optional[bool]:
+        """Toggle favorite status of knowledge
+
+        Returns:
+            New favorite status (True/False) if successful, None if knowledge not found
+        """
+        try:
+            with self._get_conn() as conn:
+                # Get current favorite status
+                cursor = conn.execute(
+                    "SELECT favorite FROM knowledge WHERE id = ? AND deleted = 0",
+                    (knowledge_id,)
+                )
+                row = cursor.fetchone()
+
+                if not row:
+                    logger.warning(f"Knowledge {knowledge_id} not found or deleted")
+                    return None
+
+                current_favorite = bool(row["favorite"])
+                new_favorite = not current_favorite
+
+                # Update favorite status
+                conn.execute(
+                    "UPDATE knowledge SET favorite = ? WHERE id = ?",
+                    (int(new_favorite), knowledge_id)
+                )
+                conn.commit()
+
+                logger.debug(f"Toggled favorite for knowledge {knowledge_id}: {new_favorite}")
+
+                # Send update event to frontend
+                from core.events import emit_knowledge_updated
+
+                emit_knowledge_updated({
+                    "id": knowledge_id,
+                    "favorite": new_favorite
+                })
+
+                return new_favorite
+
+        except Exception as e:
+            logger.error(f"Failed to toggle favorite for knowledge {knowledge_id}: {e}", exc_info=True)
+            raise
 
     async def get_count_by_date(self) -> Dict[str, int]:
         """

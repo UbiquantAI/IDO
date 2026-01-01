@@ -39,6 +39,7 @@ CREATE_KNOWLEDGE_TABLE = """
         source_action_id TEXT,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
         deleted BOOLEAN DEFAULT 0,
+        favorite BOOLEAN DEFAULT 0,
         FOREIGN KEY (source_action_id) REFERENCES actions(id) ON DELETE SET NULL
     )
 """
@@ -246,6 +247,8 @@ CREATE_POMODORO_SESSIONS_TABLE = """
         processing_started_at TEXT,
         processing_completed_at TEXT,
         processing_error TEXT,
+        llm_evaluation_result TEXT,
+        llm_evaluation_computed_at TEXT,
         interruption_count INTEGER DEFAULT 0,
         interruption_reasons TEXT,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
@@ -269,6 +272,11 @@ CREATE_KNOWLEDGE_DELETED_INDEX = """
 CREATE_KNOWLEDGE_SOURCE_ACTION_INDEX = """
     CREATE INDEX IF NOT EXISTS idx_knowledge_source_action
     ON knowledge(source_action_id)
+"""
+
+CREATE_KNOWLEDGE_FAVORITE_INDEX = """
+    CREATE INDEX IF NOT EXISTS idx_knowledge_favorite
+    ON knowledge(favorite)
 """
 
 CREATE_TODOS_CREATED_INDEX = """
@@ -468,6 +476,7 @@ ALL_INDEXES = [
     CREATE_KNOWLEDGE_CREATED_INDEX,
     CREATE_KNOWLEDGE_DELETED_INDEX,
     CREATE_KNOWLEDGE_SOURCE_ACTION_INDEX,
+    CREATE_KNOWLEDGE_FAVORITE_INDEX,
     CREATE_TODOS_CREATED_INDEX,
     CREATE_TODOS_COMPLETED_INDEX,
     CREATE_TODOS_DELETED_INDEX,
@@ -527,6 +536,18 @@ MIGRATE_ACTIVITIES_SET_EXISTING_MODE = """
     UPDATE activities SET aggregation_mode = 'event_based' WHERE aggregation_mode IS NULL AND source_event_ids IS NOT NULL;
 """
 
+MIGRATE_KNOWLEDGE_ADD_FAVORITE = """
+    ALTER TABLE knowledge ADD COLUMN favorite BOOLEAN DEFAULT 0;
+"""
+
+MIGRATE_POMODORO_ADD_LLM_EVALUATION = """
+    ALTER TABLE pomodoro_sessions ADD COLUMN llm_evaluation_result TEXT;
+"""
+
+MIGRATE_POMODORO_ADD_LLM_EVALUATION_TIMESTAMP = """
+    ALTER TABLE pomodoro_sessions ADD COLUMN llm_evaluation_computed_at TEXT;
+"""
+
 # All migration queries to run for existing databases
 ALL_MIGRATIONS = [
     MIGRATE_ACTIVITIES_ADD_POMODORO_FIELDS,
@@ -535,4 +556,7 @@ ALL_MIGRATIONS = [
     MIGRATE_ACTIVITIES_ADD_SOURCE_ACTION_IDS,
     MIGRATE_ACTIVITIES_ADD_AGGREGATION_MODE,
     MIGRATE_ACTIVITIES_SET_EXISTING_MODE,
+    MIGRATE_KNOWLEDGE_ADD_FAVORITE,
+    MIGRATE_POMODORO_ADD_LLM_EVALUATION,
+    MIGRATE_POMODORO_ADD_LLM_EVALUATION_TIMESTAMP,
 ]

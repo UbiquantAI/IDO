@@ -90,12 +90,12 @@ export const en = {
     saveSchedule: 'Save Schedule',
     todoCompleted: 'Todo completed',
     completeFailed: 'Failed to complete todo',
-    todoUnscheduled: 'Todo unscheduled',
+    todoUnscheduledMessage: 'Todo unscheduled',
     unscheduleFailed: 'Failed to unschedule todo',
     scheduleUpdated: 'Schedule updated',
     scheduleUpdateFailed: 'Failed to update schedule',
     completed: 'Completed',
-    todoScheduled: 'Todo Scheduled',
+    todoScheduled: 'Scheduled',
     scheduleFailed: 'Failed to schedule todo',
     redirectingToChat: 'Redirecting to chat...',
     executeInChatFailed: 'Failed to execute task in chat',
@@ -103,6 +103,9 @@ export const en = {
     deleteFailed: 'Failed to delete todo',
     deleteSuccess: 'Deleted successfully',
     todoPending: 'Pending',
+    todoUnscheduled: 'To Do',
+    noUnscheduledTodos: 'No pending tasks',
+    noScheduledTodos: 'No scheduled tasks',
     viewDetails: 'View Details',
     createdAt: 'Created at',
     todoDescription: 'Description',
@@ -114,7 +117,43 @@ export const en = {
     unscheduledTodo: 'This todo has not been scheduled yet',
     scheduleDate: 'Schedule Date',
     scheduleHint: 'Set the date and time, then click "Schedule" to save',
-    schedule: 'Schedule'
+    schedule: 'Schedule',
+    viewModeCalendar: 'Calendar View',
+    viewModeCards: 'Cards View',
+    estimatedPomodoros: 'Estimated Pomodoros',
+    addNewTodo: 'Add new task...',
+    todoStatusPending: 'Pending',
+    todoStatusAll: 'All',
+    noCompletedTodos: 'No completed todos',
+    noTodos: 'No todos',
+    priorityHigh: 'High Priority',
+    priorityMedium: 'Medium Priority',
+    priorityLow: 'Low Priority',
+    pomodoros: 'Pomodoros',
+    todosGeneratedFromActivities: 'AI will automatically generate todos from your activities',
+    // Knowledge new features
+    newNote: 'New Note',
+    searchKnowledge: 'Search knowledge...',
+    allKnowledge: 'All',
+    favorites: 'Favorites',
+    recent: 'Recent',
+    categories: 'Categories',
+    allCategories: 'All',
+    favorited: 'Added to favorites',
+    unfavorited: 'Removed from favorites',
+    knowledgeCreated: 'Knowledge created successfully',
+    createKnowledgeFailed: 'Failed to create knowledge',
+    createNote: 'Create Note',
+    cancel: 'Cancel',
+    noteTitle: 'Title',
+    noteDescription: 'Description',
+    noteKeywords: 'Keywords (comma separated)',
+    enterTitle: 'Enter title...',
+    enterDescription: 'Enter description...',
+    enterKeywords: 'e.g. React, TypeScript, Hooks',
+    noFavoriteKnowledge: 'No favorite knowledge yet',
+    noRecentKnowledge: 'No recent knowledge yet',
+    categoryCount: 'items'
   },
   menu: {
     dashboard: 'Dashboard',
@@ -671,16 +710,39 @@ export const en = {
       description: 'Customize your focus session settings',
       presets: 'Presets',
       custom: 'Custom',
-      workDuration: 'Work Duration',
-      breakDuration: 'Break Duration',
-      totalRounds: 'Total Rounds',
+      workDuration: 'Work',
+      breakDuration: 'Break',
+      totalRounds: 'Rounds',
       rounds: 'rounds',
-      minutes: 'minutes',
+      minutes: 'min',
       summary: 'Summary',
       totalTime: 'Total Time'
     },
     presets: {
       quickSetup: 'Quick Setup'
+    },
+    modes: {
+      classic: 'Classic',
+      deep: 'Deep',
+      quick: 'Quick',
+      focus: 'Focus'
+    },
+    timer: {
+      inProgress: ' in progress',
+      round: 'Round',
+      reset: 'Reset'
+    },
+    taskSelector: {
+      noTask: 'No task selected',
+      selectOrCreate: 'Select or create task',
+      enterManually: 'Enter task manually...',
+      pendingTodos: 'Pending TODOs',
+      clearTask: 'Clear task'
+    },
+    stats: {
+      completedToday: 'Completed today',
+      focusMinutes: 'Focus minutes',
+      focusHours: 'Focus hours'
     },
     phase: {
       work: 'Work',
@@ -696,12 +758,13 @@ export const en = {
     },
     todoAssociation: {
       linkTodo: 'Link TODO',
+      linkedTodo: 'Linked TODO',
       selectTodo: 'Select a TODO (optional)',
       noTodoSelected: 'No TODO selected',
       optional: 'Optional',
       noTodos: 'No pending TODOs available'
     },
-    start: 'Start Pomodoro',
+    start: 'Start',
     end: 'End Session',
     started: 'Pomodoro session started',
     ended: 'Session ended. Captured {{count}} records',
@@ -720,9 +783,32 @@ export const en = {
       selectDate: 'Select Date',
       session: 'Session',
       sessions: 'Sessions',
+      round: 'round',
+      rounds: 'rounds',
       on: 'on',
       noSessionsFound: 'No sessions found for this date',
       selectSessionPrompt: 'Select a session from the list to view details',
+      period: {
+        week: 'This Week',
+        month: 'This Month',
+        year: 'This Year'
+      },
+      overview: {
+        weeklyTotal: 'Weekly Total',
+        focusHours: 'Focus Hours',
+        dailyAverage: 'Daily Average',
+        completionRate: 'Completion Rate'
+      },
+      weeklyFocus: {
+        title: 'Daily Focus Time',
+        subtitle: 'Past 7 days Pomodoro completion status',
+        sessions: 'sessions',
+        minutes: 'min'
+      },
+      recentSessions: {
+        title: 'Recent Sessions',
+        subtitle: "Today's focus records"
+      },
       focusMetrics: {
         title: 'Focus Metrics',
         overallScore: 'Overall Focus Score',
@@ -774,7 +860,38 @@ export const en = {
       retryAggregation: 'Retry Activity Aggregation',
       retrying: 'Processing...',
       retrySuccess: 'Work phase {{phase}} aggregation triggered successfully',
-      retryError: 'Failed to retry aggregation'
+      retryError: 'Failed to retry aggregation',
+      sessionDetails: 'Session Details',
+      loadingSession: 'Loading session data...',
+      aiAnalysis: {
+        title: 'AI Analysis',
+        viewDetails: 'View Details',
+        computing: 'Computing AI analysis...',
+        dimensionScores: 'Focus Dimensions',
+        dimensions: {
+          topic_consistency: 'Topic Consistency',
+          duration_depth: 'Duration Depth',
+          switching_rhythm: 'Switching Rhythm',
+          work_quality: 'Work Quality',
+          goal_orientation: 'Goal Orientation'
+        },
+        workContext: 'Work Context',
+        workTypes: {
+          development: 'Development',
+          writing: 'Writing',
+          learning: 'Learning',
+          research: 'Research',
+          communication: 'Communication',
+          unclear: 'Mixed Activities'
+        },
+        focusedWork: 'High-Quality Focus',
+        deepWork: 'min deep work',
+        strengths: 'Strengths',
+        weaknesses: 'Areas for Improvement',
+        suggestions: 'Suggestions',
+        distractionAlert: 'Distraction Detected',
+        distractionText: 'Approximately {{percentage}}% of time spent on non-focused activities'
+      }
     }
   },
   debug: {

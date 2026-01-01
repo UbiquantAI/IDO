@@ -13,6 +13,7 @@ from typing import Any, Dict, List, Optional
 from core.db import get_db
 from core.events import emit_pomodoro_session_deleted
 from core.logger import get_logger
+from llm.focus_evaluator import get_focus_evaluator
 from models.base import BaseModel
 from models.responses import (
     DeletePomodoroSessionData,
@@ -21,6 +22,9 @@ from models.responses import (
     FocusMetrics,
     GetPomodoroSessionDetailRequest,
     GetPomodoroSessionDetailResponse,
+    LLMFocusAnalysis,
+    LLMFocusDimensionScores,
+    LLMFocusEvaluation,
     PhaseTimelineItem,
     PomodoroActivityData,
     PomodoroSessionData,
@@ -43,6 +47,13 @@ class GetPomodoroStatsRequest(BaseModel):
     date: str  # YYYY-MM-DD format
 
 
+class GetPomodoroPeriodStatsRequest(BaseModel):
+    """Request to get Pomodoro statistics for a time period"""
+
+    period: str  # "week", "month", or "year"
+    reference_date: Optional[str] = None  # YYYY-MM-DD format (defaults to today)
+
+
 # ============ Response Models ============
 
 
@@ -60,6 +71,34 @@ class GetPomodoroStatsResponse(TimedOperationResponse):
     """Response with Pomodoro statistics"""
 
     data: Optional[PomodoroStatsData] = None
+
+
+class DailyFocusData(BaseModel):
+    """Daily focus data for a specific day"""
+
+    day: str  # Day label (e.g., "Mon", "周一")
+    date: str  # YYYY-MM-DD format
+    sessions: int
+    minutes: int
+
+
+class PomodoroPeriodStatsData(BaseModel):
+    """Pomodoro statistics for a time period"""
+
+    period: str  # "week", "month", or "year"
+    start_date: str  # YYYY-MM-DD
+    end_date: str  # YYYY-MM-DD
+    weekly_total: int  # Total sessions in period
+    focus_hours: float  # Total focus hours
+    daily_average: float  # Average sessions per day
+    completion_rate: int  # Percentage of goal completion
+    daily_data: List[DailyFocusData]  # Daily breakdown
+
+
+class GetPomodoroPeriodStatsResponse(TimedOperationResponse):
+    """Response with Pomodoro period statistics"""
+
+    data: Optional[PomodoroPeriodStatsData] = None
 
 
 # ============ API Handlers ============
@@ -253,6 +292,75 @@ async def get_pomodoro_session_detail(
             f"focus score: {focus_metrics.overall_focus_score:.2f}"
         )
 
+        # LLM-based focus evaluation (cache-first with on-demand fallback)
+        llm_evaluation = None
+        try:
+            # Step 1: Try to load from cache first
+            cached_result = await db.pomodoro_sessions.get_llm_evaluation(body.session_id)
+
+            if cached_result:
+                # Cache hit - use cached result
+                logger.debug(f"Using cached LLM evaluation for {body.session_id}")
+                llm_evaluation = LLMFocusEvaluation(
+                    focus_score=cached_result["focus_score"],
+                    focus_level=cached_result["focus_level"],
+                    dimension_scores=LLMFocusDimensionScores(**cached_result["dimension_scores"]),
+                    analysis=LLMFocusAnalysis(**cached_result["analysis"]),
+                    work_type=cached_result["work_type"],
+                    is_focused_work=cached_result["is_focused_work"],
+                    distraction_percentage=cached_result["distraction_percentage"],
+                    deep_work_minutes=cached_result["deep_work_minutes"],
+                    context_summary=cached_result["context_summary"],
+                )
+            else:
+                # Step 2: Cache miss - compute on-demand (backward compatibility)
+                logger.info(
+                    f"Cache miss, computing on-demand LLM evaluation for {body.session_id}"
+                )
+
+                focus_evaluator = get_focus_evaluator()
+                llm_result = await focus_evaluator.evaluate_focus(
+                    activities=activities,
+                    session_info=session,
+                )
+
+                # Convert to Pydantic model
+                llm_evaluation = LLMFocusEvaluation(
+                    focus_score=llm_result["focus_score"],
+                    focus_level=llm_result["focus_level"],
+                    dimension_scores=LLMFocusDimensionScores(**llm_result["dimension_scores"]),
+                    analysis=LLMFocusAnalysis(**llm_result["analysis"]),
+                    work_type=llm_result["work_type"],
+                    is_focused_work=llm_result["is_focused_work"],
+                    distraction_percentage=llm_result["distraction_percentage"],
+                    deep_work_minutes=llm_result["deep_work_minutes"],
+                    context_summary=llm_result["context_summary"],
+                )
+
+                # Step 3: Cache the result for future requests
+                try:
+                    await db.pomodoro_sessions.update_llm_evaluation(
+                        body.session_id, llm_result
+                    )
+                    logger.info(f"Cached on-demand evaluation for {body.session_id}")
+                except Exception as cache_error:
+                    logger.warning(
+                        f"Failed to cache on-demand evaluation: {cache_error}"
+                    )
+                    # Continue - caching failure doesn't affect response
+
+                logger.info(
+                    f"LLM focus evaluation completed for {body.session_id}: "
+                    f"score={llm_evaluation.focus_score}, level={llm_evaluation.focus_level}"
+                )
+
+        except Exception as e:
+            logger.warning(
+                f"LLM focus evaluation failed for {body.session_id}: {e}. "
+                f"Continuing with basic metrics only."
+            )
+            # Continue without LLM evaluation - it's optional
+
         return GetPomodoroSessionDetailResponse(
             success=True,
             message="Session details retrieved",
@@ -260,6 +368,7 @@ async def get_pomodoro_session_detail(
                 session=session_with_pure_duration,
                 activities=activity_data_list,
                 focus_metrics=focus_metrics,
+                llm_focus_evaluation=llm_evaluation,
                 phase_timeline=phase_timeline,
             ),
             timestamp=datetime.now().isoformat(),
@@ -418,6 +527,129 @@ def _calculate_phase_timeline(session: Dict[str, Any]) -> List[Dict[str, Any]]:
             current_time = break_end
 
     return timeline
+
+
+@api_handler(
+    body=GetPomodoroPeriodStatsRequest,
+    method="POST",
+    path="/pomodoro/period-stats",
+    tags=["pomodoro"],
+)
+async def get_pomodoro_period_stats(
+    body: GetPomodoroPeriodStatsRequest,
+) -> GetPomodoroPeriodStatsResponse:
+    """
+    Get Pomodoro statistics for a time period (week/month/year)
+
+    Returns:
+    - Period summary statistics (total sessions, focus hours, daily average, completion rate)
+    - Daily breakdown data for visualization
+    """
+    try:
+        from datetime import timedelta
+
+        db = get_db()
+
+        # Get reference date (default to today)
+        if body.reference_date:
+            try:
+                reference_date = datetime.fromisoformat(body.reference_date).date()
+            except ValueError:
+                return GetPomodoroPeriodStatsResponse(
+                    success=False,
+                    message="Invalid reference_date format. Expected YYYY-MM-DD",
+                    timestamp=datetime.now().isoformat(),
+                )
+        else:
+            reference_date = datetime.now().date()
+
+        # Calculate period range
+        if body.period == "week":
+            # Last 7 days including today
+            start_date = reference_date - timedelta(days=6)
+            end_date = reference_date
+            daily_count = 7
+        elif body.period == "month":
+            # Last 30 days
+            start_date = reference_date - timedelta(days=29)
+            end_date = reference_date
+            daily_count = 30
+        elif body.period == "year":
+            # Last 365 days
+            start_date = reference_date - timedelta(days=364)
+            end_date = reference_date
+            daily_count = 365
+        else:
+            return GetPomodoroPeriodStatsResponse(
+                success=False,
+                message=f"Invalid period: {body.period}. Must be 'week', 'month', or 'year'",
+                timestamp=datetime.now().isoformat(),
+            )
+
+        # Fetch daily stats for the entire period
+        daily_data = []
+        total_sessions = 0
+        total_minutes = 0
+
+        current_date = start_date
+        while current_date <= end_date:
+            date_str = current_date.isoformat()
+            day_stats = await db.pomodoro_sessions.get_daily_stats(date_str)
+
+            # Get day label (weekday name)
+            day_label = current_date.strftime("%a")  # Mon, Tue, etc.
+
+            daily_data.append(
+                DailyFocusData(
+                    day=day_label,
+                    date=date_str,
+                    sessions=day_stats["completed_count"],
+                    minutes=day_stats["total_focus_minutes"],
+                )
+            )
+
+            total_sessions += day_stats["completed_count"]
+            total_minutes += day_stats["total_focus_minutes"]
+
+            current_date += timedelta(days=1)
+
+        # Calculate summary statistics
+        focus_hours = round(total_minutes / 60, 1)
+        daily_average = round(total_sessions / daily_count, 1)
+
+        # Calculate completion rate (assume goal of 4 sessions per day)
+        goal_sessions_per_day = 4
+        total_goal = daily_count * goal_sessions_per_day
+        completion_rate = min(100, int((total_sessions / total_goal) * 100)) if total_goal > 0 else 0
+
+        logger.debug(
+            f"Retrieved Pomodoro period stats for {body.period}: "
+            f"{total_sessions} sessions, {focus_hours} hours"
+        )
+
+        return GetPomodoroPeriodStatsResponse(
+            success=True,
+            message=f"Retrieved statistics for {body.period}",
+            data=PomodoroPeriodStatsData(
+                period=body.period,
+                start_date=start_date.isoformat(),
+                end_date=end_date.isoformat(),
+                weekly_total=total_sessions,
+                focus_hours=focus_hours,
+                daily_average=daily_average,
+                completion_rate=completion_rate,
+                daily_data=daily_data,
+            ),
+            timestamp=datetime.now().isoformat(),
+        )
+
+    except Exception as e:
+        logger.error(f"Failed to get Pomodoro period stats: {e}", exc_info=True)
+        return GetPomodoroPeriodStatsResponse(
+            success=False,
+            message=f"Failed to get period statistics: {str(e)}",
+            timestamp=datetime.now().isoformat(),
+        )
 
 
 @api_handler(

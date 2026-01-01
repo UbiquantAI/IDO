@@ -5,7 +5,9 @@ import { toast } from 'sonner'
 import { useInsightsStore } from '@/lib/stores/insights'
 import { PendingTodoList } from '@/components/insights/PendingTodoList'
 import { TodoCalendarView } from '@/components/insights/TodoCalendarView'
+import { TodoCardsView } from '@/components/insights/TodoCardsView'
 import { TodosDetailDialog } from '@/components/insights/TodosDetailDialog'
+import { ViewModeToggle } from '@/components/insights/ViewModeToggle'
 import { LoadingPage } from '@/components/shared/LoadingPage'
 import { Bot } from 'lucide-react'
 import { EmptyState } from '@/components/shared/EmptyState'
@@ -21,9 +23,14 @@ import {
 } from '@/lib/drag/todoDragController'
 import { useTodoSync } from '@/hooks/useTodoSync'
 
+type ViewMode = 'calendar' | 'cards'
+
 export default function AITodosView() {
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
+
+  // View mode state
+  const [viewMode, setViewMode] = useState<ViewMode>('calendar')
 
   // Enable TODO auto-sync
   useTodoSync()
@@ -92,7 +99,7 @@ export default function AITodosView() {
     async (todo: InsightTodo) => {
       try {
         await unscheduleTodo(todo.id)
-        toast.success(t('insights.todoUnscheduled', 'Todo unscheduled'))
+        toast.success(t('insights.todoUnscheduledMessage', 'Todo unscheduled'))
         setDialogOpen(false)
       } catch (error) {
         console.error('Failed to unschedule todo:', error)
@@ -252,6 +259,37 @@ export default function AITodosView() {
     return <LoadingPage message={t('insights.loading', 'Loading...')} />
   }
 
+  // Cards view mode - full-width single column layout
+  if (viewMode === 'cards') {
+    return (
+      <div className="flex h-full flex-col">
+        {/* Header with view toggle */}
+        <div className="mx-auto w-full max-w-5xl border-b px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-xl font-semibold">{t('insights.pendingTodos', 'Pending Todos')}</h1>
+              <p className="text-muted-foreground text-sm">{t('insights.todosGeneratedFromActivities')}</p>
+            </div>
+            <ViewModeToggle viewMode={viewMode} onViewModeChange={setViewMode} />
+          </div>
+        </div>
+
+        {/* Cards view content */}
+        <div className="flex-1 overflow-hidden">
+          <div className="mx-auto h-full w-full max-w-5xl">
+            <TodoCardsView
+              todos={todos}
+              onComplete={handleCompleteTodo}
+              onDelete={handleDeleteTodo}
+              onExecuteInChat={handleExecuteInChat}
+            />
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Calendar view mode - original three-column layout
   return (
     <div className="flex h-full">
       {/* Left column: calendar */}
@@ -259,6 +297,7 @@ export default function AITodosView() {
         <PageHeader
           title={t('insights.calendar', 'Calendar')}
           description={t('insights.calendarDesc', 'Drag todos to the calendar to schedule execution time')}
+          actions={<ViewModeToggle viewMode={viewMode} onViewModeChange={setViewMode} />}
         />
         <div className="flex-1 overflow-hidden">
           <TodoCalendarView todos={scheduledTodos} selectedDate={selectedDate} onDateSelect={handleDateClick} />

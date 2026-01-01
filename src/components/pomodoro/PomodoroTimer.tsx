@@ -1,21 +1,18 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Clock, Play, Square, ChevronDown, ChevronUp, Coffee, Settings } from 'lucide-react'
+import { Play, Square, RotateCcw, Clock, Coffee } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { Card, CardContent } from '@/components/ui/card'
 import { toast } from 'sonner'
 import { startPomodoro, endPomodoro, getPomodoroStatus } from '@/lib/client/apiClient'
 import { usePomodoroStore } from '@/lib/stores/pomodoro'
 import { useInsightsStore } from '@/lib/stores/insights'
 import { usePomodoroPhaseSwitched } from '@/hooks/useTauriEvents'
-import { PomodoroCountdown } from './PomodoroCountdown'
-import { PomodoroProgress } from './PomodoroProgress'
-import { PresetButtons } from './PresetButtons'
-import { SessionInfoCard } from './SessionInfoCard'
 import { TodoAssociationSelector } from './TodoAssociationSelector'
+import { PomodoroTimerDisplay } from './PomodoroTimerDisplay'
+import { PomodoroModeSelector } from './PomodoroModeSelector'
+import { PomodoroStats } from './PomodoroStats'
 import { cn } from '@/lib/utils'
 
 export function PomodoroTimer() {
@@ -26,7 +23,7 @@ export function PomodoroTimer() {
   const [userIntent, setUserIntent] = useState('')
   const [selectedTodoId, setSelectedTodoId] = useState<string | null>(null)
 
-  // Listen for phase switches (work → break or break → work)
+  // Listen for phase switches (work -> break or break -> work)
   usePomodoroPhaseSwitched((payload) => {
     console.log('[Pomodoro] Phase switched:', payload)
 
@@ -53,8 +50,11 @@ export function PomodoroTimer() {
       })
   })
 
-  // Auto-fill userIntent when todo is selected
+  // Auto-fill userIntent when todo is selected (only when idle)
   useEffect(() => {
+    // Don't auto-fill when session is active - preserve session data
+    if (status === 'active') return
+
     if (selectedTodoId) {
       const selectedTodo = todos.find((todo) => todo.id === selectedTodoId)
       if (selectedTodo) {
@@ -64,7 +64,20 @@ export function PomodoroTimer() {
       // Clear userIntent when todo is deselected
       setUserIntent('')
     }
-  }, [selectedTodoId, todos])
+  }, [selectedTodoId, todos, status])
+
+  // Sync local state with session data when session changes
+  useEffect(() => {
+    if (session && status === 'active') {
+      // Restore local state from session data
+      if (session.associatedTodoId) {
+        setSelectedTodoId(session.associatedTodoId)
+      }
+      if (session.userIntent) {
+        setUserIntent(session.userIntent)
+      }
+    }
+  }, [session, status])
 
   // Check for active session on mount
   useEffect(() => {
@@ -74,6 +87,13 @@ export function PomodoroTimer() {
         if (result.success && result.data) {
           setStatus('active')
           setSession(result.data)
+          // Restore local state from session
+          if (result.data.associatedTodoId) {
+            setSelectedTodoId(result.data.associatedTodoId)
+          }
+          if (result.data.userIntent) {
+            setUserIntent(result.data.userIntent)
+          }
         }
       } catch (err) {
         console.error('[Pomodoro] Failed to check status:', err)
@@ -198,6 +218,9 @@ export function PomodoroTimer() {
 
         // Immediately reset to idle state (don't wait for processing)
         reset()
+        // Clear local state
+        setUserIntent('')
+        setSelectedTodoId(null)
       } else {
         throw new Error(result.error || 'Failed to end Pomodoro')
       }
@@ -209,245 +232,151 @@ export function PomodoroTimer() {
     }
   }, [session, setStatus, setError, reset, t])
 
-  const adjustValue = useCallback(
-    (field: keyof typeof config, delta: number) => {
-      const currentValue = config[field]
-      let newValue = currentValue + delta
+  const handleReset = useCallback(() => {
+    setConfig({
+      workDurationMinutes: 25,
+      breakDurationMinutes: 5,
+      totalRounds: 2
+    })
+  }, [setConfig])
 
-      // Set limits based on field
-      if (field === 'totalRounds') {
-        newValue = Math.max(1, Math.min(8, newValue))
-      } else if (field === 'workDurationMinutes') {
-        newValue = Math.max(5, Math.min(120, newValue))
-      } else if (field === 'breakDurationMinutes') {
-        newValue = Math.max(1, Math.min(60, newValue))
-      }
-
-      setConfig({ ...config, [field]: newValue })
-    },
-    [config, setConfig]
-  )
+  // Get current phase info for display
+  const currentPhase = session?.currentPhase || 'work'
+  const isWorkPhase = currentPhase === 'work'
 
   return (
-    <Card className="w-full shadow-xl">
-      <CardContent className="space-y-8">
-        {status === 'idle' && (
-          <div className="space-y-8">
-            {/* TODO Association + Manual Input */}
-            <Card
-              className={cn(
-                'py-0 transition-all duration-300',
-                selectedTodoId
-                  ? 'border-primary/30 bg-primary/5 ring-primary/10 shadow-md ring-2'
-                  : 'border-border bg-muted/20'
-              )}>
-              <CardContent className="space-y-4 py-4">
-                {/* TODO Association */}
-                <TodoAssociationSelector selectedTodoId={selectedTodoId} onTodoSelect={setSelectedTodoId} />
+    <div className="flex w-full flex-col gap-4">
+      {/* Task Selector Card */}
+      <Card className="border-border">
+        <CardContent className="py-4">
+          <TodoAssociationSelector
+            selectedTodoId={selectedTodoId}
+            onTodoSelect={setSelectedTodoId}
+            userIntent={userIntent}
+            onUserIntentChange={setUserIntent}
+            disabled={status === 'active'}
+          />
+        </CardContent>
+      </Card>
 
-                {/* Main Input - Only show when no todo is selected */}
-                {!selectedTodoId && (
-                  <div className="space-y-2">
-                    <Label htmlFor="user-intent" className="text-base font-semibold">
-                      {t('pomodoro.intent.label')}
-                    </Label>
-                    <Input
-                      id="user-intent"
-                      placeholder={t('pomodoro.intent.placeholder')}
-                      value={userIntent}
-                      onChange={(e) => setUserIntent(e.target.value)}
-                      maxLength={200}
-                      className="text-base"
-                    />
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+      {/* Main Timer Card */}
+      <Card className="bg-background">
+        <CardContent className="space-y-4 py-4">
+          {/* Mode Selector Tabs - Only show when idle */}
+          {status === 'idle' && <PomodoroModeSelector />}
 
-            {/* Configuration Section - Left: Custom Controls, Right: Presets */}
-            <div className="flex flex-col gap-4 md:flex-row md:gap-6">
-              {/* Left: Quick Setup Presets */}
-              <div className="flex flex-1 flex-col gap-4 pt-2">
-                <h3 className="flex items-center gap-2 text-lg font-semibold">
-                  <Settings className="h-5 w-5" />
-                  {t('pomodoro.presets.quickSetup')}
-                </h3>
-                <PresetButtons layout="vertical" />
-              </div>
-              {/* Right: Circular Config Controls */}
-              <Card className="bg-muted/30 flex-2 border-2 py-0">
-                <CardHeader className="pt-4">
-                  <h3 className="flex items-center gap-2 text-lg font-semibold">
-                    <Clock className="h-5 w-5" />
-                    {t('pomodoro.config.custom')}
-                  </h3>
-                </CardHeader>
-                <CardContent className="pb-6">
-                  <div className="flex items-center justify-center gap-8">
-                    {/* Total Rounds */}
-                    <div className="flex flex-col items-center gap-3">
-                      <div className="relative flex flex-col items-center">
-                        {/* Up Arrow */}
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="hover:bg-muted/50 h-10 w-10 transition-all duration-200 hover:scale-110 active:scale-95"
-                          onClick={() => adjustValue('totalRounds', 1)}>
-                          <ChevronUp className="h-6 w-6" />
-                        </Button>
-                        {/* Circle with number */}
-                        <div
-                          className={cn(
-                            'group relative flex h-32 w-32 items-center justify-center rounded-full border-4 shadow-lg',
-                            'transition-all duration-300 ease-out',
-                            'border-border hover:border-muted-foreground',
-                            'from-card to-muted/50 bg-liner-to-br',
-                            'hover:ring-muted/20 hover:scale-105 hover:shadow-2xl hover:ring-4'
-                          )}>
-                          <span className="text-6xl font-bold tabular-nums">{config.totalRounds}</span>
-                        </div>
-                        {/* Down Arrow */}
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="hover:bg-muted/50 h-10 w-10 transition-all duration-200 hover:scale-110 active:scale-95"
-                          onClick={() => adjustValue('totalRounds', -1)}>
-                          <ChevronDown className="h-6 w-6" />
-                        </Button>
-                      </div>
-                      <span className="text-foreground text-sm font-semibold">{t('pomodoro.config.totalRounds')}</span>
-                    </div>
-
-                    {/* Work Duration */}
-                    <div className="flex flex-col items-center gap-3">
-                      <div className="relative flex flex-col items-center">
-                        {/* Up Arrow */}
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="hover:bg-muted/50 h-10 w-10 transition-all duration-200 hover:scale-110 active:scale-95"
-                          onClick={() => adjustValue('workDurationMinutes', 5)}>
-                          <ChevronUp className="h-6 w-6" />
-                        </Button>
-                        {/* Circle with number */}
-                        <div
-                          className={cn(
-                            'group relative flex h-32 w-32 items-center justify-center rounded-full border-4 shadow-lg',
-                            'transition-all duration-300 ease-out',
-                            'border-primary/40 hover:border-primary',
-                            'from-card to-primary/5 bg-liner-to-br',
-                            'hover:ring-primary/10 hover:scale-105 hover:shadow-2xl hover:ring-4'
-                          )}>
-                          <span className="text-6xl font-bold tabular-nums">{config.workDurationMinutes}</span>
-                          {/* Optional watermark icon */}
-                          <div className="absolute inset-0 flex items-center justify-center opacity-5">
-                            <Clock className="h-16 w-16" />
-                          </div>
-                        </div>
-                        {/* Down Arrow */}
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="hover:bg-muted/50 h-10 w-10 transition-all duration-200 hover:scale-110 active:scale-95"
-                          onClick={() => adjustValue('workDurationMinutes', -5)}>
-                          <ChevronDown className="h-6 w-6" />
-                        </Button>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Clock className="text-primary h-4 w-4" />
-                        <span className="text-foreground text-sm font-semibold">
-                          {t('pomodoro.config.workDuration')}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Break Duration */}
-                    <div className="flex flex-col items-center gap-3">
-                      <div className="relative flex flex-col items-center">
-                        {/* Up Arrow */}
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="hover:bg-muted/50 h-10 w-10 transition-all duration-200 hover:scale-110 active:scale-95"
-                          onClick={() => adjustValue('breakDurationMinutes', 1)}>
-                          <ChevronUp className="h-6 w-6" />
-                        </Button>
-                        {/* Circle with number */}
-                        <div
-                          className={cn(
-                            'group relative flex h-32 w-32 items-center justify-center rounded-full border-4 shadow-lg',
-                            'transition-all duration-300 ease-out',
-                            'border-chart-2/40 hover:border-chart-2',
-                            'from-card to-chart-2/5 bg-linear-to-br',
-                            'hover:ring-chart-2/10 hover:scale-105 hover:shadow-2xl hover:ring-4'
-                          )}>
-                          <span className="text-6xl font-bold tabular-nums">{config.breakDurationMinutes}</span>
-                          {/* Optional watermark icon */}
-                          <div className="absolute inset-0 flex items-center justify-center opacity-5">
-                            <Coffee className="h-16 w-16" />
-                          </div>
-                        </div>
-                        {/* Down Arrow */}
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="hover:bg-muted/50 h-10 w-10 transition-all duration-200 hover:scale-110 active:scale-95"
-                          onClick={() => adjustValue('breakDurationMinutes', -1)}>
-                          <ChevronDown className="h-6 w-6" />
-                        </Button>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Coffee className="text-chart-2 h-4 w-4" />
-                        <span className="text-foreground text-sm font-semibold">
-                          {t('pomodoro.config.breakDuration')}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Start Button */}
-            <Button onClick={handleStart} className="w-full shadow-lg transition-all hover:shadow-xl" size="lg">
-              <Play className="mr-2 h-5 w-5" />
-              {t('pomodoro.start')}
-            </Button>
-          </div>
-        )}
-
-        {status === 'active' && session && (
-          <div className="space-y-4">
-            {/* Session Info Card */}
-            <SessionInfoCard />
-
-            {/* Countdown + Progress - Side by side */}
-            <div className="flex flex-col items-center gap-4 md:flex-row md:items-center">
-              {/* Countdown - Takes equal space */}
-              <div className="flex flex-1 items-center justify-center pl-2">
-                <PomodoroCountdown />
-              </div>
-
-              {/* Progress - Takes equal space */}
-              <div className="flex flex-1 items-center justify-center">
-                <PomodoroProgress />
+          {/* Phase Indicator - Only show when active */}
+          {status === 'active' && session && (
+            <div className="flex justify-center">
+              <div
+                className={cn(
+                  'flex items-center gap-2 rounded-full px-4 py-1.5',
+                  isWorkPhase ? 'bg-primary text-primary-foreground' : 'bg-chart-2 text-white'
+                )}>
+                {isWorkPhase ? <Clock className="h-4 w-4" /> : <Coffee className="h-4 w-4" />}
+                <span className="text-sm font-medium">
+                  {isWorkPhase ? t('pomodoro.phase.work') : t('pomodoro.phase.break')}
+                  {t('pomodoro.timer.inProgress')}
+                </span>
               </div>
             </div>
+          )}
 
-            {/* End Button */}
-            <Button onClick={handleEnd} variant="destructive" className="w-full" size="lg">
-              <Square className="mr-2 h-5 w-5" />
-              {t('pomodoro.end')}
-            </Button>
-          </div>
-        )}
+          {/* Timer Display with adjusters (idle) or countdown (active) */}
+          <PomodoroTimerDisplay />
 
-        {error && (
-          <div className="bg-destructive/10 text-destructive rounded-md p-3 text-sm">
-            <strong>{t('pomodoro.error.title')}:</strong> {error}
+          {/* Phase Duration Info - Only when active */}
+          {status === 'active' && session && (
+            <div className="text-muted-foreground text-center text-sm">
+              {isWorkPhase
+                ? `${session.workDurationMinutes || config.workDurationMinutes} ${t('pomodoro.config.minutes')} ${t('pomodoro.phase.work').toLowerCase()}`
+                : `${session.breakDurationMinutes || config.breakDurationMinutes} ${t('pomodoro.config.minutes')} ${t('pomodoro.phase.break').toLowerCase()}`}
+              {session.totalRounds && session.totalRounds > 1 && (
+                <span className="text-muted-foreground/70">
+                  {' '}
+                  · {t('pomodoro.timer.round')} {session.currentRound || 1}/{session.totalRounds}
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* Progress Bar */}
+          <div className="bg-muted mx-auto h-1.5 w-full max-w-md overflow-hidden rounded-full">
+            {status === 'active' && session ? (
+              <ProgressBar session={session} />
+            ) : (
+              <div className="bg-primary h-full w-0 transition-all duration-300" />
+            )}
           </div>
-        )}
-      </CardContent>
-    </Card>
+
+          {/* Control Buttons */}
+          <div className="flex items-center justify-center gap-3">
+            {status === 'idle' ? (
+              <>
+                <Button onClick={handleStart} disabled={!userIntent.trim()} className="gap-2 px-8" size="lg">
+                  <Play className="h-5 w-5" />
+                  {t('pomodoro.start')}
+                </Button>
+                <Button variant="outline" onClick={handleReset} className="gap-2" size="lg">
+                  <RotateCcw className="h-4 w-4" />
+                  {t('pomodoro.timer.reset')}
+                </Button>
+              </>
+            ) : (
+              <Button onClick={handleEnd} variant="destructive" className="gap-2 px-8" size="lg">
+                <Square className="h-5 w-5" />
+                {t('pomodoro.end')}
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Statistics Card */}
+      <PomodoroStats />
+
+      {error && (
+        <div className="bg-destructive/10 text-destructive rounded-md p-3 text-sm">
+          <strong>{t('pomodoro.error.title')}:</strong> {error}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Progress bar component
+function ProgressBar({ session }: { session: any }) {
+  const [progress, setProgress] = useState(0)
+
+  useEffect(() => {
+    const updateProgress = () => {
+      const currentPhase = session.currentPhase || 'work'
+      const isWorkPhase = currentPhase === 'work'
+      const phaseDurationSeconds = isWorkPhase
+        ? (session.workDurationMinutes || 25) * 60
+        : (session.breakDurationMinutes || 5) * 60
+
+      const phaseStartTime = session.phaseStartTime ? new Date(session.phaseStartTime).getTime() : null
+
+      if (phaseStartTime) {
+        const elapsedSeconds = Math.floor((Date.now() - phaseStartTime) / 1000)
+        const newProgress = Math.min(100, (elapsedSeconds / phaseDurationSeconds) * 100)
+        setProgress(newProgress)
+      }
+    }
+
+    updateProgress()
+    const interval = setInterval(updateProgress, 1000)
+    return () => clearInterval(interval)
+  }, [session])
+
+  const currentPhase = session.currentPhase || 'work'
+  const isWorkPhase = currentPhase === 'work'
+
+  return (
+    <div
+      className={cn('h-full transition-all duration-1000', isWorkPhase ? 'bg-primary' : 'bg-chart-2')}
+      style={{ width: `${progress}%` }}
+    />
   )
 }

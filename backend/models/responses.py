@@ -467,12 +467,45 @@ class FocusMetrics(BaseModel):
     focus_level: str  # Human-readable level: excellent/good/moderate/low
 
 
+class LLMFocusAnalysis(BaseModel):
+    """Detailed focus analysis from LLM evaluation"""
+
+    strengths: List[str]  # Focus strengths (2-4 items)
+    weaknesses: List[str]  # Focus weaknesses (1-3 items)
+    suggestions: List[str]  # Improvement suggestions (2-4 items)
+
+
+class LLMFocusDimensionScores(BaseModel):
+    """Detailed dimension scores from LLM evaluation"""
+
+    topic_consistency: int  # 0-100 score for topic consistency
+    duration_depth: int  # 0-100 score for duration depth
+    switching_rhythm: int  # 0-100 score for switching rhythm
+    work_quality: int  # 0-100 score for work quality
+    goal_orientation: int  # 0-100 score for goal orientation
+
+
+class LLMFocusEvaluation(BaseModel):
+    """Complete LLM-based focus evaluation result"""
+
+    focus_score: int  # 0-100 integer score
+    focus_level: str  # "excellent" | "good" | "moderate" | "low"
+    dimension_scores: LLMFocusDimensionScores  # Detailed dimension scores
+    analysis: LLMFocusAnalysis  # Detailed analysis
+    work_type: str  # Type of work (development/writing/learning/etc.)
+    is_focused_work: bool  # Whether it's high-quality focused work
+    distraction_percentage: int  # Distraction time percentage (0-100)
+    deep_work_minutes: float  # Deep work duration (minutes)
+    context_summary: str  # Overall work summary
+
+
 class PomodoroSessionDetailData(BaseModel):
     """Detailed Pomodoro session with activities and focus metrics"""
 
     session: Dict[str, Any]  # Full session data
     activities: List[PomodoroActivityData]
     focus_metrics: FocusMetrics  # Calculated focus metrics
+    llm_focus_evaluation: Optional[LLMFocusEvaluation] = None  # LLM-based detailed evaluation
     phase_timeline: List[PhaseTimelineItem] = []  # Work/break phase timeline
 
 
@@ -505,5 +538,31 @@ class DeletePomodoroSessionResponse(TimedOperationResponse):
     """Response after deleting a Pomodoro session"""
 
     data: Optional[DeletePomodoroSessionData] = None
+
+
+# Knowledge responses
+class KnowledgeData(BaseModel):
+    """Knowledge item data"""
+
+    id: str
+    title: str
+    description: str
+    keywords: List[str]
+    created_at: Optional[str] = None
+    source_action_id: Optional[str] = None
+    favorite: bool = False
+    deleted: bool = False
+
+
+class ToggleKnowledgeFavoriteResponse(TimedOperationResponse):
+    """Response after toggling knowledge favorite status"""
+
+    data: Optional[KnowledgeData] = None
+
+
+class CreateKnowledgeResponse(TimedOperationResponse):
+    """Response after creating knowledge"""
+
+    data: Optional[KnowledgeData] = None
 
 

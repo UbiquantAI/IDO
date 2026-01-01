@@ -92,12 +92,12 @@ export const zhCN = {
     saveSchedule: '保存调度',
     todoCompleted: '待办已完成',
     completeFailed: '完成待办失败',
-    todoUnscheduled: '待办已取消调度',
+    todoUnscheduledMessage: '待办已取消调度',
     unscheduleFailed: '取消调度失败',
     scheduleUpdated: '调度已更新',
     scheduleUpdateFailed: '更新调度失败',
     completed: '已完成',
-    todoScheduled: '待办已调度',
+    todoScheduled: '已调度',
     scheduleFailed: '调度待办失败',
     redirectingToChat: '正在跳转到对话...',
     executeInChatFailed: '在对话中执行任务失败',
@@ -105,6 +105,9 @@ export const zhCN = {
     deleteFailed: '删除待办失败',
     deleteSuccess: '删除成功',
     todoPending: '进行中',
+    todoUnscheduled: '待办',
+    noUnscheduledTodos: '暂无待办事项',
+    noScheduledTodos: '暂无进行中的事项',
     viewDetails: '查看详情',
     createdAt: '创建时间',
     todoDescription: '详细描述',
@@ -116,7 +119,43 @@ export const zhCN = {
     unscheduledTodo: '此待办尚未调度',
     scheduleDate: '调度日期',
     scheduleHint: '设置日期和时间后，点击"调度"按钮保存',
-    schedule: '调度'
+    schedule: '调度',
+    viewModeCalendar: '日历视图',
+    viewModeCards: '卡片视图',
+    estimatedPomodoros: '预计番茄钟',
+    addNewTodo: '添加新任务...',
+    todoStatusPending: '进行中',
+    todoStatusAll: '全部',
+    noCompletedTodos: '暂无已完成待办',
+    noTodos: '暂无待办',
+    priorityHigh: '高优先级',
+    priorityMedium: '中优先级',
+    priorityLow: '低优先级',
+    pomodoros: '番茄钟',
+    todosGeneratedFromActivities: 'AI 将根据你的活动自动生成待办',
+    // Knowledge new features
+    newNote: '新建笔记',
+    searchKnowledge: '搜索知识库...',
+    allKnowledge: '全部',
+    favorites: '收藏',
+    recent: '最近',
+    categories: '分类',
+    allCategories: '全部',
+    favorited: '已收藏',
+    unfavorited: '已取消收藏',
+    knowledgeCreated: '知识创建成功',
+    createKnowledgeFailed: '创建知识失败',
+    createNote: '创建笔记',
+    cancel: '取消',
+    noteTitle: '标题',
+    noteDescription: '描述',
+    noteKeywords: '关键词（逗号分隔）',
+    enterTitle: '输入标题...',
+    enterDescription: '输入描述...',
+    enterKeywords: '例如：React, TypeScript, Hooks',
+    noFavoriteKnowledge: '暂无收藏的知识',
+    noRecentKnowledge: '暂无最近的知识',
+    categoryCount: '条'
   },
   menu: {
     dashboard: '仪表盘',
@@ -667,9 +706,9 @@ export const zhCN = {
       description: '自定义你的专注会话设置',
       presets: '预设方案',
       custom: '自定义',
-      workDuration: '工作时长',
-      breakDuration: '休息时长',
-      totalRounds: '总轮次',
+      workDuration: '工作',
+      breakDuration: '休息',
+      totalRounds: '轮次',
       rounds: '轮',
       minutes: '分钟',
       summary: '摘要',
@@ -677,6 +716,29 @@ export const zhCN = {
     },
     presets: {
       quickSetup: '快速设置'
+    },
+    modes: {
+      classic: '经典',
+      deep: '深度',
+      quick: '快速',
+      focus: '专注'
+    },
+    timer: {
+      inProgress: '中',
+      round: '轮次',
+      reset: '重置'
+    },
+    taskSelector: {
+      noTask: '还未选择任务',
+      selectOrCreate: '选择或创建任务',
+      enterManually: '手动输入任务...',
+      pendingTodos: '待办事项',
+      clearTask: '清除任务'
+    },
+    stats: {
+      completedToday: '今日完成',
+      focusMinutes: '专注分钟',
+      focusHours: '专注小时'
     },
     phase: {
       work: '工作',
@@ -692,12 +754,13 @@ export const zhCN = {
     },
     todoAssociation: {
       linkTodo: '关联待办',
+      linkedTodo: '已关联待办',
       selectTodo: '选择待办（可选）',
       noTodoSelected: '未选择待办',
       optional: '可选',
       noTodos: '暂无待办事项'
     },
-    start: '开始番茄钟',
+    start: '开始',
     end: '结束会话',
     started: '番茄钟会话已开始',
     ended: '会话已结束，捕获了 {{count}} 条记录',
@@ -716,9 +779,32 @@ export const zhCN = {
       selectDate: '选择日期',
       session: '会话',
       sessions: '会话',
+      round: '轮',
+      rounds: '轮',
       on: '于',
       noSessionsFound: '该日期没有找到会话记录',
       selectSessionPrompt: '从列表中选择一个会话以查看详情',
+      period: {
+        week: '本周',
+        month: '本月',
+        year: '本年'
+      },
+      overview: {
+        weeklyTotal: '本周总计',
+        focusHours: '专注时长',
+        dailyAverage: '日均专注',
+        completionRate: '完成率'
+      },
+      weeklyFocus: {
+        title: '每日专注时间',
+        subtitle: '过去7天的番茄钟完成情况',
+        sessions: '个番茄钟',
+        minutes: '分钟'
+      },
+      recentSessions: {
+        title: '最近会话',
+        subtitle: '今天的专注记录'
+      },
       focusMetrics: {
         title: '专注度指标',
         overallScore: '总体专注度分数',
@@ -769,7 +855,38 @@ export const zhCN = {
       retryAggregation: '重试活动聚合',
       retrying: '处理中...',
       retrySuccess: '工作阶段 {{phase}} 的活动聚合已触发',
-      retryError: '重试聚合失败'
+      retryError: '重试聚合失败',
+      sessionDetails: '会话详情',
+      loadingSession: '正在加载会话数据...',
+      aiAnalysis: {
+        title: 'AI 分析',
+        viewDetails: '查看详细分析',
+        computing: '正在生成 AI 分析...',
+        dimensionScores: '专注度维度评分',
+        dimensions: {
+          topic_consistency: '主题一致性',
+          duration_depth: '时长深度',
+          switching_rhythm: '切换节奏',
+          work_quality: '工作质量',
+          goal_orientation: '目标导向'
+        },
+        workContext: '工作上下文',
+        workTypes: {
+          development: '开发',
+          writing: '写作',
+          learning: '学习',
+          research: '研究',
+          communication: '沟通',
+          unclear: '混合活动'
+        },
+        focusedWork: '高质量专注',
+        deepWork: '分钟深度工作',
+        strengths: '优点',
+        weaknesses: '待改进',
+        suggestions: '改进建议',
+        distractionAlert: '检测到分心',
+        distractionText: '约 {{percentage}}% 的时间花费在非专注活动上'
+      }
     }
   },
   debug: {
