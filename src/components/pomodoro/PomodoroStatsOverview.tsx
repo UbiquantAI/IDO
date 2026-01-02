@@ -44,7 +44,7 @@ export function PomodoroStatsOverview({ weeklyTotal, focusHours, dailyAverage, c
       {stats.map((stat, index) => {
         const Icon = stat.icon
         return (
-          <Card key={index} className="border-border">
+          <Card key={index} className="shadow-none">
             <CardContent>
               <div className="flex items-center justify-between">
                 <div className="flex flex-col gap-1">

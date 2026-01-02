@@ -247,7 +247,7 @@ export function PomodoroTimer() {
   return (
     <div className="flex w-full flex-col gap-4">
       {/* Task Selector Card */}
-      <Card className="border-border">
+      <Card className="shadow-none">
         <CardContent className="py-4">
           <TodoAssociationSelector
             selectedTodoId={selectedTodoId}
@@ -260,7 +260,7 @@ export function PomodoroTimer() {
       </Card>
 
       {/* Main Timer Card */}
-      <Card className="bg-background">
+      <Card className="bg-background shadow-none">
         <CardContent className="space-y-4 py-4">
           {/* Mode Selector Tabs - Only show when idle */}
           {status === 'idle' && <PomodoroModeSelector />}

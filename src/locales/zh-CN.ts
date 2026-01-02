@@ -146,6 +146,8 @@ export const zhCN = {
     unfavorited: '已取消收藏',
     knowledgeCreated: '知识创建成功',
     createKnowledgeFailed: '创建知识失败',
+    knowledgeUpdated: '知识更新成功',
+    updateKnowledgeFailed: '更新知识失败',
     createNote: '创建笔记',
     cancel: '取消',
     noteTitle: '标题',
@@ -156,7 +158,17 @@ export const zhCN = {
     enterKeywords: '例如：React, TypeScript, Hooks',
     noFavoriteKnowledge: '暂无收藏的知识',
     noRecentKnowledge: '暂无最近的知识',
-    categoryCount: '条'
+    categoryCount: '条',
+    view: '查看',
+    edit: '编辑',
+    save: '保存',
+    close: '关闭',
+    knowledgeDetails: '知识详情',
+    editKnowledge: '编辑知识',
+    viewKnowledgeDescription: '查看完整的知识条目',
+    editKnowledgeDescription: '更新知识条目的详细信息',
+    keywordsHint: '用逗号分隔多个关键词',
+    createNoteDescription: '添加新笔记到知识库'
   },
   menu: {
     dashboard: '仪表盘',

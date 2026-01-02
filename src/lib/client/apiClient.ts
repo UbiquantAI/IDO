@@ -636,6 +636,19 @@ export async function createKnowledge(
 }
 
 /**
+ * Update knowledge
+ *
+ * @param body - Contains knowledge ID, title, description, and keywords
+ * @returns Updated knowledge data
+ */
+export async function updateKnowledge(
+    body: Commands["update_knowledge"]["input"],
+    options?: InvokeOptions
+): Promise<Commands["update_knowledge"]["output"]> {
+    return await pyInvoke("update_knowledge", body, options);
+}
+
+/**
  * Get todo list
  *
  * @param body - Request parameters, include include_completed

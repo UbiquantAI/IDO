@@ -134,7 +134,8 @@ def main() -> int:
             )
             # ⭐ The CLI to run `json-schema-to-typescript`,
             # `--format=false` is optional to improve performance
-            json2ts_cmd = "pnpm json2ts --format=false"
+            # `--unknownAny=false` uses 'any' instead of 'unknown' for better compatibility
+            json2ts_cmd = "pnpm json2ts --format=false --unknownAny=false"
 
             # ⭐ Start the background task to generate TypeScript types
             portal.start_task_soon(

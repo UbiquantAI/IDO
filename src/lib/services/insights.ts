@@ -13,7 +13,8 @@ import {
   getEventCountByDate as getEventCountByDateCommand,
   getKnowledgeCountByDate as getKnowledgeCountByDateCommand,
   toggleKnowledgeFavorite as toggleKnowledgeFavoriteCommand,
-  createKnowledge as createKnowledgeCommand
+  createKnowledge as createKnowledgeCommand,
+  updateKnowledge as updateKnowledgeCommand
 } from '@/lib/client/apiClient'
 
 export interface InsightEvent {
@@ -182,6 +183,27 @@ export async function createKnowledge(
   const raw = await createKnowledgeCommand({ title, description, keywords })
   if (!raw?.success || !raw.data) {
     throw new Error(String(raw?.message ?? 'Failed to create knowledge'))
+  }
+  return {
+    id: String(raw.data.id ?? ''),
+    title: String(raw.data.title ?? ''),
+    description: String(raw.data.description ?? ''),
+    keywords: Array.isArray(raw.data.keywords) ? raw.data.keywords : [],
+    createdAt: typeof raw.data.createdAt === 'string' ? raw.data.createdAt : undefined,
+    favorite: Boolean(raw.data.favorite),
+    deleted: Boolean(raw.data.deleted)
+  }
+}
+
+export async function updateKnowledge(
+  id: string,
+  title: string,
+  description: string,
+  keywords: string[]
+): Promise<InsightKnowledge> {
+  const raw = await updateKnowledgeCommand({ id, title, description, keywords })
+  if (!raw?.success || !raw.data) {
+    throw new Error(String(raw?.message ?? 'Failed to update knowledge'))
   }
   return {
     id: String(raw.data.id ?? ''),

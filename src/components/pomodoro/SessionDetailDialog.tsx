@@ -1,17 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
-import {
-  Clock,
-  Activity,
-  TrendingUp,
-  Trash2,
-  Loader2,
-  Sparkles,
-  ChevronDown,
-  ThumbsUp,
-  AlertCircle,
-  Lightbulb
-} from 'lucide-react'
+import { Clock, Activity, TrendingUp, Trash2, Loader2, Sparkles, ThumbsUp, AlertCircle, Lightbulb } from 'lucide-react'
 import { useState, useCallback } from 'react'
 import { toast } from 'sonner'
 
@@ -26,7 +15,6 @@ import {
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
 import { FocusScoreVisualization } from './FocusScoreVisualization'
@@ -226,140 +214,131 @@ export function SessionDetailDialog({ sessionId, open, onOpenChange, onDeleted }
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <Collapsible defaultOpen={false}>
-                        <CollapsibleTrigger asChild>
-                          <Button variant="ghost" size="sm" className="w-full justify-between">
-                            <span className="flex items-center gap-2">
-                              <span>{t('pomodoro.review.aiAnalysis.viewDetails')}</span>
-                              <Badge variant="outline">
-                                {t(
-                                  `pomodoro.review.focusLevel.${(detailData.llmFocusEvaluation as any).focusLevel}` as any
-                                )}
-                              </Badge>
-                            </span>
-                            <ChevronDown className="h-4 w-4 transition-transform" />
-                          </Button>
-                        </CollapsibleTrigger>
+                      <div className="mb-4 flex items-center gap-2">
+                        <span className="text-sm font-medium">{t('pomodoro.review.aiAnalysis.viewDetails')}</span>
+                        <Badge variant="outline">
+                          {t(`pomodoro.review.focusLevel.${(detailData.llmFocusEvaluation as any).focusLevel}` as any)}
+                        </Badge>
+                      </div>
 
-                        <CollapsibleContent className="space-y-6 pt-4">
-                          {/* Dimension scores */}
-                          <div>
-                            <h4 className="mb-4 text-sm font-medium">
-                              {t('pomodoro.review.aiAnalysis.dimensionScores')}
-                            </h4>
-                            <div className="space-y-3">
-                              {Object.entries((detailData.llmFocusEvaluation as any).dimensionScores).map(
-                                ([key, value]: [string, any]) => (
-                                  <div key={key} className="space-y-1">
-                                    <div className="flex justify-between text-sm">
-                                      <span className="text-muted-foreground">
-                                        {t(`pomodoro.review.aiAnalysis.dimensions.${key}` as any)}
-                                      </span>
-                                      <span className="font-medium">{value}/100</span>
-                                    </div>
-                                    <Progress value={value} className="h-2" />
+                      <div className="space-y-6">
+                        {/* Dimension scores */}
+                        <div>
+                          <h4 className="mb-4 text-sm font-medium">
+                            {t('pomodoro.review.aiAnalysis.dimensionScores')}
+                          </h4>
+                          <div className="space-y-3">
+                            {Object.entries((detailData.llmFocusEvaluation as any).dimensionScores).map(
+                              ([key, value]: [string, any]) => (
+                                <div key={key} className="space-y-1">
+                                  <div className="flex justify-between text-sm">
+                                    <span className="text-muted-foreground">
+                                      {t(`pomodoro.review.aiAnalysis.dimensions.${key}` as any)}
+                                    </span>
+                                    <span className="font-medium">{value}/100</span>
                                   </div>
-                                )
-                              )}
-                            </div>
+                                  <Progress value={value} className="h-2" />
+                                </div>
+                              )
+                            )}
                           </div>
+                        </div>
 
-                          {/* Work context */}
-                          <div>
-                            <h4 className="mb-2 text-sm font-medium">{t('pomodoro.review.aiAnalysis.workContext')}</h4>
-                            <p className="text-muted-foreground text-sm">
-                              {(detailData.llmFocusEvaluation as any).contextSummary}
-                            </p>
-                            <div className="mt-2 flex flex-wrap gap-2">
-                              <Badge variant="outline">
-                                {t(
-                                  `pomodoro.review.aiAnalysis.workTypes.${(detailData.llmFocusEvaluation as any).workType}` as any
-                                )}
-                              </Badge>
-                              {(detailData.llmFocusEvaluation as any).isFocusedWork && (
-                                <Badge variant="default">{t('pomodoro.review.aiAnalysis.focusedWork')}</Badge>
+                        {/* Work context */}
+                        <div>
+                          <h4 className="mb-2 text-sm font-medium">{t('pomodoro.review.aiAnalysis.workContext')}</h4>
+                          <p className="text-muted-foreground text-sm">
+                            {(detailData.llmFocusEvaluation as any).contextSummary}
+                          </p>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            <Badge variant="outline">
+                              {t(
+                                `pomodoro.review.aiAnalysis.workTypes.${(detailData.llmFocusEvaluation as any).workType}` as any
                               )}
-                              <Badge variant="secondary">
-                                {(detailData.llmFocusEvaluation as any).deepWorkMinutes}{' '}
-                                {t('pomodoro.review.aiAnalysis.deepWork')}
-                              </Badge>
-                            </div>
+                            </Badge>
+                            {(detailData.llmFocusEvaluation as any).isFocusedWork && (
+                              <Badge variant="default">{t('pomodoro.review.aiAnalysis.focusedWork')}</Badge>
+                            )}
+                            <Badge variant="secondary">
+                              {(detailData.llmFocusEvaluation as any).deepWorkMinutes}{' '}
+                              {t('pomodoro.review.aiAnalysis.deepWork')}
+                            </Badge>
                           </div>
+                        </div>
 
-                          {/* Strengths */}
+                        {/* Strengths */}
+                        <div>
+                          <h4 className="mb-2 flex items-center gap-2 text-sm font-medium text-green-600">
+                            <ThumbsUp className="h-4 w-4" />
+                            {t('pomodoro.review.aiAnalysis.strengths')}
+                          </h4>
+                          <ul className="space-y-1">
+                            {(detailData.llmFocusEvaluation as any).analysis.strengths.map(
+                              (strength: string, idx: number) => (
+                                <li key={idx} className="text-muted-foreground flex items-start gap-2 text-sm">
+                                  <span className="shrink-0 text-green-600">✓</span>
+                                  <span className="flex-1">{strength}</span>
+                                </li>
+                              )
+                            )}
+                          </ul>
+                        </div>
+
+                        {/* Weaknesses */}
+                        {(detailData.llmFocusEvaluation as any).analysis.weaknesses.length > 0 && (
                           <div>
-                            <h4 className="mb-2 flex items-center gap-2 text-sm font-medium text-green-600">
-                              <ThumbsUp className="h-4 w-4" />
-                              {t('pomodoro.review.aiAnalysis.strengths')}
+                            <h4 className="mb-2 flex items-center gap-2 text-sm font-medium text-orange-600">
+                              <AlertCircle className="h-4 w-4" />
+                              {t('pomodoro.review.aiAnalysis.weaknesses')}
                             </h4>
                             <ul className="space-y-1">
-                              {(detailData.llmFocusEvaluation as any).analysis.strengths.map(
-                                (strength: string, idx: number) => (
+                              {(detailData.llmFocusEvaluation as any).analysis.weaknesses.map(
+                                (weakness: string, idx: number) => (
                                   <li key={idx} className="text-muted-foreground flex items-start gap-2 text-sm">
-                                    <span className="flex-shrink-0 text-green-600">✓</span>
-                                    <span className="flex-1">{strength}</span>
+                                    <span className="shrink-0 text-orange-600">!</span>
+                                    <span className="flex-1">{weakness}</span>
                                   </li>
                                 )
                               )}
                             </ul>
                           </div>
+                        )}
 
-                          {/* Weaknesses */}
-                          {(detailData.llmFocusEvaluation as any).analysis.weaknesses.length > 0 && (
-                            <div>
-                              <h4 className="mb-2 flex items-center gap-2 text-sm font-medium text-orange-600">
-                                <AlertCircle className="h-4 w-4" />
-                                {t('pomodoro.review.aiAnalysis.weaknesses')}
+                        {/* Suggestions */}
+                        <div>
+                          <h4 className="mb-2 flex items-center gap-2 text-sm font-medium text-blue-600">
+                            <Lightbulb className="h-4 w-4" />
+                            {t('pomodoro.review.aiAnalysis.suggestions')}
+                          </h4>
+                          <ul className="space-y-1">
+                            {(detailData.llmFocusEvaluation as any).analysis.suggestions.map(
+                              (suggestion: string, idx: number) => (
+                                <li key={idx} className="text-muted-foreground flex items-start gap-2 text-sm">
+                                  <span className="shrink-0 text-blue-600">→</span>
+                                  <span className="flex-1">{suggestion}</span>
+                                </li>
+                              )
+                            )}
+                          </ul>
+                        </div>
+
+                        {/* Distraction warning */}
+                        {(detailData.llmFocusEvaluation as any).distractionPercentage > 0 && (
+                          <div className="rounded-lg border border-orange-200 bg-orange-50 p-4">
+                            <div className="mb-2 flex items-center gap-2">
+                              <AlertCircle className="h-4 w-4 text-orange-600" />
+                              <h4 className="text-sm font-medium text-orange-900">
+                                {t('pomodoro.review.aiAnalysis.distractionAlert')}
                               </h4>
-                              <ul className="space-y-1">
-                                {(detailData.llmFocusEvaluation as any).analysis.weaknesses.map(
-                                  (weakness: string, idx: number) => (
-                                    <li key={idx} className="text-muted-foreground flex items-start gap-2 text-sm">
-                                      <span className="flex-shrink-0 text-orange-600">!</span>
-                                      <span className="flex-1">{weakness}</span>
-                                    </li>
-                                  )
-                                )}
-                              </ul>
                             </div>
-                          )}
-
-                          {/* Suggestions */}
-                          <div>
-                            <h4 className="mb-2 flex items-center gap-2 text-sm font-medium text-blue-600">
-                              <Lightbulb className="h-4 w-4" />
-                              {t('pomodoro.review.aiAnalysis.suggestions')}
-                            </h4>
-                            <ul className="space-y-1">
-                              {(detailData.llmFocusEvaluation as any).analysis.suggestions.map(
-                                (suggestion: string, idx: number) => (
-                                  <li key={idx} className="text-muted-foreground flex items-start gap-2 text-sm">
-                                    <span className="flex-shrink-0 text-blue-600">→</span>
-                                    <span className="flex-1">{suggestion}</span>
-                                  </li>
-                                )
-                              )}
-                            </ul>
+                            <p className="text-sm text-orange-700">
+                              {t('pomodoro.review.aiAnalysis.distractionText', {
+                                percentage: (detailData.llmFocusEvaluation as any).distractionPercentage
+                              })}
+                            </p>
                           </div>
-
-                          {/* Distraction warning */}
-                          {(detailData.llmFocusEvaluation as any).distractionPercentage > 0 && (
-                            <div className="rounded-lg border border-orange-200 bg-orange-50 p-4">
-                              <div className="mb-2 flex items-center gap-2">
-                                <AlertCircle className="h-4 w-4 text-orange-600" />
-                                <h4 className="text-sm font-medium text-orange-900">
-                                  {t('pomodoro.review.aiAnalysis.distractionAlert')}
-                                </h4>
-                              </div>
-                              <p className="text-sm text-orange-700">
-                                {t('pomodoro.review.aiAnalysis.distractionText', {
-                                  percentage: (detailData.llmFocusEvaluation as any).distractionPercentage
-                                })}
-                              </p>
-                            </div>
-                          )}
-                        </CollapsibleContent>
-                      </Collapsible>
+                        )}
+                      </div>
                     </CardContent>
                   </Card>
                 )}

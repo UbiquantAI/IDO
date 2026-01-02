@@ -11,7 +11,9 @@ import { KnowledgeCard } from '@/components/insights/KnowledgeCard'
 import { CategorySidebar } from '@/components/insights/CategorySidebar'
 import { KnowledgeFilterTabs } from '@/components/insights/KnowledgeFilterTabs'
 import { NewNoteDialog } from '@/components/insights/NewNoteDialog'
+import { KnowledgeDetailDialog } from '@/components/insights/KnowledgeDetailDialog'
 import { useKnowledgeSync } from '@/hooks/useKnowledgeSync'
+import type { InsightKnowledge } from '@/lib/services/insights'
 
 type FilterType = 'all' | 'favorites' | 'recent'
 
@@ -27,6 +29,7 @@ export default function AIKnowledgeView() {
   const removeKnowledge = useInsightsStore((state) => state.removeKnowledge)
   const toggleKnowledgeFavorite = useInsightsStore((state) => state.toggleKnowledgeFavorite)
   const createKnowledge = useInsightsStore((state) => state.createKnowledge)
+  const updateKnowledge = useInsightsStore((state) => state.updateKnowledge)
   const lastError = useInsightsStore((state) => state.lastError)
   const clearError = useInsightsStore((state) => state.clearError)
 
@@ -34,6 +37,8 @@ export default function AIKnowledgeView() {
   const [activeFilter, setActiveFilter] = useState<FilterType>('all')
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [newNoteDialogOpen, setNewNoteDialogOpen] = useState(false)
+  const [selectedKnowledge, setSelectedKnowledge] = useState<InsightKnowledge | null>(null)
+  const [detailDialogOpen, setDetailDialogOpen] = useState(false)
 
   useEffect(() => {
     void refreshKnowledge()
@@ -73,6 +78,21 @@ export default function AIKnowledgeView() {
       toast.error(t('insights.createKnowledgeFailed'))
       throw error
     }
+  }
+
+  const handleUpdateKnowledge = async (id: string, title: string, description: string, keywords: string[]) => {
+    try {
+      await updateKnowledge(id, title, description, keywords)
+      toast.success(t('insights.knowledgeUpdated', 'Knowledge updated successfully'))
+    } catch (error) {
+      toast.error(t('insights.updateKnowledgeFailed', 'Failed to update knowledge'))
+      throw error
+    }
+  }
+
+  const handleViewKnowledge = (knowledge: InsightKnowledge) => {
+    setSelectedKnowledge(knowledge)
+    setDetailDialogOpen(true)
   }
 
   // Filter knowledge based on active filter, category, and search
@@ -182,6 +202,7 @@ export default function AIKnowledgeView() {
                   knowledge={item}
                   onToggleFavorite={handleToggleFavorite}
                   onDelete={handleDelete}
+                  onView={handleViewKnowledge}
                 />
               ))}
             </div>
@@ -191,6 +212,14 @@ export default function AIKnowledgeView() {
 
       {/* New Note Dialog */}
       <NewNoteDialog open={newNoteDialogOpen} onOpenChange={setNewNoteDialogOpen} onCreateNote={handleCreateNote} />
+
+      {/* Knowledge Detail Dialog */}
+      <KnowledgeDetailDialog
+        knowledge={selectedKnowledge}
+        open={detailDialogOpen}
+        onOpenChange={setDetailDialogOpen}
+        onUpdate={handleUpdateKnowledge}
+      />
     </PageLayout>
   )
 }

@@ -20,6 +20,7 @@ from models.requests import (
     ScheduleTodoRequest,
     ToggleKnowledgeFavoriteRequest,
     UnscheduleTodoRequest,
+    UpdateKnowledgeRequest,
 )
 from models.responses import (
     CreateKnowledgeResponse,
@@ -30,6 +31,7 @@ from models.responses import (
     GetDiaryListResponse,
     KnowledgeData,
     ToggleKnowledgeFavoriteResponse,
+    UpdateKnowledgeResponse,
 )
 from perception.image_manager import get_image_manager
 
@@ -326,6 +328,70 @@ async def create_knowledge(body: CreateKnowledgeRequest) -> CreateKnowledgeRespo
         return CreateKnowledgeResponse(
             success=False,
             message=f"Failed to create knowledge: {str(e)}",
+            timestamp=datetime.now().isoformat(),
+        )
+
+
+@api_handler(
+    body=UpdateKnowledgeRequest,
+    method="POST",
+    path="/insights/update-knowledge",
+    tags=["insights"],
+    summary="Update knowledge",
+    description="Update an existing knowledge item",
+)
+async def update_knowledge(body: UpdateKnowledgeRequest) -> UpdateKnowledgeResponse:
+    """Update knowledge
+
+    @param body - Contains knowledge ID, title, description, and keywords
+    @returns Updated knowledge data
+    """
+    try:
+        db, _ = _get_data_access()
+
+        # Check if knowledge exists
+        knowledge_list = await db.knowledge.get_list()
+        knowledge_item = next((k for k in knowledge_list if k["id"] == body.id), None)
+
+        if not knowledge_item:
+            return UpdateKnowledgeResponse(
+                success=False,
+                message="Knowledge not found",
+                timestamp=datetime.now().isoformat(),
+            )
+
+        # Update knowledge
+        await db.knowledge.update(
+            knowledge_id=body.id,
+            title=body.title,
+            description=body.description,
+            keywords=body.keywords,
+        )
+
+        # Get updated knowledge
+        knowledge_list = await db.knowledge.get_list()
+        updated_knowledge = next((k for k in knowledge_list if k["id"] == body.id), None)
+
+        if updated_knowledge:
+            knowledge_data = KnowledgeData(**updated_knowledge)
+            return UpdateKnowledgeResponse(
+                success=True,
+                data=knowledge_data,
+                message="Knowledge updated successfully",
+                timestamp=datetime.now().isoformat(),
+            )
+        else:
+            return UpdateKnowledgeResponse(
+                success=False,
+                message="Failed to retrieve updated knowledge",
+                timestamp=datetime.now().isoformat(),
+            )
+
+    except Exception as e:
+        logger.error(f"Failed to update knowledge: {e}", exc_info=True)
+        return UpdateKnowledgeResponse(
+            success=False,
+            message=f"Failed to update knowledge: {str(e)}",
             timestamp=datetime.now().isoformat(),
         )
 

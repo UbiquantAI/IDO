@@ -135,7 +135,7 @@ export default function PomodoroReview() {
             </p>
 
             {sessions.length === 0 ? (
-              <Card>
+              <Card className="shadow-none">
                 <CardContent className="py-12 text-center">
                   <Target className="text-muted-foreground mx-auto h-12 w-12" />
                   <p className="text-muted-foreground mt-4">{t('pomodoro.review.noSessionsFound')}</p>

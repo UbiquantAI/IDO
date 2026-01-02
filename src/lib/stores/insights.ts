@@ -14,6 +14,7 @@ import {
   InsightTodo,
   toggleKnowledgeFavorite,
   createKnowledge,
+  updateKnowledge,
   type RecurrenceRule
 } from '@/lib/services/insights'
 
@@ -44,6 +45,7 @@ interface InsightsState {
   // Knowledge favorites
   toggleKnowledgeFavorite: (id: string) => Promise<void>
   createKnowledge: (title: string, description: string, keywords: string[]) => Promise<InsightKnowledge>
+  updateKnowledge: (id: string, title: string, description: string, keywords: string[]) => Promise<void>
 
   // Todo scheduling
   scheduleTodo: (
@@ -165,6 +167,18 @@ export const useInsightsStore = create<InsightsState>((set, get) => ({
       return newKnowledge
     } catch (error) {
       console.error('Failed to create knowledge:', error)
+      throw error
+    }
+  },
+
+  updateKnowledge: async (id: string, title: string, description: string, keywords: string[]) => {
+    try {
+      const updatedKnowledge = await updateKnowledge(id, title, description, keywords)
+      set((state) => ({
+        knowledge: state.knowledge.map((item) => (item.id === id ? updatedKnowledge : item))
+      }))
+    } catch (error) {
+      console.error('Failed to update knowledge:', error)
       throw error
     }
   },

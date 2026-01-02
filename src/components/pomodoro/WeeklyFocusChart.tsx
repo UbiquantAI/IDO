@@ -19,7 +19,7 @@ export function WeeklyFocusChart({ data }: WeeklyFocusChartProps) {
   const maxMinutes = Math.max(...data.map((d) => d.minutes), 1)
 
   return (
-    <Card className="border-border">
+    <Card className="shadow-none">
       <CardHeader>
         <CardTitle className="text-base">{t('pomodoro.review.weeklyFocus.title')}</CardTitle>
         <p className="text-muted-foreground text-sm">{t('pomodoro.review.weeklyFocus.subtitle')}</p>

@@ -75,7 +75,7 @@ export function PomodoroStats() {
   ]
 
   return (
-    <Card className="border-border">
+    <Card className="shadow-none">
       <CardContent className="py-4">
         <div className="divide-border grid grid-cols-3 divide-x">
           {statItems.map((item, index) => (

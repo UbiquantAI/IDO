@@ -566,3 +566,9 @@ class CreateKnowledgeResponse(TimedOperationResponse):
     data: Optional[KnowledgeData] = None
 
 
+class UpdateKnowledgeResponse(TimedOperationResponse):
+    """Response after updating knowledge"""
+
+    data: Optional[KnowledgeData] = None
+
+

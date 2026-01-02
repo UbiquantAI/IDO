@@ -144,6 +144,8 @@ export const en = {
     unfavorited: 'Removed from favorites',
     knowledgeCreated: 'Knowledge created successfully',
     createKnowledgeFailed: 'Failed to create knowledge',
+    knowledgeUpdated: 'Knowledge updated successfully',
+    updateKnowledgeFailed: 'Failed to update knowledge',
     createNote: 'Create Note',
     cancel: 'Cancel',
     noteTitle: 'Title',
@@ -154,7 +156,17 @@ export const en = {
     enterKeywords: 'e.g. React, TypeScript, Hooks',
     noFavoriteKnowledge: 'No favorite knowledge yet',
     noRecentKnowledge: 'No recent knowledge yet',
-    categoryCount: 'items'
+    categoryCount: 'items',
+    view: 'View',
+    edit: 'Edit',
+    save: 'Save',
+    close: 'Close',
+    knowledgeDetails: 'Knowledge Details',
+    editKnowledge: 'Edit Knowledge',
+    viewKnowledgeDescription: 'View the complete knowledge item',
+    editKnowledgeDescription: 'Update the knowledge item details',
+    keywordsHint: 'Separate keywords with commas',
+    createNoteDescription: 'Add a new note to your knowledge base'
   },
   menu: {
     dashboard: 'Dashboard',

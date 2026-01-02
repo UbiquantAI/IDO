@@ -855,3 +855,18 @@ class CreateKnowledgeRequest(BaseModel):
     title: str = Field(..., min_length=1, max_length=500)
     description: str = Field(..., min_length=1)
     keywords: List[str] = Field(default_factory=list)
+
+
+class UpdateKnowledgeRequest(BaseModel):
+    """Request parameters for updating knowledge.
+
+    @property id - Knowledge ID to update
+    @property title - Knowledge title
+    @property description - Knowledge description
+    @property keywords - List of keywords/tags
+    """
+
+    id: str
+    title: str = Field(..., min_length=1, max_length=500)
+    description: str = Field(..., min_length=1)
+    keywords: List[str] = Field(default_factory=list)

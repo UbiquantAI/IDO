@@ -149,6 +149,47 @@ class KnowledgeRepository(BaseRepository):
             )
             raise
 
+    async def update(
+        self,
+        knowledge_id: str,
+        title: str,
+        description: str,
+        keywords: List[str],
+    ) -> None:
+        """Update knowledge title, description, and keywords"""
+        try:
+            with self._get_conn() as conn:
+                conn.execute(
+                    """
+                    UPDATE knowledge
+                    SET title = ?, description = ?, keywords = ?
+                    WHERE id = ? AND deleted = 0
+                    """,
+                    (
+                        title,
+                        description,
+                        json.dumps(keywords, ensure_ascii=False),
+                        knowledge_id,
+                    ),
+                )
+                conn.commit()
+                logger.debug(f"Updated knowledge: {knowledge_id}")
+
+                # Send event to frontend
+                from core.events import emit_knowledge_updated
+
+                emit_knowledge_updated({
+                    "id": knowledge_id,
+                    "title": title,
+                    "description": description,
+                    "keywords": keywords,
+                })
+        except Exception as e:
+            logger.error(
+                f"Failed to update knowledge {knowledge_id}: {e}", exc_info=True
+            )
+            raise
+
     async def delete_batch(self, knowledge_ids: List[str]) -> int:
         """Soft delete multiple knowledge rows"""
         if not knowledge_ids:

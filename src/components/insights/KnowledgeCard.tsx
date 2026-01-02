@@ -1,7 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Star, Trash2, FileText } from 'lucide-react'
+import { Star, Trash2, FileText, Eye } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { InsightKnowledge } from '@/lib/services/insights'
 
@@ -9,9 +9,10 @@ interface KnowledgeCardProps {
   knowledge: InsightKnowledge
   onToggleFavorite: (id: string) => void
   onDelete: (id: string) => void
+  onView: (knowledge: InsightKnowledge) => void
 }
 
-export function KnowledgeCard({ knowledge, onToggleFavorite, onDelete }: KnowledgeCardProps) {
+export function KnowledgeCard({ knowledge, onToggleFavorite, onDelete, onView }: KnowledgeCardProps) {
   const { t } = useTranslation()
 
   // Get category from first keyword
@@ -25,7 +26,11 @@ export function KnowledgeCard({ knowledge, onToggleFavorite, onDelete }: Knowled
   }
 
   return (
-    <Card className="group relative shadow-sm transition-shadow hover:shadow-md">
+    <Card
+      className="group relative shadow-sm transition-shadow hover:shadow-md"
+      onClick={() => onView(knowledge)}
+      role="button"
+      tabIndex={0}>
       <CardHeader className="pb-3">
         <div className="flex items-start gap-3">
           <div className="min-w-0 flex-1">
@@ -43,7 +48,21 @@ export function KnowledgeCard({ knowledge, onToggleFavorite, onDelete }: Knowled
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => onToggleFavorite(knowledge.id)}
+              onClick={(e) => {
+                e.stopPropagation()
+                onView(knowledge)
+              }}
+              className="h-8 w-8"
+              title={t('insights.view')}>
+              <Eye className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={(e) => {
+                e.stopPropagation()
+                onToggleFavorite(knowledge.id)
+              }}
               className="h-8 w-8"
               title={knowledge.favorite ? t('insights.unfavorited') : t('insights.favorited')}>
               <Star className={`h-4 w-4 ${knowledge.favorite ? 'fill-yellow-400 text-yellow-400' : ''}`} />
@@ -51,7 +70,10 @@ export function KnowledgeCard({ knowledge, onToggleFavorite, onDelete }: Knowled
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => onDelete(knowledge.id)}
+              onClick={(e) => {
+                e.stopPropagation()
+                onDelete(knowledge.id)
+              }}
               className="h-8 w-8"
               title={t('insights.delete')}>
               <Trash2 className="h-4 w-4" />
