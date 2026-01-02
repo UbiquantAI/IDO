@@ -227,6 +227,42 @@ recent_events_count = 5  # Number of recent events to display (can be modified i
 # System language configuration, affects prompt selection
 default_language = "zh"  # zh | en
 
+# Pomodoro mode screenshot buffering configuration
+[pomodoro]
+# Enable screenshot buffering during Pomodoro sessions
+# Description: Batch RawRecord generation to reduce memory pressure
+# - true: Enable buffering (recommended for Pomodoro mode) ⭐
+# - false: Disable (use normal flow)
+enable_screenshot_buffering = true
+
+# Count threshold - trigger batch when this many screenshots accumulated
+# Description: With 1 screenshot/sec capture rate:
+# - 30: Batch every ~30 seconds (more frequent, less memory)
+# - 50: Batch every ~50 seconds (balanced) ⭐
+# - 100: Batch every ~100 seconds (less frequent, more memory)
+screenshot_buffer_count_threshold = 50
+
+# Time threshold - trigger batch after this many seconds elapsed
+# Description: Ensures timely processing even if screenshot rate is low
+# - 30: More frequent batching
+# - 60: Balanced (recommended) ⭐
+# - 120: Less frequent batching
+screenshot_buffer_time_threshold = 60
+
+# Maximum buffer size - emergency flush to prevent memory overflow
+# Description: Should be 2-4x count_threshold for safety
+# - 100: Conservative (2x count_threshold)
+# - 200: Standard (4x count_threshold) ⭐
+# - 300: Generous (6x count_threshold)
+screenshot_buffer_max_size = 200
+
+# Processing timeout - maximum time to wait for batch processing
+# Description: Timeout for LLM calls (should be 2x max LLM timeout)
+# - 600: 10 minutes (for fast LLM providers)
+# - 720: 12 minutes (recommended for most cases) ⭐
+# - 900: 15 minutes (for slow/local LLM providers)
+screenshot_buffer_processing_timeout = 720
+
 # Database configuration
 [database]
 # Database file path (relative to data directory or absolute path)

@@ -681,6 +681,27 @@ class SettingsManager:
         """
         return self.get("language.default_language", "zh")
 
+    # ======================== Pomodoro Buffering Configuration ========================
+
+    def get_pomodoro_buffering_config(self) -> Dict[str, Any]:
+        """Get Pomodoro screenshot buffering configuration
+
+        Returns:
+            Dictionary with buffering configuration:
+            - enabled: Whether buffering is enabled
+            - count_threshold: Number of screenshots to trigger batch
+            - time_threshold: Seconds elapsed to trigger batch
+            - max_buffer_size: Emergency flush limit
+            - processing_timeout: Timeout for LLM calls (seconds)
+        """
+        return {
+            "enabled": self.get("pomodoro.enable_screenshot_buffering", True),
+            "count_threshold": int(self.get("pomodoro.screenshot_buffer_count_threshold", 50)),
+            "time_threshold": float(self.get("pomodoro.screenshot_buffer_time_threshold", 60.0)),
+            "max_buffer_size": int(self.get("pomodoro.screenshot_buffer_max_size", 200)),
+            "processing_timeout": float(self.get("pomodoro.screenshot_buffer_processing_timeout", 720.0)),
+        }
+
     def set_language(self, language: str) -> bool:
         """Set application language
 

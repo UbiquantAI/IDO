@@ -93,6 +93,9 @@ class PerceptionManager:
         # Pomodoro mode state
         self.pomodoro_session_id: Optional[str] = None
 
+        # ImageConsumer for Pomodoro buffering (initialized when Pomodoro starts)
+        self.image_consumer: Optional[Any] = None
+
         # Event loop reference (set when start() is called)
         self._event_loop: Optional[asyncio.AbstractEventLoop] = None
 
@@ -217,22 +220,55 @@ class PerceptionManager:
 
         try:
             if record:  # Screenshot may be None (duplicate screenshots)
-                # Tag with Pomodoro session ID if active (for future use)
-                if self.pomodoro_session_id:
-                    record.data['pomodoro_session_id'] = self.pomodoro_session_id
+                # NEW: In Pomodoro mode with buffering, check timeout and route to ImageConsumer
+                if self.pomodoro_session_id and self.image_consumer:
+                    # Periodic timeout check (performance: ~1ms per check)
+                    self.image_consumer.check_processing_timeout()
 
-                # Always add to memory for real-time viewing and processing
-                self.storage.add_record(record)
-                self.event_buffer.add(record)
+                    # Send to ImageConsumer for buffering
+                    self.image_consumer.consume_screenshot(
+                        img_hash=record.data.get("hash", ""),
+                        timestamp=record.timestamp,
+                        monitor_index=record.data.get("monitor_index", 0),
+                        monitor_info=record.data.get("monitor", {}),
+                        active_window=record.data.get("active_window"),
+                        screenshot_path=record.screenshot_path or "",
+                        width=record.data.get("width", 0),
+                        height=record.data.get("height", 0),
+                    )
+                    # Don't process immediately - ImageConsumer will batch
+                    logger.debug(f"Screenshot buffered for Pomodoro session: {record.data.get('hash', '')[:8]}")
+                    return
 
-                if self.on_data_captured:
-                    self.on_data_captured(record)
+                # Normal flow (non-Pomodoro or buffering disabled)
+                self._on_screenshot_captured(record)
 
-                logger.debug(
-                    f"Screenshot recorded: {record.data.get('width', 0)}x{record.data.get('height', 0)}"
-                )
         except Exception as e:
             logger.error(f"Failed to process screenshot event: {e}")
+
+    def _on_screenshot_captured(self, record: RawRecord) -> None:
+        """Process captured screenshot (common path for buffered and normal flow)
+
+        Args:
+            record: RawRecord containing screenshot data
+        """
+        try:
+            # Tag with Pomodoro session ID if active
+            if self.pomodoro_session_id:
+                record.data['pomodoro_session_id'] = self.pomodoro_session_id
+
+            # Always add to memory for real-time viewing and processing
+            self.storage.add_record(record)
+            self.event_buffer.add(record)
+
+            if self.on_data_captured:
+                self.on_data_captured(record)
+
+            logger.debug(
+                f"Screenshot recorded: {record.data.get('width', 0)}x{record.data.get('height', 0)}"
+            )
+        except Exception as e:
+            logger.error(f"Failed to record screenshot: {e}")
 
     async def start(self) -> None:
         """Start perception manager"""
@@ -569,13 +605,93 @@ class PerceptionManager:
             session_id: Pomodoro session identifier
         """
         self.pomodoro_session_id = session_id
+
+        # Initialize ImageConsumer for this session
+        from core.settings import get_settings
+
+        config = get_settings().get_pomodoro_buffering_config()
+
+        if config["enabled"]:
+            from perception.image_consumer import ImageConsumer
+            from perception.image_manager import get_image_manager
+
+            self.image_consumer = ImageConsumer(
+                count_threshold=config["count_threshold"],
+                time_threshold=config["time_threshold"],
+                max_buffer_size=config["max_buffer_size"],
+                processing_timeout=config["processing_timeout"],
+                on_batch_ready=self._on_batch_ready,
+                image_manager=get_image_manager(),
+            )
+            logger.info(
+                f"✓ ImageConsumer initialized for Pomodoro session {session_id}: "
+                f"count_threshold={config['count_threshold']}, "
+                f"time_threshold={config['time_threshold']}s"
+            )
+        else:
+            logger.debug("Screenshot buffering disabled, using normal flow")
+
         logger.debug(f"✓ Pomodoro session set: {session_id}")
 
     def clear_pomodoro_session(self) -> None:
         """Clear Pomodoro session ID (exit Pomodoro mode)"""
         session_id = self.pomodoro_session_id
+
+        # Flush remaining screenshots before clearing
+        if self.image_consumer:
+            remaining = self.image_consumer.flush()
+            if remaining:
+                logger.info(f"Flushing {len(remaining)} buffered screenshots")
+                for record in remaining:
+                    # Tag with session ID and process normally
+                    record.data['pomodoro_session_id'] = session_id
+                    self._on_screenshot_captured(record)
+
+            # Get stats before cleanup
+            stats = self.image_consumer.get_stats()
+            logger.info(
+                f"ImageConsumer stats: batches={stats['batches_generated']}, "
+                f"records={stats['total_records_generated']}, "
+                f"cache_misses={stats['cache_misses']}, "
+                f"timeouts={stats['timeout_resets']}"
+            )
+
+            self.image_consumer = None
+
         self.pomodoro_session_id = None
         logger.debug(f"✓ Pomodoro session cleared: {session_id}")
+
+    def _on_batch_ready(
+        self,
+        raw_records: list,
+        on_completed: Callable[[bool], None],
+    ) -> None:
+        """
+        Batch ready callback from ImageConsumer
+
+        Args:
+            raw_records: List of RawRecord objects from batch
+            on_completed: Callback to invoke when batch processing completes
+                         Signature: (success: bool) -> None
+        """
+        logger.debug(f"Processing batch of {len(raw_records)} RawRecords")
+
+        try:
+            for record in raw_records:
+                # Tag with session ID (should already be set but ensure consistency)
+                if self.pomodoro_session_id:
+                    record.data['pomodoro_session_id'] = self.pomodoro_session_id
+
+                # Process through normal screenshot captured path
+                self._on_screenshot_captured(record)
+
+            # Batch processed successfully
+            on_completed(True)
+            logger.debug(f"✓ Batch of {len(raw_records)} records processed successfully")
+
+        except Exception as e:
+            logger.error(f"Failed to process batch: {e}", exc_info=True)
+            on_completed(False)
 
     async def _persist_raw_record(self, record: RawRecord) -> None:
         """

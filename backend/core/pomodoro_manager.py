@@ -242,6 +242,16 @@ class PomodoroManager:
                     )
                 )
 
+                # Flush ImageConsumer BEFORE stopping perception
+                # This ensures all buffered screenshots from work phase are processed
+                perception_manager = self.coordinator.perception_manager
+                if perception_manager and perception_manager.image_consumer:
+                    remaining = perception_manager.image_consumer.flush()
+                    logger.info(
+                        f"Flushed {len(remaining)} buffered screenshots on work→break transition "
+                        f"(session_id={session_id}, work_phase={current_round})"
+                    )
+
                 # Stop perception during break
                 await self.coordinator.exit_pomodoro_mode()
 
@@ -474,7 +484,17 @@ class PomodoroManager:
                 processing_status="pending",
             )
 
-            # Exit pomodoro mode
+            # IMPORTANT: Flush ImageConsumer BEFORE exiting Pomodoro mode
+            # This ensures all buffered screenshots are processed
+            perception_manager = self.coordinator.perception_manager
+            if perception_manager and perception_manager.image_consumer:
+                remaining = perception_manager.image_consumer.flush()
+                logger.info(
+                    f"Flushed {len(remaining)} buffered screenshots on session end "
+                    f"(session_id={session_id})"
+                )
+
+            # Exit pomodoro mode (this will also flush in PerceptionManager.clear_pomodoro_session)
             await self.coordinator.exit_pomodoro_mode()
 
             # Count raw records for this session
