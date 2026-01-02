@@ -52,7 +52,7 @@ export function MessageItem({ message, isStreaming, isThinking, onRetry }: Messa
       </div>
 
       {/* Content area */}
-      <div className="ml-12 space-y-3 overflow-hidden">
+      <div className="space-y-3 overflow-hidden">
         {/* Thinking animation */}
         {isThinking && (
           <div className="flex h-8 items-center gap-1.5 py-2">
