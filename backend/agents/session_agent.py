@@ -1457,12 +1457,18 @@ class SessionAgent:
             # Get focus evaluator
             focus_evaluator = get_focus_evaluator()
 
+            # Get session context (user intent and related todos) for better evaluation
+            session_context = await self._get_session_context(session_id)
+
             # Batch evaluate all activities in parallel
             logger.info(
                 f"Starting parallel LLM focus evaluation for {len(activities_to_save)} activities"
             )
             eval_tasks = [
-                focus_evaluator.evaluate_activity_focus(act) for act in activities_to_save
+                focus_evaluator.evaluate_activity_focus(
+                    act, session_context=session_context
+                )
+                for act in activities_to_save
             ]
             eval_results = await asyncio.gather(*eval_tasks, return_exceptions=True)
 
@@ -1666,6 +1672,55 @@ class SessionAgent:
                 exc_info=True,
             )
             return []
+
+    async def _get_session_context(
+        self, session_id: str
+    ) -> Dict[str, Any]:
+        """
+        Get session context including user intent and related todos
+
+        Args:
+            session_id: Pomodoro session ID
+
+        Returns:
+            Dictionary containing:
+                - user_intent: User's description of work goal (str)
+                - related_todos: List of related todo items (List[Dict])
+        """
+        try:
+            # Get session information
+            session = await self.db.pomodoro_sessions.get_by_id(session_id)
+            if not session:
+                logger.warning(f"Session {session_id} not found")
+                return {"user_intent": None, "related_todos": []}
+
+            user_intent = session.get("user_intent", "")
+            associated_todo_id = session.get("associated_todo_id")
+
+            # Get related todos
+            related_todos = []
+            if associated_todo_id:
+                # Fetch the specific associated todo
+                todo = await self.db.todos.get_by_id(associated_todo_id)
+                if todo and not todo.get("deleted", False):
+                    related_todos.append(todo)
+
+            logger.debug(
+                f"Session context for {session_id}: intent='{user_intent[:50] if user_intent else 'None'}', "
+                f"related_todos={len(related_todos)}"
+            )
+
+            return {
+                "user_intent": user_intent,
+                "related_todos": related_todos,
+            }
+
+        except Exception as e:
+            logger.error(
+                f"Error fetching session context for {session_id}: {e}",
+                exc_info=True,
+            )
+            return {"user_intent": None, "related_todos": []}
 
     def _merge_activities(
         self,

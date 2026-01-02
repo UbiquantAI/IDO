@@ -298,12 +298,15 @@ class FocusEvaluator:
             "context_summary": "Focus evaluation unavailable",
         }
 
-    async def evaluate_activity_focus(self, activity: Dict[str, Any]) -> Dict[str, Any]:
+    async def evaluate_activity_focus(
+        self, activity: Dict[str, Any], session_context: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
         """
         Evaluate focus score for a single activity using LLM
 
         Args:
             activity: Single activity dictionary containing title, description, duration, topics, actions
+            session_context: Optional session context containing user_intent and related_todos
 
         Returns:
             Dictionary containing:
@@ -327,6 +330,23 @@ class FocusEvaluator:
         # Format actions summary
         actions_summary = self._format_actions_summary(actions)
 
+        # Extract session context
+        user_intent = ""
+        related_todos_summary = ""
+        if session_context:
+            user_intent = session_context.get("user_intent", "") or ""
+            related_todos = session_context.get("related_todos", [])
+            if related_todos:
+                todos_lines = []
+                for todo in related_todos:
+                    todo_title = todo.get("title", "")
+                    todo_desc = todo.get("description", "")
+                    if todo_desc:
+                        todos_lines.append(f"- {todo_title}: {todo_desc}")
+                    else:
+                        todos_lines.append(f"- {todo_title}")
+                related_todos_summary = "\n".join(todos_lines)
+
         # Get prompt template
         try:
             user_prompt_template = self.prompt_manager.get_prompt(
@@ -347,6 +367,8 @@ class FocusEvaluator:
             topics=", ".join(topics) if topics else "None",
             action_count=action_count,
             actions_summary=actions_summary,
+            user_intent=user_intent or "No work goal specified",
+            related_todos=related_todos_summary or "No related todos",
         )
 
         # Call LLM

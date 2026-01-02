@@ -884,6 +884,7 @@ export const en = {
           learning: 'Learning',
           research: 'Research',
           communication: 'Communication',
+          entertainment: 'Entertainment',
           productivityAnalysis: 'Productivity Analysis',
           unclear: 'Mixed Activities'
         },

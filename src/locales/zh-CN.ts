@@ -879,6 +879,7 @@ export const zhCN = {
           learning: '学习',
           research: '研究',
           communication: '沟通',
+          entertainment: '娱乐活动',
           productivityAnalysis: '效率分析',
           unclear: '混合活动'
         },

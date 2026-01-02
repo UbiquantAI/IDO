@@ -296,8 +296,8 @@ export function SessionDetailDialog({ sessionId, open, onOpenChange, onDeleted }
                               {(detailData.llmFocusEvaluation as any).analysis.strengths.map(
                                 (strength: string, idx: number) => (
                                   <li key={idx} className="text-muted-foreground flex items-start gap-2 text-sm">
-                                    <span className="mt-1 text-green-600">✓</span>
-                                    <span>{strength}</span>
+                                    <span className="flex-shrink-0 text-green-600">✓</span>
+                                    <span className="flex-1">{strength}</span>
                                   </li>
                                 )
                               )}
@@ -315,8 +315,8 @@ export function SessionDetailDialog({ sessionId, open, onOpenChange, onDeleted }
                                 {(detailData.llmFocusEvaluation as any).analysis.weaknesses.map(
                                   (weakness: string, idx: number) => (
                                     <li key={idx} className="text-muted-foreground flex items-start gap-2 text-sm">
-                                      <span className="mt-1 text-orange-600">!</span>
-                                      <span>{weakness}</span>
+                                      <span className="flex-shrink-0 text-orange-600">!</span>
+                                      <span className="flex-1">{weakness}</span>
                                     </li>
                                   )
                                 )}
@@ -334,8 +334,8 @@ export function SessionDetailDialog({ sessionId, open, onOpenChange, onDeleted }
                               {(detailData.llmFocusEvaluation as any).analysis.suggestions.map(
                                 (suggestion: string, idx: number) => (
                                   <li key={idx} className="text-muted-foreground flex items-start gap-2 text-sm">
-                                    <span className="mt-1 text-blue-600">→</span>
-                                    <span>{suggestion}</span>
+                                    <span className="flex-shrink-0 text-blue-600">→</span>
+                                    <span className="flex-1">{suggestion}</span>
                                   </li>
                                 )
                               )}
