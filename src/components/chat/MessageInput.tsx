@@ -44,8 +44,18 @@ export function MessageInput({
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   // Fetch the model list
-  const { models, activeModel } = useModelsStore()
+  const { models, activeModel, fetchModels, fetchActiveModel } = useModelsStore()
   const [localModelId, setLocalModelId] = useState<string | null>(null)
+
+  // Ensure models are loaded
+  useEffect(() => {
+    if (models.length === 0) {
+      fetchModels()
+    }
+    if (!activeModel) {
+      fetchActiveModel()
+    }
+  }, [models.length, activeModel, fetchModels, fetchActiveModel])
 
   // Initialize the selected model
   useEffect(() => {
@@ -53,8 +63,11 @@ export function MessageInput({
       setLocalModelId(selectedModelId)
     } else if (activeModel) {
       setLocalModelId(activeModel.id)
+    } else if (models.length > 0 && !localModelId) {
+      // Fallback to first model if no active model
+      setLocalModelId(models[0].id)
     }
-  }, [selectedModelId, activeModel])
+  }, [selectedModelId, activeModel, models, localModelId])
 
   // Handle model changes
   const handleModelChange = (modelId: string) => {
@@ -230,7 +243,7 @@ export function MessageInput({
   const modelDisplayName = currentModel?.name || activeModel?.name || 'Select Model'
 
   return (
-    <div onDrop={handleDrop} onDragOver={handleDragOver} className="bg-background w-full">
+    <div onDrop={handleDrop} onDragOver={handleDragOver} className="w-full">
       {/* Image preview */}
       {images.length > 0 && (
         <div className="mb-3 rounded-lg border p-3">
@@ -239,7 +252,7 @@ export function MessageInput({
       )}
 
       {/* Input area */}
-      <div className="bg-muted/10 focus-within:border-primary/50 space-y-3 rounded-xl border px-4 py-3.5 transition-colors">
+      <div className="bg-background focus-within:border-primary/50 space-y-3 rounded-xl border px-4 py-3.5 transition-colors">
         {/* Text input */}
         <Textarea
           ref={textareaRef}

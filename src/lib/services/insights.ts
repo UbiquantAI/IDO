@@ -4,6 +4,7 @@ import {
   deleteKnowledge as deleteKnowledgeCommand,
   getTodoList,
   deleteTodo as deleteTodoCommand,
+  completeTodo as completeTodoCommand,
   generateDiary as generateDiaryCommand,
   deleteDiary as deleteDiaryCommand,
   getPipelineStats,
@@ -235,6 +236,13 @@ export async function fetchTodoList(includeCompleted = false): Promise<InsightTo
     scheduledEndTime: getScheduledEndTime(todo),
     recurrenceRule: todo.recurrence_rule || undefined
   }))
+}
+
+export async function completeTodo(id: string) {
+  const raw = await completeTodoCommand({ id })
+  if (!raw?.success) {
+    throw new Error(String(raw?.message ?? 'Failed to complete todo'))
+  }
 }
 
 export async function deleteTodo(id: string) {

@@ -195,7 +195,7 @@ export default function AIKnowledgeView() {
               </div>
             </div>
           ) : (
-            <div className="flex-1 space-y-4 overflow-y-auto pr-2">
+            <div className="flex-1 space-y-4 overflow-x-hidden overflow-y-auto pr-2">
               {filteredKnowledge.map((item) => (
                 <KnowledgeCard
                   key={item.id}

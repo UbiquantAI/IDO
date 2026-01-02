@@ -439,6 +439,39 @@ async def get_todo_list(body: GetTodoListRequest) -> Dict[str, Any]:
 @api_handler(
     body=DeleteItemRequest,
     method="POST",
+    path="/insights/complete-todo",
+    tags=["insights"],
+    summary="Complete todo",
+    description="Mark specified todo as completed",
+)
+async def complete_todo(body: DeleteItemRequest) -> Dict[str, Any]:
+    """Complete todo (mark as completed)
+
+    @param body - Contains todo ID to complete
+    @returns Completion result
+    """
+    try:
+        db, _ = _get_data_access()
+        await db.todos.complete(body.id)
+
+        return {
+            "success": True,
+            "message": "Todo completed",
+            "timestamp": datetime.now().isoformat(),
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to complete todo: {e}", exc_info=True)
+        return {
+            "success": False,
+            "message": f"Failed to complete todo: {str(e)}",
+            "timestamp": datetime.now().isoformat(),
+        }
+
+
+@api_handler(
+    body=DeleteItemRequest,
+    method="POST",
     path="/insights/delete-todo",
     tags=["insights"],
     summary="Delete todo",

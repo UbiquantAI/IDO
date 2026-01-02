@@ -662,6 +662,19 @@ export async function getTodoList(
 }
 
 /**
+ * Complete todo (mark as completed)
+ *
+ * @param body - Contains todo ID to complete
+ * @returns Completion result
+ */
+export async function completeTodo(
+    body: Commands["complete_todo"]["input"],
+    options?: InvokeOptions
+): Promise<Commands["complete_todo"]["output"]> {
+    return await pyInvoke("complete_todo", body, options);
+}
+
+/**
  * Delete todo (soft delete)
  *
  * @param body - Contains todo ID to delete

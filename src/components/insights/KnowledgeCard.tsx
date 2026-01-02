@@ -1,7 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Star, Trash2, FileText, Eye } from 'lucide-react'
+import { Star, Trash2, Eye } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { InsightKnowledge } from '@/lib/services/insights'
 
@@ -79,10 +79,6 @@ export function KnowledgeCard({ knowledge, onToggleFavorite, onDelete, onView }:
               <Trash2 className="h-4 w-4" />
             </Button>
           </div>
-
-          <div className="text-muted-foreground shrink-0">
-            <FileText className="h-5 w-5" />
-          </div>
         </div>
       </CardHeader>
 
@@ -90,7 +86,7 @@ export function KnowledgeCard({ knowledge, onToggleFavorite, onDelete, onView }:
         <p className="text-muted-foreground line-clamp-3 text-sm leading-6">{knowledge.description}</p>
 
         {knowledge.keywords && knowledge.keywords.length > 0 && (
-          <div className="flex max-h-20 flex-wrap gap-2 overflow-y-auto">
+          <div className="flex max-h-20 flex-wrap gap-2 overflow-x-hidden overflow-y-auto">
             {knowledge.keywords.map((keyword, index) => (
               <Badge key={`${knowledge.id}-${keyword}-${index}`} variant="secondary" className="text-xs">
                 {keyword}

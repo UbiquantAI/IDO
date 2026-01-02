@@ -76,7 +76,7 @@ export default function AITodosView() {
       : []
 
   useEffect(() => {
-    void refreshTodos(false) // Only load incomplete todos
+    void refreshTodos(true) // Load all todos including completed ones
   }, [refreshTodos])
 
   const pendingTodos = getPendingTodos()

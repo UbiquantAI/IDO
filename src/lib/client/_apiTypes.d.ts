@@ -827,6 +827,10 @@ get_todo_list: {
 input: GetTodoListRequest
 output: RootModelDictStrAny
 }
+complete_todo: {
+input: DeleteItemRequest
+output: RootModelDictStrAny
+}
 delete_todo: {
 input: DeleteItemRequest
 output: RootModelDictStrAny

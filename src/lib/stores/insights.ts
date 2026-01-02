@@ -213,12 +213,13 @@ export const useInsightsStore = create<InsightsState>((set, get) => ({
 
   completeTodo: async (id: string) => {
     try {
-      // Update todo to mark as completed
+      const { completeTodo: completeAPI } = await import('@/lib/services/insights')
+      // Call API to mark as completed
+      await completeAPI(id)
+      // Update local state to mark as completed
       set((state) => ({
         todos: state.todos.map((todo) => (todo.id === id ? { ...todo, completed: true } : todo))
       }))
-      // Call API to persist (assuming deleteTodo also handles completion)
-      await deleteTodo(id)
     } catch (error) {
       console.error('Failed to complete todo:', error)
       throw error

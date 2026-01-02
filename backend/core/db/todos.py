@@ -343,6 +343,24 @@ class TodosRepository(BaseRepository):
             logger.error(f"Failed to unschedule todo: {e}", exc_info=True)
             return None
 
+    async def complete(self, todo_id: str) -> None:
+        """Mark a todo as completed"""
+        try:
+            with self._get_conn() as conn:
+                conn.execute(
+                    "UPDATE todos SET completed = 1 WHERE id = ?", (todo_id,)
+                )
+                conn.commit()
+                logger.debug(f"Completed todo: {todo_id}")
+
+                # Send event to frontend
+                from core.events import emit_todo_updated
+
+                emit_todo_updated({"id": todo_id, "completed": True})
+        except Exception as e:
+            logger.error(f"Failed to complete todo {todo_id}: {e}", exc_info=True)
+            raise
+
     async def delete(self, todo_id: str) -> None:
         """Soft delete a todo"""
         try:
