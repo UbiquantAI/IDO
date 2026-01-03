@@ -10,6 +10,8 @@
     "Chat": true,
     "Dashboard": true,
     "MainLayout": true,
+    "Pomodoro": true,
+    "PomodoroReview": true,
     "Settings": true,
     "createRef": true,
     "forwardRef": true,

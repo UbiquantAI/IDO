@@ -11,20 +11,27 @@ from core.coordinator import get_coordinator
 from core.db import get_db
 from core.logger import get_logger
 from models.requests import (
+    CreateKnowledgeRequest,
     DeleteItemRequest,
     GenerateDiaryRequest,
     GetDiaryListRequest,
     GetRecentEventsRequest,
     GetTodoListRequest,
     ScheduleTodoRequest,
+    ToggleKnowledgeFavoriteRequest,
     UnscheduleTodoRequest,
+    UpdateKnowledgeRequest,
 )
 from models.responses import (
+    CreateKnowledgeResponse,
     DeleteDiaryResponse,
     DiaryData,
     DiaryListData,
     GenerateDiaryResponse,
     GetDiaryListResponse,
+    KnowledgeData,
+    ToggleKnowledgeFavoriteResponse,
+    UpdateKnowledgeResponse,
 )
 from perception.image_manager import get_image_manager
 
@@ -212,6 +219,183 @@ async def delete_knowledge(body: DeleteItemRequest) -> Dict[str, Any]:
         }
 
 
+@api_handler(
+    body=ToggleKnowledgeFavoriteRequest,
+    method="POST",
+    path="/insights/toggle-knowledge-favorite",
+    tags=["insights"],
+    summary="Toggle knowledge favorite status",
+    description="Toggle the favorite status of a knowledge item",
+)
+async def toggle_knowledge_favorite(body: ToggleKnowledgeFavoriteRequest) -> ToggleKnowledgeFavoriteResponse:
+    """Toggle knowledge favorite status
+
+    @param body - Contains knowledge ID
+    @returns Updated knowledge data with new favorite status
+    """
+    try:
+        db, _ = _get_data_access()
+        new_favorite = await db.knowledge.toggle_favorite(body.id)
+
+        if new_favorite is None:
+            return ToggleKnowledgeFavoriteResponse(
+                success=False,
+                message="Knowledge not found",
+                timestamp=datetime.now().isoformat(),
+            )
+
+        # Get updated knowledge data
+        knowledge_list = await db.knowledge.get_list()
+        knowledge_item = next((k for k in knowledge_list if k["id"] == body.id), None)
+
+        if knowledge_item:
+            knowledge_data = KnowledgeData(**knowledge_item)
+            return ToggleKnowledgeFavoriteResponse(
+                success=True,
+                data=knowledge_data,
+                message=f"Knowledge {'favorited' if new_favorite else 'unfavorited'}",
+                timestamp=datetime.now().isoformat(),
+            )
+        else:
+            return ToggleKnowledgeFavoriteResponse(
+                success=False,
+                message="Failed to retrieve updated knowledge",
+                timestamp=datetime.now().isoformat(),
+            )
+
+    except Exception as e:
+        logger.error(f"Failed to toggle knowledge favorite: {e}", exc_info=True)
+        return ToggleKnowledgeFavoriteResponse(
+            success=False,
+            message=f"Failed to toggle knowledge favorite: {str(e)}",
+            timestamp=datetime.now().isoformat(),
+        )
+
+
+@api_handler(
+    body=CreateKnowledgeRequest,
+    method="POST",
+    path="/insights/create-knowledge",
+    tags=["insights"],
+    summary="Create knowledge manually",
+    description="Create a new knowledge item manually",
+)
+async def create_knowledge(body: CreateKnowledgeRequest) -> CreateKnowledgeResponse:
+    """Create knowledge manually
+
+    @param body - Contains title, description, and keywords
+    @returns Created knowledge data
+    """
+    try:
+        db, _ = _get_data_access()
+
+        # Generate unique ID
+        knowledge_id = str(uuid.uuid4())
+        created_at = datetime.now().isoformat()
+
+        # Save knowledge
+        await db.knowledge.save(
+            knowledge_id=knowledge_id,
+            title=body.title,
+            description=body.description,
+            keywords=body.keywords,
+            created_at=created_at,
+            source_action_id=None,  # Manual creation has no source action
+            favorite=False,
+        )
+
+        # Return created knowledge
+        knowledge_data = KnowledgeData(
+            id=knowledge_id,
+            title=body.title,
+            description=body.description,
+            keywords=body.keywords,
+            created_at=created_at,
+            source_action_id=None,
+            favorite=False,
+            deleted=False,
+        )
+
+        return CreateKnowledgeResponse(
+            success=True,
+            data=knowledge_data,
+            message="Knowledge created successfully",
+            timestamp=datetime.now().isoformat(),
+        )
+
+    except Exception as e:
+        logger.error(f"Failed to create knowledge: {e}", exc_info=True)
+        return CreateKnowledgeResponse(
+            success=False,
+            message=f"Failed to create knowledge: {str(e)}",
+            timestamp=datetime.now().isoformat(),
+        )
+
+
+@api_handler(
+    body=UpdateKnowledgeRequest,
+    method="POST",
+    path="/insights/update-knowledge",
+    tags=["insights"],
+    summary="Update knowledge",
+    description="Update an existing knowledge item",
+)
+async def update_knowledge(body: UpdateKnowledgeRequest) -> UpdateKnowledgeResponse:
+    """Update knowledge
+
+    @param body - Contains knowledge ID, title, description, and keywords
+    @returns Updated knowledge data
+    """
+    try:
+        db, _ = _get_data_access()
+
+        # Check if knowledge exists
+        knowledge_list = await db.knowledge.get_list()
+        knowledge_item = next((k for k in knowledge_list if k["id"] == body.id), None)
+
+        if not knowledge_item:
+            return UpdateKnowledgeResponse(
+                success=False,
+                message="Knowledge not found",
+                timestamp=datetime.now().isoformat(),
+            )
+
+        # Update knowledge
+        await db.knowledge.update(
+            knowledge_id=body.id,
+            title=body.title,
+            description=body.description,
+            keywords=body.keywords,
+        )
+
+        # Get updated knowledge
+        knowledge_list = await db.knowledge.get_list()
+        updated_knowledge = next((k for k in knowledge_list if k["id"] == body.id), None)
+
+        if updated_knowledge:
+            knowledge_data = KnowledgeData(**updated_knowledge)
+            return UpdateKnowledgeResponse(
+                success=True,
+                data=knowledge_data,
+                message="Knowledge updated successfully",
+                timestamp=datetime.now().isoformat(),
+            )
+        else:
+            return UpdateKnowledgeResponse(
+                success=False,
+                message="Failed to retrieve updated knowledge",
+                timestamp=datetime.now().isoformat(),
+            )
+
+    except Exception as e:
+        logger.error(f"Failed to update knowledge: {e}", exc_info=True)
+        return UpdateKnowledgeResponse(
+            success=False,
+            message=f"Failed to update knowledge: {str(e)}",
+            timestamp=datetime.now().isoformat(),
+        )
+
+
 # ============ Todo Related Interfaces ============
 
 
@@ -248,6 +432,39 @@ async def get_todo_list(body: GetTodoListRequest) -> Dict[str, Any]:
         return {
             "success": False,
             "message": f"Failed to get todo list: {str(e)}",
+            "timestamp": datetime.now().isoformat(),
+        }
+
+
+@api_handler(
+    body=DeleteItemRequest,
+    method="POST",
+    path="/insights/complete-todo",
+    tags=["insights"],
+    summary="Complete todo",
+    description="Mark specified todo as completed",
+)
+async def complete_todo(body: DeleteItemRequest) -> Dict[str, Any]:
+    """Complete todo (mark as completed)
+
+    @param body - Contains todo ID to complete
+    @returns Completion result
+    """
+    try:
+        db, _ = _get_data_access()
+        await db.todos.complete(body.id)
+
+        return {
+            "success": True,
+            "message": "Todo completed",
+            "timestamp": datetime.now().isoformat(),
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to complete todo: {e}", exc_info=True)
+        return {
+            "success": False,
+            "message": f"Failed to complete todo: {str(e)}",
             "timestamp": datetime.now().isoformat(),
         }
 

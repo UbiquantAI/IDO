@@ -544,3 +544,187 @@ def emit_todo_deleted(todo_id: str, timestamp: Optional[str] = None) -> bool:
     if success:
         logger.debug(f"✅ TODO deletion event sent: {todo_id}")
     return success
+
+
+
+def emit_pomodoro_processing_progress(
+    session_id: str, job_id: str, processed: int
+) -> bool:
+    """
+    Send Pomodoro processing progress event to frontend
+
+    Args:
+        session_id: Pomodoro session ID
+        job_id: Processing job ID
+        processed: Number of records processed
+
+    Returns:
+        True if sent successfully, False otherwise
+    """
+    payload = {
+        "session_id": session_id,
+        "job_id": job_id,
+        "processed": processed,
+    }
+
+    logger.debug(
+        f"[emit_pomodoro_processing_progress] Session: {session_id}, "
+        f"Job: {job_id}, Processed: {processed}"
+    )
+    return _emit("pomodoro-processing-progress", payload)
+
+
+def emit_pomodoro_processing_complete(
+    session_id: str, job_id: str, total_processed: int
+) -> bool:
+    """
+    Send Pomodoro processing completion event to frontend
+
+    Args:
+        session_id: Pomodoro session ID
+        job_id: Processing job ID
+        total_processed: Total number of records processed
+
+    Returns:
+        True if sent successfully, False otherwise
+    """
+    payload = {
+        "session_id": session_id,
+        "job_id": job_id,
+        "total_processed": total_processed,
+    }
+
+    logger.debug(
+        f"[emit_pomodoro_processing_complete] Session: {session_id}, "
+        f"Job: {job_id}, Total: {total_processed}"
+    )
+    return _emit("pomodoro-processing-complete", payload)
+
+
+def emit_pomodoro_processing_failed(
+    session_id: str, job_id: str, error: str
+) -> bool:
+    """
+    Send Pomodoro processing failure event to frontend
+
+    Args:
+        session_id: Pomodoro session ID
+        job_id: Processing job ID
+        error: Error message
+
+    Returns:
+        True if sent successfully, False otherwise
+    """
+    payload = {
+        "session_id": session_id,
+        "job_id": job_id,
+        "error": error,
+    }
+
+    logger.debug(
+        f"[emit_pomodoro_processing_failed] Session: {session_id}, "
+        f"Job: {job_id}, Error: {error}"
+    )
+    return _emit("pomodoro-processing-failed", payload)
+
+
+def emit_pomodoro_phase_switched(
+    session_id: str,
+    new_phase: str,
+    current_round: int,
+    total_rounds: int,
+    completed_rounds: int,
+) -> bool:
+    """
+    Send Pomodoro phase switch event to frontend
+
+    Emitted when session automatically switches between work/break phases.
+
+    Args:
+        session_id: Pomodoro session ID
+        new_phase: New phase ('work', 'break', or 'completed')
+        current_round: Current round number (1-based)
+        total_rounds: Total number of rounds
+        completed_rounds: Number of completed work rounds
+
+    Returns:
+        True if sent successfully, False otherwise
+    """
+    payload = {
+        "session_id": session_id,
+        "new_phase": new_phase,
+        "current_round": current_round,
+        "total_rounds": total_rounds,
+        "completed_rounds": completed_rounds,
+    }
+
+    logger.debug(
+        f"[emit_pomodoro_phase_switched] Session: {session_id}, "
+        f"Phase: {new_phase}, Round: {current_round}/{total_rounds}, "
+        f"Completed: {completed_rounds}"
+    )
+    return _emit("pomodoro-phase-switched", payload)
+
+
+def emit_pomodoro_work_phase_completed(
+    session_id: str,
+    work_phase: int,
+    activity_count: int,
+) -> bool:
+    """
+    Send Pomodoro work phase completed event to frontend
+
+    Emitted when a work phase completes and activities have been generated.
+    Allows frontend to display notifications and refresh session detail views.
+
+    Args:
+        session_id: Pomodoro session ID
+        work_phase: Work phase number (1-based)
+        activity_count: Number of activities created/updated for this work phase
+
+    Returns:
+        True if sent successfully, False otherwise
+    """
+    payload = {
+        "session_id": session_id,
+        "work_phase": work_phase,
+        "activity_count": activity_count,
+    }
+
+    logger.debug(
+        f"[emit_pomodoro_work_phase_completed] Session: {session_id}, "
+        f"Phase: {work_phase}, Activities: {activity_count}"
+    )
+    return _emit("pomodoro-work-phase-completed", payload)
+
+
+def emit_pomodoro_session_deleted(
+    session_id: str,
+    timestamp: Optional[str] = None,
+) -> bool:
+    """
+    Send Pomodoro session deleted event to frontend
+
+    Emitted when a session is deleted. Frontend should refresh session list
+    and clear any selected session state.
+
+    Args:
+        session_id: Pomodoro session ID
+        timestamp: Deletion timestamp
+
+    Returns:
+        True if sent successfully, False otherwise
+    """
+    from datetime import datetime
+
+    resolved_timestamp = timestamp or datetime.now().isoformat()
+    payload = {
+        "type": "session_deleted",
+        "data": {"id": session_id, "deletedAt": resolved_timestamp},
+        "timestamp": resolved_timestamp,
+    }
+
+    success = _emit("session-deleted", payload)
+    if success:
+        logger.debug(f"✅ Pomodoro session deletion event sent: {session_id}")
+    return success

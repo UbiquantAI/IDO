@@ -85,6 +85,55 @@ class TodosRepository(BaseRepository):
             raise
 
 
+    async def get_by_id(self, todo_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get a single todo by ID
+
+        Args:
+            todo_id: Todo ID
+
+        Returns:
+            Todo dict or None if not found
+        """
+        try:
+            with self._get_conn() as conn:
+                cursor = conn.execute(
+                    """
+                    SELECT id, title, description, keywords,
+                           created_at, completed, deleted, scheduled_date, scheduled_time,
+                           scheduled_end_time, recurrence_rule
+                    FROM todos
+                    WHERE id = ?
+                    """,
+                    (todo_id,),
+                )
+                row = cursor.fetchone()
+
+                if row:
+                    return {
+                        "id": row["id"],
+                        "title": row["title"],
+                        "description": row["description"],
+                        "keywords": json.loads(row["keywords"])
+                        if row["keywords"]
+                        else [],
+                        "created_at": row["created_at"],
+                        "completed": bool(row["completed"]),
+                        "deleted": bool(row["deleted"]),
+                        "scheduled_date": row["scheduled_date"],
+                        "scheduled_time": row["scheduled_time"],
+                        "scheduled_end_time": row["scheduled_end_time"],
+                        "recurrence_rule": json.loads(row["recurrence_rule"])
+                        if row["recurrence_rule"]
+                        else None,
+                    }
+
+                return None
+
+        except Exception as e:
+            logger.error(f"Failed to get todo by ID {todo_id}: {e}", exc_info=True)
+            return None
+
     async def get_list(
         self, include_completed: bool = False
     ) -> List[Dict[str, Any]]:
@@ -293,6 +342,24 @@ class TodosRepository(BaseRepository):
         except Exception as e:
             logger.error(f"Failed to unschedule todo: {e}", exc_info=True)
             return None
+
+    async def complete(self, todo_id: str) -> None:
+        """Mark a todo as completed"""
+        try:
+            with self._get_conn() as conn:
+                conn.execute(
+                    "UPDATE todos SET completed = 1 WHERE id = ?", (todo_id,)
+                )
+                conn.commit()
+                logger.debug(f"Completed todo: {todo_id}")
+
+                # Send event to frontend
+                from core.events import emit_todo_updated
+
+                emit_todo_updated({"id": todo_id, "completed": True})
+        except Exception as e:
+            logger.error(f"Failed to complete todo {todo_id}: {e}", exc_info=True)
+            raise
 
     async def delete(self, todo_id: str) -> None:
         """Soft delete a todo"""

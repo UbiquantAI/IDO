@@ -91,13 +91,29 @@ class ScreenshotCapture(BaseCapture):
         """Load enabled monitor indices from settings, with smart capture support.
 
         Returns:
-            - If smart capture enabled and tracker available: [active_monitor_index]
+            - If smart capture enabled and tracker available: intersection of active monitor and enabled monitors
             - If screen settings exist and some are enabled: list of enabled indices
             - If screen settings exist but none enabled: empty list (respect user's choice)
             - If no screen settings configured or read fails: [1] (primary)
         """
         try:
             settings = get_settings()
+
+            # Get configured enabled monitors from settings
+            screens = settings.get("screenshot.screen_settings", None)
+            if not isinstance(screens, list) or len(screens) == 0:
+                # Not configured -> default to primary only
+                configured_enabled = [1]
+            else:
+                configured_enabled = [int(s.get("monitor_index")) for s in screens if s.get("is_enabled")]
+                # Deduplicate while preserving order
+                seen = set()
+                result: List[int] = []
+                for i in configured_enabled:
+                    if i not in seen:
+                        seen.add(i)
+                        result.append(i)
+                configured_enabled = result
 
             # Check if smart capture is enabled
             smart_capture_enabled = settings.get("screenshot.smart_capture_enabled", False)
@@ -108,26 +124,22 @@ class ScreenshotCapture(BaseCapture):
                     logger.debug(
                         "Inactivity timeout reached, capturing all enabled monitors"
                     )
+                    # Return all configured enabled monitors
+                    return configured_enabled
                 else:
-                    # Only capture the active monitor
+                    # Only capture the active monitor if it's enabled in settings
                     active_index = self.monitor_tracker.get_active_monitor_index()
-                    logger.debug(f"Smart capture: only capturing monitor {active_index}")
-                    return [active_index]
+                    if active_index in configured_enabled:
+                        logger.debug(f"Smart capture: only capturing monitor {active_index}")
+                        return [active_index]
+                    else:
+                        logger.debug(
+                            f"Smart capture: active monitor {active_index} is not enabled in settings, skipping"
+                        )
+                        return []
 
-            # Fallback to configured screen settings
-            screens = settings.get("screenshot.screen_settings", None)
-            if not isinstance(screens, list) or len(screens) == 0:
-                # Not configured -> default to primary only
-                return [1]
-            enabled = [int(s.get("monitor_index")) for s in screens if s.get("is_enabled")]
-            # Deduplicate while preserving order
-            seen = set()
-            result: List[int] = []
-            for i in enabled:
-                if i not in seen:
-                    seen.add(i)
-                    result.append(i)
-            return result
+            # Return configured enabled monitors (smart capture disabled)
+            return configured_enabled
         except Exception as e:
             logger.warning(f"Failed to read screen settings, fallback to primary: {e}")
             return [1]
@@ -323,7 +335,9 @@ class ScreenshotCapture(BaseCapture):
             return
 
         current_time = time.time()
-        if current_time - self._last_screenshot_time >= interval:
+        time_since_last = current_time - self._last_screenshot_time
+
+        if time_since_last >= interval:
             self.capture()
             self._last_screenshot_time = current_time
 

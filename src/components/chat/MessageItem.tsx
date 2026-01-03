@@ -32,31 +32,33 @@ export function MessageItem({ message, isStreaming, isThinking, onRetry }: Messa
   }
 
   return (
-    <div className={cn('max-w-full space-y-2 px-4 pb-6', isStreaming && 'animate-pulse')}>
+    <div className={cn('max-w-full space-y-3 px-4 pb-8', isStreaming && 'animate-pulse')}>
       {/* Avatar and username (horizontal layout) */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-3">
         <div
           className={cn(
-            'flex h-8 w-8 shrink-0 items-center justify-center rounded-full',
-            isUser ? 'bg-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground'
+            'flex h-9 w-9 shrink-0 items-center justify-center rounded-md',
+            isUser ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground'
           )}>
-          {isUser ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
+          {isUser ? <User className="h-4.5 w-4.5" /> : <Bot className="h-4.5 w-4.5" />}
         </div>
-        <p className="text-sm leading-none font-medium">
+        <p className="text-sm leading-none font-semibold">
           {isUser ? t('chat.you') : t('chat.aiAssistant')}
-          {isThinking && <span className="text-muted-foreground ml-2 text-xs">{t('chat.thinking')}</span>}
-          {isStreaming && !isThinking && <span className="text-muted-foreground ml-2 text-xs">{t('chat.typing')}</span>}
+          {isThinking && <span className="text-muted-foreground ml-2 text-xs font-normal">{t('chat.thinking')}</span>}
+          {isStreaming && !isThinking && (
+            <span className="text-muted-foreground ml-2 text-xs font-normal">{t('chat.typing')}</span>
+          )}
         </p>
       </div>
 
       {/* Content area */}
-      <div className="space-y-2 overflow-hidden">
+      <div className="space-y-3 overflow-hidden">
         {/* Thinking animation */}
         {isThinking && (
-          <div className="ml-10 flex h-8 items-center gap-1.5 py-2">
-            <div className="bg-foreground/40 h-2 w-2 animate-bounce rounded-full [animation-delay:-0.3s]"></div>
-            <div className="bg-foreground/40 h-2 w-2 animate-bounce rounded-full [animation-delay:-0.15s]"></div>
-            <div className="bg-foreground/40 h-2 w-2 animate-bounce rounded-full"></div>
+          <div className="flex h-8 items-center gap-1.5 py-2">
+            <div className="bg-foreground/30 h-2.5 w-2.5 animate-bounce rounded-full [animation-delay:-0.3s]"></div>
+            <div className="bg-foreground/30 h-2.5 w-2.5 animate-bounce rounded-full [animation-delay:-0.15s]"></div>
+            <div className="bg-foreground/30 h-2.5 w-2.5 animate-bounce rounded-full"></div>
           </div>
         )}
 

@@ -1,6 +1,13 @@
 """
-Database migration SQL statements
-Contains all ALTER TABLE and data migration statements
+DEPRECATED: This file is no longer used
+
+Database migration system has been moved to version-based migrations.
+See: backend/migrations/
+
+All migrations should now be created as versioned files in:
+backend/migrations/versions/
+
+This file is kept for reference only and will be removed in a future version.
 """
 
 # Events table migrations
@@ -175,4 +182,60 @@ ADD_ACTIONS_KNOWLEDGE_EXTRACTED_COLUMN = """
 # Knowledge table migrations
 ADD_KNOWLEDGE_SOURCE_ACTION_ID_COLUMN = """
     ALTER TABLE knowledge ADD COLUMN source_action_id TEXT
+"""
+
+# ============ Pomodoro Feature Migrations ============
+
+# Add pomodoro_session_id to raw_records
+ADD_RAW_RECORDS_POMODORO_SESSION_ID_COLUMN = """
+    ALTER TABLE raw_records ADD COLUMN pomodoro_session_id TEXT
+"""
+
+# Add pomodoro_session_id to actions
+ADD_ACTIONS_POMODORO_SESSION_ID_COLUMN = """
+    ALTER TABLE actions ADD COLUMN pomodoro_session_id TEXT
+"""
+
+# Add pomodoro_session_id to events
+ADD_EVENTS_POMODORO_SESSION_ID_COLUMN = """
+    ALTER TABLE events ADD COLUMN pomodoro_session_id TEXT
+"""
+
+# Add pomodoro-related columns to activities
+ADD_ACTIVITIES_POMODORO_SESSION_ID_COLUMN = """
+    ALTER TABLE activities ADD COLUMN pomodoro_session_id TEXT
+"""
+
+ADD_ACTIVITIES_USER_INTENT_COLUMN = """
+    ALTER TABLE activities ADD COLUMN user_intent TEXT
+"""
+
+ADD_ACTIVITIES_POMODORO_STATUS_COLUMN = """
+    ALTER TABLE activities ADD COLUMN pomodoro_status TEXT
+"""
+
+# Create indexes for pomodoro_session_id columns
+CREATE_RAW_RECORDS_POMODORO_SESSION_INDEX = """
+    CREATE INDEX IF NOT EXISTS idx_raw_records_pomodoro_session
+    ON raw_records(pomodoro_session_id)
+"""
+
+CREATE_ACTIONS_POMODORO_SESSION_INDEX = """
+    CREATE INDEX IF NOT EXISTS idx_actions_pomodoro_session
+    ON actions(pomodoro_session_id)
+"""
+
+CREATE_EVENTS_POMODORO_SESSION_INDEX = """
+    CREATE INDEX IF NOT EXISTS idx_events_pomodoro_session
+    ON events(pomodoro_session_id)
+"""
+
+CREATE_ACTIVITIES_POMODORO_SESSION_INDEX = """
+    CREATE INDEX IF NOT EXISTS idx_activities_pomodoro_session
+    ON activities(pomodoro_session_id)
+"""
+
+CREATE_ACTIVITIES_POMODORO_STATUS_INDEX = """
+    CREATE INDEX IF NOT EXISTS idx_activities_pomodoro_status
+    ON activities(pomodoro_status)
 """

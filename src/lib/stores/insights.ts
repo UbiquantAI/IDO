@@ -12,6 +12,9 @@ import {
   InsightEvent,
   InsightKnowledge,
   InsightTodo,
+  toggleKnowledgeFavorite,
+  createKnowledge,
+  updateKnowledge,
   type RecurrenceRule
 } from '@/lib/services/insights'
 
@@ -38,6 +41,11 @@ interface InsightsState {
   removeKnowledge: (id: string) => Promise<void>
   removeTodo: (id: string) => Promise<void>
   removeDiary: (id: string) => Promise<void>
+
+  // Knowledge favorites
+  toggleKnowledgeFavorite: (id: string) => Promise<void>
+  createKnowledge: (title: string, description: string, keywords: string[]) => Promise<InsightKnowledge>
+  updateKnowledge: (id: string, title: string, description: string, keywords: string[]) => Promise<void>
 
   // Todo scheduling
   scheduleTodo: (
@@ -140,6 +148,41 @@ export const useInsightsStore = create<InsightsState>((set, get) => ({
     set((state) => ({ diaries: state.diaries.filter((item) => item.id !== id) }))
   },
 
+  toggleKnowledgeFavorite: async (id: string) => {
+    try {
+      const updatedKnowledge = await toggleKnowledgeFavorite(id)
+      set((state) => ({
+        knowledge: state.knowledge.map((item) => (item.id === id ? updatedKnowledge : item))
+      }))
+    } catch (error) {
+      console.error('Failed to toggle knowledge favorite:', error)
+      throw error
+    }
+  },
+
+  createKnowledge: async (title: string, description: string, keywords: string[]) => {
+    try {
+      const newKnowledge = await createKnowledge(title, description, keywords)
+      set((state) => ({ knowledge: [newKnowledge, ...state.knowledge] }))
+      return newKnowledge
+    } catch (error) {
+      console.error('Failed to create knowledge:', error)
+      throw error
+    }
+  },
+
+  updateKnowledge: async (id: string, title: string, description: string, keywords: string[]) => {
+    try {
+      const updatedKnowledge = await updateKnowledge(id, title, description, keywords)
+      set((state) => ({
+        knowledge: state.knowledge.map((item) => (item.id === id ? updatedKnowledge : item))
+      }))
+    } catch (error) {
+      console.error('Failed to update knowledge:', error)
+      throw error
+    }
+  },
+
   // Todo scheduling methods
   scheduleTodo: async (id: string, date: string, time?: string, endTime?: string, recurrenceRule?: RecurrenceRule) => {
     console.log('[Store] scheduleTodo called:', {
@@ -170,12 +213,13 @@ export const useInsightsStore = create<InsightsState>((set, get) => ({
 
   completeTodo: async (id: string) => {
     try {
-      // Update todo to mark as completed
+      const { completeTodo: completeAPI } = await import('@/lib/services/insights')
+      // Call API to mark as completed
+      await completeAPI(id)
+      // Update local state to mark as completed
       set((state) => ({
         todos: state.todos.map((todo) => (todo.id === id ? { ...todo, completed: true } : todo))
       }))
-      // Call API to persist (assuming deleteTodo also handles completion)
-      await deleteTodo(id)
     } catch (error) {
       console.error('Failed to complete todo:', error)
       throw error

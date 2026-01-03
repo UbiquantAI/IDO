@@ -2,8 +2,9 @@
 Processing pipeline (agent-based architecture)
 Simplified pipeline that delegates to specialized agents:
 - raw_records → ActionAgent → actions (complete flow: extract + save)
-- actions → EventAgent → events (complete flow: aggregate + save)
-- events → SessionAgent → activities (complete flow: aggregate + save)
+- actions → SessionAgent → activities (action-based aggregation)
+
+EventAgent has been DISABLED - using direct action-based aggregation only.
 
 Pipeline now only handles:
 - Filtering raw records
@@ -108,8 +109,8 @@ class ProcessingPipeline:
         self.screenshot_accumulator: List[RawRecord] = []
 
         # Note: No scheduled tasks in pipeline anymore
-        # - Event aggregation: handled by EventAgent
-        # - Session aggregation: handled by SessionAgent
+        # - Event aggregation: DISABLED (action-based aggregation only)
+        # - Session aggregation: handled by SessionAgent (action-based)
         # - Knowledge merge: handled by KnowledgeAgent
         # - Todo merge: handled by TodoAgent
 
@@ -142,14 +143,14 @@ class ProcessingPipeline:
 
         self.is_running = True
 
-        # Note: Event aggregation is now handled by EventAgent (started by coordinator)
+        # Note: Event aggregation DISABLED - using action-based aggregation only
         # Note: Todo merge and knowledge merge are handled by TodoAgent and KnowledgeAgent (started by coordinator)
         # Pipeline now only handles action extraction (triggered by raw record processing)
 
         logger.info(f"Processing pipeline started (language: {self.language})")
         logger.debug(f"- Screenshot threshold: {self.screenshot_threshold}")
         logger.debug("- Action extraction: handled inline via ActionAgent")
-        logger.debug("- Event aggregation: handled by EventAgent")
+        logger.debug("- Event aggregation: DISABLED (action-based aggregation only)")
         logger.debug("- Todo extraction and merge: handled by TodoAgent")
         logger.debug("- Knowledge extraction and merge: handled by KnowledgeAgent")
 
@@ -160,7 +161,7 @@ class ProcessingPipeline:
 
         self.is_running = False
 
-        # Note: Event aggregation task removed as aggregation is handled by EventAgent
+        # Note: Event aggregation DISABLED - using action-based aggregation only
         # Note: Todo and knowledge merge tasks removed as merging is handled by dedicated agents
 
         # Process remaining accumulated screenshots with a hard timeout to avoid shutdown hangs
@@ -470,7 +471,7 @@ class ProcessingPipeline:
 
 
     # ============ Scheduled Tasks ============
-    # Note: Event aggregation is now handled by EventAgent (started by coordinator)
+    # Note: Event aggregation DISABLED - using action-based aggregation only
     # Note: Knowledge merge is now handled by KnowledgeAgent (started by coordinator)
     # Note: Todo merge is now handled by TodoAgent (started by coordinator)
 

@@ -4,7 +4,7 @@ Request models for PyTauri commands
 """
 
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 from pydantic import Field
 
@@ -620,6 +620,17 @@ class ReadImageFileRequest(BaseModel):
     file_path: str
 
 
+class CleanupBrokenActionsRequest(BaseModel):
+    """Request parameters for cleaning up actions with missing images.
+
+    @property strategy - Cleanup strategy: delete_actions, remove_references, or dry_run.
+    @property actionIds - Optional list of specific action IDs to process.
+    """
+
+    strategy: Literal["delete_actions", "remove_references", "dry_run"]
+    action_ids: Optional[List[str]] = None
+
+
 # ============================================================================
 # Three-Layer Architecture Request Models (Activities → Events → Actions)
 # ============================================================================
@@ -822,3 +833,40 @@ class DeleteDiariesByDateRequest(BaseModel):
 
     start_date: str = Field(..., pattern=r"^\d{4}-\d{2}-\d{2}$")
     end_date: str = Field(..., pattern=r"^\d{4}-\d{2}-\d{2}$")
+
+
+class ToggleKnowledgeFavoriteRequest(BaseModel):
+    """Request parameters for toggling knowledge favorite status.
+
+    @property id - Knowledge ID to toggle favorite status
+    """
+
+    id: str
+
+
+class CreateKnowledgeRequest(BaseModel):
+    """Request parameters for manually creating knowledge.
+
+    @property title - Knowledge title
+    @property description - Knowledge description
+    @property keywords - List of keywords/tags
+    """
+
+    title: str = Field(..., min_length=1, max_length=500)
+    description: str = Field(..., min_length=1)
+    keywords: List[str] = Field(default_factory=list)
+
+
+class UpdateKnowledgeRequest(BaseModel):
+    """Request parameters for updating knowledge.
+
+    @property id - Knowledge ID to update
+    @property title - Knowledge title
+    @property description - Knowledge description
+    @property keywords - List of keywords/tags
+    """
+
+    id: str
+    title: str = Field(..., min_length=1, max_length=500)
+    description: str = Field(..., min_length=1)
+    keywords: List[str] = Field(default_factory=list)
