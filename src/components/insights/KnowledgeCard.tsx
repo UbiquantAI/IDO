@@ -32,17 +32,15 @@ export function KnowledgeCard({ knowledge, onToggleFavorite, onDelete, onView }:
       role="button"
       tabIndex={0}>
       <CardHeader className="pb-3">
-        <div className="flex items-start gap-3">
-          <div className="min-w-0 flex-1">
-            <div className="mb-1 flex items-center gap-2">
-              <CardTitle className="truncate text-lg leading-tight">{knowledge.title}</CardTitle>
-              {knowledge.favorite && <Star className="h-4 w-4 shrink-0 fill-yellow-400 text-yellow-400" />}
-            </div>
-            <CardDescription className="text-xs">
-              {category && <span>{category} · </span>}
-              <span>{formatDate(knowledge.createdAt)}</span>
-            </CardDescription>
-          </div>
+        <div className="mb-1 flex items-center gap-2">
+          <CardTitle className="min-w-0 flex-1 truncate text-lg leading-tight">{knowledge.title}</CardTitle>
+          {knowledge.favorite && <Star className="h-4 w-4 shrink-0 fill-yellow-400 text-yellow-400" />}
+        </div>
+        <div className="flex items-center justify-between gap-3">
+          <CardDescription className="text-xs">
+            {category && <span>{category} · </span>}
+            <span>{formatDate(knowledge.createdAt)}</span>
+          </CardDescription>
 
           <div className="flex shrink-0 gap-1 opacity-0 transition-opacity group-hover:opacity-100">
             <Button

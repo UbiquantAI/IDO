@@ -507,6 +507,15 @@ class SessionAgent:
                 f"After overlap merging: {len(activities)} activities"
             )
 
+            # CRITICAL: Final validation to ensure no time overlaps
+            is_valid, overlap_errors = self._validate_no_time_overlap(activities)
+            if not is_valid:
+                logger.error(
+                    f"Time overlap validation FAILED in event clustering:\n" +
+                    "\n".join(overlap_errors) +
+                    "\nThis indicates overlap detection algorithm may need adjustment"
+                )
+
             # Validate with supervisor, passing original events for semantic validation
             activities = await self._validate_activities_with_supervisor(
                 activities, events
@@ -764,6 +773,8 @@ class SessionAgent:
         """
         Detect and merge overlapping activities to prevent duplicate time consumption
 
+        Enhanced algorithm that handles all overlap cases including nested and multi-way overlaps.
+
         Args:
             activities: List of activity dictionaries
 
@@ -779,133 +790,213 @@ class SessionAgent:
             key=lambda a: a.get("start_time") or datetime.min
         )
 
-        merged: List[Dict[str, Any]] = []
-        current = sorted_activities[0].copy()
+        # Iterative merging until no more overlaps found
+        max_iterations = 10  # Prevent infinite loop
+        iteration = 0
 
-        for i in range(1, len(sorted_activities)):
-            next_activity = sorted_activities[i]
+        while iteration < max_iterations:
+            iteration += 1
+            merged_any = False
+            merged: List[Dict[str, Any]] = []
+            skip_indices: set = set()
 
-            # Check for time overlap or proximity
-            current_end = current.get("end_time")
-            next_start = next_activity.get("start_time")
-
-            should_merge = False
-            merge_reason = ""
-
-            if current_end and next_start:
-                # Convert to datetime if needed
-                if isinstance(current_end, str):
-                    current_end = datetime.fromisoformat(current_end)
-                if isinstance(next_start, str):
-                    next_start = datetime.fromisoformat(next_start)
-
-                # Calculate time gap between activities
-                time_gap = (next_start - current_end).total_seconds()
-
-                # Case 1: Direct time overlap (original logic)
-                if next_start < current_end:
-                    should_merge = True
-                    merge_reason = "time_overlap"
-
-                # Case 2: Adjacent or small gap with semantic similarity
-                elif 0 <= time_gap <= self.merge_time_gap_tolerance:
-                    # Calculate semantic similarity
-                    similarity = self._calculate_activity_similarity(current, next_activity)
-
-                    if similarity >= self.merge_similarity_threshold:
-                        should_merge = True
-                        merge_reason = f"proximity_similarity (gap: {time_gap:.0f}s, similarity: {similarity:.2f})"
-
-                # Perform merge if criteria met
-                if should_merge:
-                    logger.debug(
-                        f"Merging activities (reason: {merge_reason}): '{current.get('title')}' and '{next_activity.get('title')}'"
-                    )
-
-                    # Merge source_event_ids (remove duplicates)
-                    current_events = set(current.get("source_event_ids", []))
-                    next_events = set(next_activity.get("source_event_ids", []))
-                    merged_events = list(current_events | next_events)
-
-                    # Update end_time to the latest
-                    next_end = next_activity.get("end_time")
-                    if isinstance(next_end, str):
-                        next_end = datetime.fromisoformat(next_end)
-                    if next_end and next_end > current_end:
-                        current["end_time"] = next_end
-
-                    # Merge topic_tags
-                    current_tags = set(current.get("topic_tags", []))
-                    next_tags = set(next_activity.get("topic_tags", []))
-                    merged_tags = list(current_tags | next_tags)
-
-                    # Update current with merged data
-                    current["source_event_ids"] = merged_events
-                    current["topic_tags"] = merged_tags
-
-                    # Merge titles and descriptions based on duration
-                    # Calculate durations to determine primary activity
-                    current_start = current.get("start_time")
-                    if isinstance(current_start, str):
-                        current_start = datetime.fromisoformat(current_start)
-                    next_start_dt = next_activity.get("start_time")
-                    if isinstance(next_start_dt, str):
-                        next_start_dt = datetime.fromisoformat(next_start_dt)
-
-                    current_duration = (current_end - current_start).total_seconds() if current_start and current_end else 0
-                    next_duration = (next_end - next_start_dt).total_seconds() if next_start_dt and next_end else 0
-
-                    current_title = current.get("title", "")
-                    next_title = next_activity.get("title", "")
-                    current_desc = current.get("description", "")
-                    next_desc = next_activity.get("description", "")
-
-                    # Select title from the longer-duration activity (primary activity)
-                    if next_title and next_title != current_title:
-                        if next_duration > current_duration:
-                            # Next activity is primary, use its title
-                            logger.debug(
-                                f"Selected '{next_title}' as primary (duration: {next_duration:.0f}s > {current_duration:.0f}s)"
-                            )
-                            current["title"] = next_title
-                            # Add current as secondary context in description if needed
-                            if current_desc and current_title:
-                                current["description"] = f"{next_desc}\n\n[Related: {current_title}]\n{current_desc}" if next_desc else current_desc
-                            elif next_desc:
-                                current["description"] = next_desc
-                        else:
-                            # Current activity is primary, keep its title
-                            logger.debug(
-                                f"Kept '{current_title}' as primary (duration: {current_duration:.0f}s >= {next_duration:.0f}s)"
-                            )
-                            # Keep current title, add next as secondary context
-                            if next_desc and next_title:
-                                if current_desc:
-                                    current["description"] = f"{current_desc}\n\n[Related: {next_title}]\n{next_desc}"
-                                else:
-                                    current["description"] = next_desc
-                            # If only next has description, use it
-                            elif next_desc and not current_desc:
-                                current["description"] = next_desc
-                    else:
-                        # Same title or one is empty, just merge descriptions
-                        if next_desc and next_desc != current_desc:
-                            if current_desc:
-                                current["description"] = f"{current_desc}\n\n{next_desc}"
-                            else:
-                                current["description"] = next_desc
-
-                    logger.debug(
-                        f"Merged into: '{current.get('title')}' with {len(merged_events)} events"
-                    )
+            for i in range(len(sorted_activities)):
+                if i in skip_indices:
                     continue
 
-            # No overlap, save current and move to next
-            merged.append(current)
-            current = next_activity.copy()
+                current = sorted_activities[i]
+                current_start = self._parse_datetime(current.get("start_time"))
+                current_end = self._parse_datetime(current.get("end_time"))
 
-        # Don't forget the last activity
-        merged.append(current)
+                if not current_start or not current_end:
+                    merged.append(current)
+                    continue
+
+                # Check all remaining activities for overlap
+                merged_with = []
+                for j in range(i + 1, len(sorted_activities)):
+                    if j in skip_indices:
+                        continue
+
+                    next_activity = sorted_activities[j]
+                    next_start = self._parse_datetime(next_activity.get("start_time"))
+                    next_end = self._parse_datetime(next_activity.get("end_time"))
+
+                    if not next_start or not next_end:
+                        continue
+
+                    # Check for time overlap or proximity
+                    should_merge, merge_reason = self._should_merge_activities(
+                        current_start, current_end, current,
+                        next_start, next_end, next_activity
+                    )
+
+                    if should_merge:
+                        logger.debug(
+                            f"Iteration {iteration}: Merging activities (reason: {merge_reason}): "
+                            f"'{current.get('title')}' ({current_start.strftime('%H:%M')}-{current_end.strftime('%H:%M')}) and "
+                            f"'{next_activity.get('title')}' ({next_start.strftime('%H:%M')}-{next_end.strftime('%H:%M')})"
+                        )
+                        merged_with.append(j)
+                        skip_indices.add(j)
+                        merged_any = True
+
+                # Merge all overlapping activities into current
+                if merged_with:
+                    for j in merged_with:
+                        current = self._merge_two_activities(
+                            current, sorted_activities[j], f"overlap_iter_{iteration}"
+                        )
+
+                merged.append(current)
+
+            # Prepare for next iteration
+            sorted_activities = merged
+
+            # Exit if no merges happened in this iteration
+            if not merged_any:
+                logger.debug(f"Overlap merging converged after {iteration} iterations")
+                break
+
+        if iteration >= max_iterations:
+            logger.warning(f"Overlap merging reached max iterations ({max_iterations})")
+
+        return sorted_activities
+
+    def _parse_datetime(self, dt: Any) -> Optional[datetime]:
+        """Parse datetime from various formats"""
+        if isinstance(dt, datetime):
+            return dt
+        elif isinstance(dt, str):
+            try:
+                return datetime.fromisoformat(dt)
+            except (ValueError, TypeError):
+                return None
+        return None
+
+    def _should_merge_activities(
+        self,
+        start1: datetime, end1: datetime, activity1: Dict[str, Any],
+        start2: datetime, end2: datetime, activity2: Dict[str, Any]
+    ) -> tuple[bool, str]:
+        """
+        Determine if two activities should be merged
+
+        Returns:
+            Tuple of (should_merge, merge_reason)
+        """
+        # Case 1: Complete overlap (one contains the other)
+        if (start1 <= start2 and end1 >= end2) or (start2 <= start1 and end2 >= end1):
+            return True, "complete_overlap"
+
+        # Case 2: Partial overlap
+        if (start1 <= start2 < end1) or (start2 <= start1 < end2):
+            return True, "partial_overlap"
+
+        # Case 3: Adjacent or small gap with semantic similarity
+        # Calculate time gap (positive = gap, negative = overlap)
+        if start2 > end1:
+            time_gap = (start2 - end1).total_seconds()
+        else:
+            time_gap = (start1 - end2).total_seconds()
+
+        if 0 <= time_gap <= self.merge_time_gap_tolerance:
+            similarity = self._calculate_activity_similarity(activity1, activity2)
+            if similarity >= self.merge_similarity_threshold:
+                return True, f"proximity_similarity (gap: {time_gap:.0f}s, similarity: {similarity:.2f})"
+
+        return False, ""
+
+    def _merge_two_activities(
+        self,
+        activity1: Dict[str, Any],
+        activity2: Dict[str, Any],
+        merge_reason: str
+    ) -> Dict[str, Any]:
+        """
+        Merge two activities into one
+
+        Args:
+            activity1: First activity (will be the base)
+            activity2: Second activity (will be merged into first)
+            merge_reason: Reason for merge
+
+        Returns:
+            Merged activity
+        """
+        # Parse timestamps
+        start1 = self._parse_datetime(activity1.get("start_time")) or datetime.min
+        end1 = self._parse_datetime(activity1.get("end_time")) or datetime.min
+        start2 = self._parse_datetime(activity2.get("start_time")) or datetime.min
+        end2 = self._parse_datetime(activity2.get("end_time")) or datetime.min
+
+        # Merge time range
+        merged_start = min(start1, start2)
+        merged_end = max(end1, end2)
+
+        # Merge source_event_ids or source_action_ids
+        events1 = set(activity1.get("source_event_ids", []))
+        events2 = set(activity2.get("source_event_ids", []))
+        actions1 = set(activity1.get("source_action_ids", []))
+        actions2 = set(activity2.get("source_action_ids", []))
+
+        merged_events = list(events1 | events2) if events1 or events2 else None
+        merged_actions = list(actions1 | actions2) if actions1 or actions2 else None
+
+        # Merge topic_tags
+        tags1 = set(activity1.get("topic_tags", []))
+        tags2 = set(activity2.get("topic_tags", []))
+        merged_tags = list(tags1 | tags2)
+
+        # Determine primary activity based on duration
+        duration1 = (end1 - start1).total_seconds()
+        duration2 = (end2 - start2).total_seconds()
+
+        if duration2 > duration1:
+            primary = activity2
+            secondary = activity1
+        else:
+            primary = activity1
+            secondary = activity2
+
+        # Merge titles and descriptions
+        title = primary.get("title", "")
+        description = primary.get("description", "")
+
+        # Add secondary activity context if titles differ
+        secondary_title = secondary.get("title", "")
+        secondary_desc = secondary.get("description", "")
+
+        if secondary_title and secondary_title != title:
+            if secondary_desc:
+                description = f"{description}\n\n[Related: {secondary_title}]\n{secondary_desc}" if description else secondary_desc
+        elif secondary_desc and secondary_desc != description:
+            description = f"{description}\n\n{secondary_desc}" if description else secondary_desc
+
+        # Calculate duration
+        duration_minutes = int((merged_end - merged_start).total_seconds() / 60)
+
+        # Build merged activity
+        merged = {
+            "id": activity1.get("id", str(uuid.uuid4())),
+            "title": title,
+            "description": description,
+            "start_time": merged_start,
+            "end_time": merged_end,
+            "session_duration_minutes": duration_minutes,
+            "topic_tags": merged_tags,
+        }
+
+        # Add source IDs
+        if merged_events:
+            merged["source_event_ids"] = merged_events
+        if merged_actions:
+            merged["source_action_ids"] = merged_actions
+
+        # Preserve other fields from primary activity
+        for key in ["pomodoro_session_id", "pomodoro_work_phase", "focus_score", "created_at"]:
+            if key in primary:
+                merged[key] = primary[key]
 
         return merged
 
@@ -1451,6 +1542,28 @@ class SessionAgent:
             activities = await self._validate_activities_with_supervisor(
                 activities, source_actions=actions
             )
+
+            # Step 2.7: CRITICAL - Final validation to ensure no time overlaps
+            is_valid, overlap_errors = self._validate_no_time_overlap(activities)
+            if not is_valid:
+                logger.error(
+                    f"Time overlap validation FAILED for work phase {work_phase}:\n" +
+                    "\n".join(overlap_errors) +
+                    "\nForcing merge of all overlapping activities..."
+                )
+                # Force merge overlapping activities
+                activities = self._merge_overlapping_activities(activities)
+
+                # Re-validate after forced merge
+                is_valid, overlap_errors = self._validate_no_time_overlap(activities)
+                if not is_valid:
+                    logger.error(
+                        f"Time overlap still exists after forced merge:\n" +
+                        "\n".join(overlap_errors) +
+                        "\nThis should not happen - keeping activities as-is but logging critical error"
+                    )
+                else:
+                    logger.info(f"Successfully resolved all time overlaps after forced merge")
 
             # Step 3: Get existing activities from this session (previous work phases)
             existing_session_activities = await self._get_session_activities(session_id)
@@ -2246,6 +2359,55 @@ class SessionAgent:
             )
 
         return filtered_activities
+
+    def _validate_no_time_overlap(
+        self, activities: List[Dict[str, Any]]
+    ) -> tuple[bool, List[str]]:
+        """
+        Final validation to ensure no time overlaps exist in activities
+
+        Args:
+            activities: List of activities to validate
+
+        Returns:
+            Tuple of (is_valid, list of error messages)
+        """
+        if len(activities) <= 1:
+            return True, []
+
+        errors = []
+
+        # Check all pairs for overlap
+        for i in range(len(activities)):
+            activity1 = activities[i]
+            start1 = self._parse_datetime(activity1.get("start_time"))
+            end1 = self._parse_datetime(activity1.get("end_time"))
+
+            if not start1 or not end1:
+                continue
+
+            for j in range(i + 1, len(activities)):
+                activity2 = activities[j]
+                start2 = self._parse_datetime(activity2.get("start_time"))
+                end2 = self._parse_datetime(activity2.get("end_time"))
+
+                if not start2 or not end2:
+                    continue
+
+                # Check for any time overlap
+                if (start1 <= start2 < end1) or (start2 <= start1 < end2) or \
+                   (start1 <= start2 and end1 >= end2) or (start2 <= start1 and end2 >= end1):
+                    error_msg = (
+                        f"Time overlap detected: "
+                        f"Activity '{activity1.get('title', 'Untitled')}' "
+                        f"({start1.strftime('%H:%M')}-{end1.strftime('%H:%M')}) "
+                        f"overlaps with "
+                        f"Activity '{activity2.get('title', 'Untitled')}' "
+                        f"({start2.strftime('%H:%M')}-{end2.strftime('%H:%M')})"
+                    )
+                    errors.append(error_msg)
+
+        return len(errors) == 0, errors
 
     def _calculate_focus_score_from_actions(self, activity: Dict[str, Any]) -> float:
         """

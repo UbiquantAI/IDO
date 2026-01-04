@@ -543,6 +543,19 @@ class PerceptionManager:
         except Exception as e:
             logger.error(f"Failed to update monitor info: {e}")
 
+    def handle_monitors_changed(self) -> None:
+        """Handle monitor configuration changes (rotation, resolution, etc.)
+
+        This should be called when the 'monitors-changed' event is detected
+        to update monitor bounds in the active monitor tracker.
+        """
+        if not self.is_running:
+            logger.debug("Perception not running, skipping monitor update")
+            return
+
+        logger.info("Monitor configuration changed, updating monitor tracker")
+        self._update_monitor_info()
+
     def get_stats(self) -> Dict[str, Any]:
         """Get manager statistics"""
         try:

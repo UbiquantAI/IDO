@@ -890,10 +890,12 @@ export const zhCN = {
           writing: '写作',
           learning: '学习',
           research: '研究',
+          design: '设计',
           communication: '沟通',
           entertainment: '娱乐活动',
           productivityAnalysis: '效率分析',
-          unclear: '混合活动'
+          mixed: '混合活动',
+          unclear: '不明确'
         },
         focusedWork: '高质量专注',
         deepWork: '分钟深度工作',

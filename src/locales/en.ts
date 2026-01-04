@@ -895,10 +895,12 @@ export const en = {
           writing: 'Writing',
           learning: 'Learning',
           research: 'Research',
+          design: 'Design',
           communication: 'Communication',
           entertainment: 'Entertainment',
           productivityAnalysis: 'Productivity Analysis',
-          unclear: 'Mixed Activities'
+          mixed: 'Mixed Activities',
+          unclear: 'Unclear'
         },
         focusedWork: 'High-Quality Focus',
         deepWork: 'min deep work',

@@ -21,6 +21,7 @@ from core.logger import get_logger
 from core.models import RawRecord, RecordType
 from perception.image_manager import get_image_manager
 
+from .behavior_analyzer import BehaviorAnalyzer
 from .image_filter import ImageFilter
 from .image_sampler import ImageSampler
 from .record_filter import RecordFilter
@@ -91,6 +92,15 @@ class ProcessingPipeline:
             min_screenshots_per_window=2,
             scroll_merge_threshold=0.1,
             click_merge_threshold=0.5,
+        )
+
+        # BehaviorAnalyzer: analyzes keyboard/mouse patterns to classify user behavior
+        # Helps LLM distinguish between operation (active work) and browsing (passive consumption)
+        self.behavior_analyzer = BehaviorAnalyzer(
+            operation_threshold=0.6,
+            browsing_threshold=0.3,
+            keyboard_weight=0.6,
+            mouse_weight=0.4,
         )
 
         self.db = get_db()
@@ -326,12 +336,24 @@ class ProcessingPipeline:
                 logger.error("ActionAgent not available, cannot process actions")
                 raise Exception("ActionAgent not available")
 
+            # NEW: Analyze behavior patterns from keyboard/mouse data
+            behavior_analysis = self.behavior_analyzer.analyze(
+                keyboard_records=keyboard_records,
+                mouse_records=mouse_records,
+            )
+
+            logger.debug(
+                f"Behavior analysis: {behavior_analysis['behavior_type']} "
+                f"(confidence={behavior_analysis['confidence']:.2f})"
+            )
+
             # Step 1: Extract scene descriptions from screenshots (RawAgent)
             logger.debug("Step 1: Extracting scene descriptions via RawAgent")
             scenes = await self.raw_agent.extract_scenes(
                 records,
                 keyboard_records=keyboard_records,
                 mouse_records=mouse_records,
+                behavior_analysis=behavior_analysis,  # NEW: pass behavior context
             )
 
             if not scenes:
@@ -353,6 +375,7 @@ class ProcessingPipeline:
                 scenes,
                 keyboard_records=keyboard_records,
                 mouse_records=mouse_records,
+                behavior_analysis=behavior_analysis,  # NEW: pass behavior context
             )
 
             # Update statistics

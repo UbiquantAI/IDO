@@ -207,6 +207,7 @@ def emit_monitors_changed(
 ) -> bool:
     """
     Send \"monitors changed\" event to frontend when connected displays change.
+    Also notifies the perception manager to update monitor bounds.
     """
     from datetime import datetime
 
@@ -219,6 +220,17 @@ def emit_monitors_changed(
     success = _emit("monitors-changed", payload)
     if success:
         logger.debug("✅ Monitors changed event sent")
+
+    # Notify perception manager to update monitor tracker bounds
+    try:
+        from core.coordinator import get_coordinator
+        coordinator = get_coordinator()
+        if coordinator and coordinator.perception_manager:
+            coordinator.perception_manager.handle_monitors_changed()
+            logger.debug("✓ Perception manager notified of monitor changes")
+    except Exception as e:
+        logger.error(f"Failed to notify perception manager of monitor changes: {e}")
+
     return success
 
 

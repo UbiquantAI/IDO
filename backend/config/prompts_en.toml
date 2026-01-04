@@ -86,6 +86,30 @@ Before and after generation, automatically check:
 - If `keywords` contain generic terms (e.g., "code", "browser", "document") → replace them.
 
 -------------------------------------
+【Behavior Context Interpretation】
+-------------------------------------
+The system provides behavior classification based on keyboard and mouse patterns:
+
+**OPERATION Mode (Active Work):**
+- High keyboard activity (frequent typing, shortcuts)
+- Precise mouse clicks and drags
+- User is actively creating, coding, writing, or designing
+- Actions should focus on: what was built/written/created, technical details, problem-solving
+
+**BROWSING Mode (Passive Consumption):**
+- Low keyboard activity (minimal typing)
+- Continuous scrolling, few clicks
+- User is consuming content (reading, watching, learning)
+- Actions should focus on: what was learned/researched, key topics, sources
+
+**MIXED Mode:**
+- Combination of both patterns
+- User may be alternating between creation and reference
+- Actions should capture both aspects
+
+**Important:** Use behavior context as a hint, NOT a strict constraint. Visual evidence from screenshots takes priority.
+
+-------------------------------------
 【Output Objective】
 -------------------------------------
 By leveraging multi-monitor context understanding and behavioral reasoning,
@@ -98,6 +122,9 @@ user_prompt_template = """Here are the user's recent screenshots:
 
 Here is the user's mouse/keyboard usage during this period:
 {input_usage_hint}
+
+**Behavior Classification:**
+{behavior_context}
 
 **Important Note About Perception State:**
 - If keyboard/mouse perception is disabled, the system cannot capture these inputs, so you will not have that contextual information.
@@ -811,11 +838,15 @@ Your task is to cluster a series of ACTIONS (fine-grained operations) into ACTIV
 -------------------------------------
 【Core Principles】
 -------------------------------------
-1. **Thematic Coherence**: Group actions that serve the same high-level goal or project
-2. **Time Continuity**: Actions within reasonable time gaps (≤5min) likely belong together
-3. **Goal Association**: Different objects/files serving the same work goal should merge
-4. **Project Consistency**: Same repo/branch/feature indicates same activity
-5. **Workflow Continuity**: Actions forming a logical workflow (write → test → debug → fix)
+1. **Time Uniqueness (HIGHEST PRIORITY)**: Only one activity can exist in the same time period
+   - If multiple actions overlap or are close in time, they MUST be merged into one activity
+   - When user does multiple things in the same period, identify the primary activity and mention secondary activities in description
+   - Absolutely PROHIBIT creating overlapping activities
+2. **Thematic Coherence**: Group actions that serve the same high-level goal or project
+3. **Time Continuity**: Actions within reasonable time gaps (≤5min) likely belong together
+4. **Goal Association**: Different objects/files serving the same work goal should merge
+5. **Project Consistency**: Same repo/branch/feature indicates same activity
+6. **Workflow Continuity**: Actions forming a logical workflow (write → test → debug → fix)
 
 -------------------------------------
 【Activity Granularity Guidelines】
@@ -884,11 +915,26 @@ user_prompt_template = """Here are the user's actions during a work period:
 -------------------------------------
 Cluster these actions into coherent activities (work sessions).
 
-Consider:
-- Thematic relevance (same goal/project)
-- Time continuity (actions close in time)
-- Workflow coherence (logical progression)
-- Context switches (different projects/apps/domains)
+**KEY CONSTRAINT: Only one activity can exist in the same time period!**
+
+Consider (in priority order):
+1. **Time Uniqueness** (HIGHEST PRIORITY): Absolutely PROHIBIT creating overlapping activities
+   - Check each activity's time range to ensure no overlap
+   - Actions close in time should be merged even if themes differ
+   - If user does multiple things simultaneously, choose the primary activity as title and mention others in description
+2. **Thematic relevance** (HIGH PRIORITY): Same goal/project
+3. **Time continuity** (HIGH PRIORITY): Actions close in time
+4. **Workflow coherence**: Logical progression
+5. **Context switches**: Different projects/apps/domains
+
+**Example (WRONG)**:
+❌ Activity 1: 00:10-00:20 "Watch technical video"
+❌ Activity 2: 00:15-00:25 "Debug system"
+(These activities overlap in time and MUST be merged!)
+
+**Example (CORRECT)**:
+✅ Activity: 00:10-00:25 "Debug system while referencing technical video tutorial"
+(Primary activity is debugging, watching video is auxiliary and mentioned in description)
 
 -------------------------------------
 【Output Format】
@@ -912,6 +958,7 @@ Where:
 - `source`: 1-based indexes of actions that belong to this activity
 - Every action index (1 to N) must appear exactly once across all activities
 - Activities are ordered chronologically by their earliest action
+- **MUST ensure no time overlap between activities**
 """
 
 [config.action_aggregation]
@@ -2639,7 +2686,7 @@ Field descriptions:
 - `strengths`: Focus strengths (2-4 items)
 - `weaknesses`: Focus weaknesses (1-3 items, can be empty)
 - `suggestions`: Improvement suggestions (2-4 items)
-- `work_type`: "development" | "writing" | "learning" | "design" | "entertainment" | "communication" | "mixed" | "unclear"
+- `work_type`: "development" | "writing" | "learning" | "research" | "design" | "communication" | "entertainment" | "productivity_analysis" | "mixed" | "unclear"
 - `is_focused_work`: Whether it is high-quality focused work
 - `distraction_percentage`: Distraction time percentage (0-100)
 - `deep_work_minutes`: Deep work duration (minutes)
@@ -2737,7 +2784,7 @@ Output the following JSON structure (no other text):
 Field descriptions:
 - `focus_score`: Integer score 0-100
 - `reasoning`: Brief explanation of the score (2-3 sentences)
-- `work_type`: "development" | "writing" | "learning" | "research" | "communication" | "productivity_analysis" | "unclear"
+- `work_type`: "development" | "writing" | "learning" | "research" | "design" | "communication" | "entertainment" | "productivity_analysis" | "mixed" | "unclear"
 - `is_productive`: Boolean indicating whether this is productive work vs distraction
 """
 

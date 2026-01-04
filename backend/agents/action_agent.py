@@ -376,6 +376,7 @@ class ActionAgent:
         keyboard_records: Optional[List[RawRecord]] = None,
         mouse_records: Optional[List[RawRecord]] = None,
         enable_supervisor: bool = False,
+        behavior_analysis: Optional[Dict[str, Any]] = None,
     ) -> int:
         """
         Extract and save actions from pre-processed scene descriptions (memory-only, text-based)
@@ -385,6 +386,7 @@ class ActionAgent:
             keyboard_records: Keyboard event records for context
             mouse_records: Mouse event records for context
             enable_supervisor: Whether to enable supervisor validation (default False)
+            behavior_analysis: Behavior classification result from BehaviorAnalyzer
 
         Returns:
             Number of actions saved
@@ -397,7 +399,7 @@ class ActionAgent:
 
             # Step 1: Extract actions from scenes using LLM (text-only, no images)
             actions = await self._extract_actions_from_scenes(
-                scenes, keyboard_records, mouse_records, enable_supervisor
+                scenes, keyboard_records, mouse_records, enable_supervisor, behavior_analysis
             )
 
             if not actions:
@@ -581,6 +583,7 @@ class ActionAgent:
         keyboard_records: Optional[List[RawRecord]] = None,
         mouse_records: Optional[List[RawRecord]] = None,
         enable_supervisor: bool = False,
+        behavior_analysis: Optional[Dict[str, Any]] = None,
     ) -> List[Dict[str, Any]]:
         """
         Extract actions from scene descriptions using LLM (text-only, no images)
@@ -590,6 +593,7 @@ class ActionAgent:
             keyboard_records: Keyboard event records for context
             mouse_records: Mouse event records for context
             enable_supervisor: Whether to enable supervisor validation
+            behavior_analysis: Behavior classification result from BehaviorAnalyzer
 
         Returns:
             List of action dictionaries
@@ -603,9 +607,19 @@ class ActionAgent:
             # Build input usage hint from keyboard/mouse records
             input_usage_hint = self._build_input_usage_hint(keyboard_records, mouse_records)
 
+            # NEW: Format behavior context for prompt
+            behavior_context = ""
+            if behavior_analysis:
+                language = self._get_language()
+                from processing.behavior_analyzer import BehaviorAnalyzer
+                analyzer = BehaviorAnalyzer()
+                behavior_context = analyzer.format_behavior_context(
+                    behavior_analysis, language
+                )
+
             # Build messages (text-only, no images)
             messages = self._build_action_from_scenes_messages(
-                scenes, input_usage_hint
+                scenes, input_usage_hint, behavior_context
             )
 
             # Get configuration parameters
@@ -859,6 +873,7 @@ class ActionAgent:
         self,
         scenes: List[Dict[str, Any]],
         input_usage_hint: str,
+        behavior_context: str = "",
     ) -> List[Dict[str, Any]]:
         """
         Build action extraction messages from scenes (text-only, no images)
@@ -866,6 +881,7 @@ class ActionAgent:
         Args:
             scenes: List of scene description dictionaries
             input_usage_hint: Keyboard/mouse activity hint
+            behavior_context: Formatted behavior classification context
 
         Returns:
             Message list
@@ -905,6 +921,7 @@ class ActionAgent:
             "user_prompt_template",
             scenes_text=scenes_text,
             input_usage_hint=input_usage_hint,
+            behavior_context=behavior_context,
         )
 
         # Build complete messages (text-only, no images)

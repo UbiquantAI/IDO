@@ -489,10 +489,21 @@ class LLMFocusEvaluation(BaseModel):
     """Complete LLM-based focus evaluation result"""
 
     focus_score: int  # 0-100 integer score
-    focus_level: str  # "excellent" | "good" | "moderate" | "low"
+    focus_level: Literal["excellent", "good", "moderate", "low"]  # Focus quality level
     dimension_scores: LLMFocusDimensionScores  # Detailed dimension scores
     analysis: LLMFocusAnalysis  # Detailed analysis
-    work_type: str  # Type of work (development/writing/learning/etc.)
+    work_type: Literal[
+        "development",
+        "writing",
+        "learning",
+        "research",
+        "design",
+        "communication",
+        "entertainment",
+        "productivity_analysis",
+        "mixed",
+        "unclear",
+    ]  # Type of work activity
     is_focused_work: bool  # Whether it's high-quality focused work
     distraction_percentage: int  # Distraction time percentage (0-100)
     deep_work_minutes: float  # Deep work duration (minutes)

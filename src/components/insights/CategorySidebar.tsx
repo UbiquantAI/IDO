@@ -24,6 +24,7 @@ export function CategorySidebar({ knowledge, selectedCategory, onCategoryChange 
   )
 
   const categories = Object.entries(categoryCounts)
+    .filter(([, count]) => count >= 3) // Only show categories with 3+ items
     .sort(([, a], [, b]) => b - a) // Sort by count descending
     .map(([category, count]) => ({ category, count }))
 
