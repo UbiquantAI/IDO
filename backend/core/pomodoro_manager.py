@@ -420,57 +420,84 @@ class PomodoroManager:
                     "message": "Session too short, data discarded",
                 }
 
-            # ★ NEW: If ending during work phase, aggregate activities for current work phase ★
+            # Get session data
             session = await self.db.pomodoro_sessions.get_by_id(session_id)
-            if session and session.get("current_phase") == "work":
-                current_round = session.get("current_round", 1)
-                phase_start_time_str = session.get("phase_start_time")
 
-                if phase_start_time_str:
-                    phase_start_time = datetime.fromisoformat(phase_start_time_str)
-                else:
-                    # Fallback to session start if phase start time not available
-                    phase_start_time = datetime.fromisoformat(
-                        session.get("start_time", datetime.now().isoformat())
-                    )
-
-                logger.info(
-                    f"Manual session end during work phase {current_round}, "
-                    f"triggering activity aggregation (async)"
-                )
-
-                # Increment completed_rounds to reflect this work phase (before async call)
-                completed_rounds = session.get("completed_rounds", 0) + 1
-                await self.db.pomodoro_sessions.update(
-                    session_id=session_id,
-                    completed_rounds=completed_rounds,
-                )
-
-                # Trigger activity aggregation in background (non-blocking)
-                asyncio.create_task(
-                    self._aggregate_work_phase_activities(
-                        session_id=session_id,
-                        work_phase=current_round,
-                        phase_start_time=phase_start_time,
-                        phase_end_time=end_time,
-                    )
-                )
-
-            # ★ Calculate actual work duration based on completed rounds (not elapsed time) ★
-            # This ensures statistics reflect pure focus time, excluding breaks
+            # ★ Calculate actual work duration FIRST (before modifying completed_rounds) ★
+            # For completed rounds: use full work_duration
+            # For current incomplete work phase: use actual elapsed time from phase_start_time to end_time
             if session:
                 completed_rounds = session.get("completed_rounds", 0)
-                # If we just ended during a work phase, include it
-                if session.get("current_phase") == "work":
-                    completed_rounds = session.get("completed_rounds", 0) + 1
-
                 work_duration = session.get("work_duration_minutes", 25)
+                current_phase = session.get("current_phase", "work")
+
+                # Calculate time for completed rounds
                 actual_work_minutes = completed_rounds * work_duration
 
-                logger.info(
-                    f"Session duration: elapsed={elapsed_duration:.1f}min, "
-                    f"actual_work={actual_work_minutes}min (based on {completed_rounds} completed rounds)"
-                )
+                # If ending during work phase, add actual time worked in current phase
+                current_phase_minutes = 0
+                if current_phase == "work":
+                    phase_start_time_str = session.get("phase_start_time")
+                    if phase_start_time_str:
+                        phase_start_time = datetime.fromisoformat(phase_start_time_str)
+                        # Calculate actual time worked in current phase (in minutes)
+                        current_phase_minutes = (end_time - phase_start_time).total_seconds() / 60
+                        actual_work_minutes += int(current_phase_minutes)
+
+                        logger.info(
+                            f"Session duration: elapsed={elapsed_duration:.1f}min, "
+                            f"actual_work={actual_work_minutes}min "
+                            f"({completed_rounds} completed rounds × {work_duration}min + "
+                            f"{int(current_phase_minutes)}min in current phase)"
+                        )
+                    else:
+                        # Fallback: if no phase_start_time, use full work_duration for current phase
+                        current_phase_minutes = work_duration
+                        actual_work_minutes += work_duration
+                        logger.warning(
+                            f"No phase_start_time found for current work phase, "
+                            f"using full work_duration ({work_duration}min)"
+                        )
+                else:
+                    logger.info(
+                        f"Session duration: elapsed={elapsed_duration:.1f}min, "
+                        f"actual_work={actual_work_minutes}min (based on {completed_rounds} completed rounds)"
+                    )
+
+                # ★ If ending during work phase, trigger activity aggregation and update completed_rounds ★
+                if current_phase == "work":
+                    current_round = session.get("current_round", 1)
+                    phase_start_time_str = session.get("phase_start_time")
+
+                    if phase_start_time_str:
+                        phase_start_time = datetime.fromisoformat(phase_start_time_str)
+                    else:
+                        # Fallback to session start if phase start time not available
+                        phase_start_time = datetime.fromisoformat(
+                            session.get("start_time", datetime.now().isoformat())
+                        )
+
+                    logger.info(
+                        f"Manual session end during work phase {current_round}, "
+                        f"triggering activity aggregation (async)"
+                    )
+
+                    # Increment completed_rounds to reflect this work phase
+                    new_completed_rounds = completed_rounds + 1
+                    await self.db.pomodoro_sessions.update(
+                        session_id=session_id,
+                        completed_rounds=new_completed_rounds,
+                    )
+
+                    # Trigger activity aggregation in background (non-blocking)
+                    asyncio.create_task(
+                        self._aggregate_work_phase_activities(
+                            session_id=session_id,
+                            work_phase=current_round,
+                            phase_start_time=phase_start_time,
+                            phase_end_time=end_time,
+                        )
+                    )
             else:
                 # Fallback: use elapsed time if we can't get session data
                 actual_work_minutes = int(elapsed_duration)
@@ -760,20 +787,45 @@ class PomodoroManager:
 
             for session in orphaned:
                 session_id = session["id"]
+                recovery_time = datetime.now()
 
-                # Calculate actual work duration based on completed rounds
+                # Calculate actual work duration
                 completed_rounds = session.get("completed_rounds", 0)
-                # If session was interrupted during a work phase, include it
-                if session.get("current_phase") == "work":
-                    completed_rounds += 1
-
                 work_duration = session.get("work_duration_minutes", 25)
                 actual_work_minutes = completed_rounds * work_duration
+
+                # If session was interrupted during a work phase, add actual time worked
+                if session.get("current_phase") == "work":
+                    phase_start_time_str = session.get("phase_start_time")
+                    if phase_start_time_str:
+                        try:
+                            phase_start_time = datetime.fromisoformat(phase_start_time_str)
+                            # Calculate actual time worked in interrupted phase (in minutes)
+                            current_phase_minutes = (recovery_time - phase_start_time).total_seconds() / 60
+                            actual_work_minutes += int(current_phase_minutes)
+                            logger.info(
+                                f"Orphaned session {session_id} interrupted during work phase: "
+                                f"adding {int(current_phase_minutes)}min to total"
+                            )
+                        except Exception as e:
+                            # Fallback: if phase_start_time parsing fails, use full work_duration
+                            actual_work_minutes += work_duration
+                            logger.warning(
+                                f"Failed to parse phase_start_time for orphaned session {session_id}, "
+                                f"using full work_duration: {e}"
+                            )
+                    else:
+                        # Fallback: if no phase_start_time, use full work_duration
+                        actual_work_minutes += work_duration
+                        logger.warning(
+                            f"No phase_start_time for orphaned session {session_id}, "
+                            f"using full work_duration ({work_duration}min)"
+                        )
 
                 # Auto-end as 'interrupted'
                 await self.db.pomodoro_sessions.update(
                     session_id=session_id,
-                    end_time=datetime.now().isoformat(),
+                    end_time=recovery_time.isoformat(),
                     actual_duration_minutes=actual_work_minutes,
                     status="interrupted",
                     processing_status="pending",

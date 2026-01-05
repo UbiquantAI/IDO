@@ -157,10 +157,9 @@ async def get_pomodoro_stats(
                     )
                     session_data["associated_todo_title"] = None
 
-            # Calculate pure work duration (excludes breaks)
-            completed_rounds = session_data.get("completed_rounds", 0)
-            work_duration = session_data.get("work_duration_minutes", 25)
-            session_data["pure_work_duration_minutes"] = completed_rounds * work_duration
+            # Use actual_duration_minutes as pure work duration
+            # This reflects actual work time (completed rounds + partial current round if stopped early)
+            session_data["pure_work_duration_minutes"] = session_data.get("actual_duration_minutes", 0)
 
             # Get activity count for this session
             session_id = session_data.get("id")
@@ -267,11 +266,10 @@ async def get_pomodoro_session_detail(
             focus_level=focus_metrics_dict["focus_level"],
         )
 
-        # Calculate pure work duration (excludes breaks)
+        # Use actual_duration_minutes as pure work duration
+        # This reflects actual work time (completed rounds + partial current round if stopped early)
         session_with_pure_duration = dict(session)
-        completed_rounds = session_with_pure_duration.get("completed_rounds", 0)
-        work_duration = session_with_pure_duration.get("work_duration_minutes", 25)
-        session_with_pure_duration["pure_work_duration_minutes"] = completed_rounds * work_duration
+        session_with_pure_duration["pure_work_duration_minutes"] = session_with_pure_duration.get("actual_duration_minutes", 0)
 
         # Calculate phase timeline
         phase_timeline_raw = _calculate_phase_timeline(session)
