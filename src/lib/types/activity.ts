@@ -68,6 +68,11 @@ export interface Activity {
   createdAt: number
   updatedAt: number
 
+  // Pomodoro integration fields
+  pomodoroSessionId?: string
+  pomodoroWorkPhase?: number
+  focusScore?: number // 0-100, LLM-evaluated focus score
+
   // Backward compatibility fields (for gradual migration)
   /** @deprecated Use title instead */
   name?: string

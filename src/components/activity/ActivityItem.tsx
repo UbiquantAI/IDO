@@ -2,7 +2,18 @@ import { Activity } from '@/lib/types/activity'
 import { useActivityStore } from '@/lib/stores/activity'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Clock, Loader2, MessageSquare, Sparkles, Trash2, Timer, Layers, ChevronDown, ChevronUp } from 'lucide-react'
+import {
+  Clock,
+  Loader2,
+  MessageSquare,
+  Sparkles,
+  Trash2,
+  Timer,
+  Layers,
+  ChevronDown,
+  ChevronUp,
+  Target
+} from 'lucide-react'
 import { EventCard } from './EventCard'
 import { ActionCard } from './ActionCard'
 import { cn, formatDuration } from '@/lib/utils'
@@ -29,6 +40,48 @@ interface ActivityItemProps {
   selectionMode?: boolean
   isSelected?: boolean
   onToggleSelection?: (activityId: string) => void
+}
+
+// Helper function to get focus score display info
+function getFocusScoreInfo(focusScore: number | undefined) {
+  if (focusScore === undefined || focusScore === null) {
+    return null
+  }
+
+  // Define score levels and their styling
+  if (focusScore >= 80) {
+    return {
+      level: 'excellent',
+      label: 'Excellent Focus',
+      variant: 'default' as const,
+      bgClass: 'bg-green-500/10 border-green-500/20',
+      textClass: 'text-green-700 dark:text-green-400'
+    }
+  } else if (focusScore >= 60) {
+    return {
+      level: 'good',
+      label: 'Good Focus',
+      variant: 'secondary' as const,
+      bgClass: 'bg-blue-500/10 border-blue-500/20',
+      textClass: 'text-blue-700 dark:text-blue-400'
+    }
+  } else if (focusScore >= 40) {
+    return {
+      level: 'moderate',
+      label: 'Moderate Focus',
+      variant: 'outline' as const,
+      bgClass: 'bg-yellow-500/10 border-yellow-500/20',
+      textClass: 'text-yellow-700 dark:text-yellow-400'
+    }
+  } else {
+    return {
+      level: 'low',
+      label: 'Low Focus',
+      variant: 'destructive' as const,
+      bgClass: 'bg-red-500/10 border-red-500/20',
+      textClass: 'text-red-700 dark:text-red-400'
+    }
+  }
 }
 
 export function ActivityItem({
@@ -82,6 +135,11 @@ export function ActivityItem({
     const durationMinutes = duration / (1000 * 60)
     return durationMinutes > 30
   }, [duration])
+
+  // Get focus score display info
+  const focusScoreInfo = useMemo(() => {
+    return getFocusScoreInfo(activity.focusScore)
+  }, [activity.focusScore])
 
   // Safely format time range with fallback for invalid timestamps
   let timeRange = '-- : -- : -- ~ -- : -- : --'
@@ -264,6 +322,15 @@ export function ActivityItem({
                   <Badge variant="default" className="bg-primary rounded-full px-3 text-[10px]">
                     <Sparkles className="mr-1 h-2.5 w-2.5" />
                     {t('activity.milestone', 'Milestone')}
+                  </Badge>
+                )}
+                {focusScoreInfo && (
+                  <Badge
+                    variant={focusScoreInfo.variant}
+                    className={cn('rounded-full px-3 text-[10px] font-medium', focusScoreInfo.bgClass)}
+                    title={`Focus Score: ${activity.focusScore?.toFixed(0)}/100`}>
+                    <Target className="mr-1 h-2.5 w-2.5" />
+                    <span className={focusScoreInfo.textClass}>{activity.focusScore?.toFixed(0)}</span>
                   </Badge>
                 )}
               </div>
