@@ -94,14 +94,47 @@ class PomodoroManager:
             raise ValueError("A Pomodoro session is already active")
 
         # Check if previous session is still processing
+        # Allow starting if processing has been running for more than 15 minutes (likely stuck)
         processing_sessions = await self.db.pomodoro_sessions.get_by_processing_status(
             "processing", limit=1
         )
         if processing_sessions:
-            raise ValueError(
-                "Previous Pomodoro session is still being analyzed. "
-                "Please wait for completion before starting a new session."
-            )
+            session = processing_sessions[0]
+            processing_started_at = session.get("processing_started_at")
+
+            if processing_started_at:
+                try:
+                    started_time = datetime.fromisoformat(processing_started_at)
+                    elapsed_minutes = (datetime.now() - started_time).total_seconds() / 60
+
+                    if elapsed_minutes < 15:
+                        # Still within reasonable time, block new session
+                        raise ValueError(
+                            "Previous Pomodoro session is still being analyzed. "
+                            "Please wait for completion before starting a new session."
+                        )
+                    else:
+                        # Processing stuck for > 15 minutes, force complete it
+                        logger.warning(
+                            f"Force completing stuck session {session['id']} "
+                            f"(processing for {elapsed_minutes:.1f} minutes)"
+                        )
+                        await self.db.pomodoro_sessions.update(
+                            session_id=session["id"],
+                            processing_status="failed",
+                            processing_error="Processing timeout - forced completion",
+                        )
+                except Exception as e:
+                    logger.error(f"Error checking processing session timestamp: {e}")
+                    # If we can't parse timestamp, allow starting new session
+            else:
+                # No timestamp, likely stuck - force complete it
+                logger.warning(f"Force completing session {session['id']} (no timestamp)")
+                await self.db.pomodoro_sessions.update(
+                    session_id=session["id"],
+                    processing_status="failed",
+                    processing_error="No processing timestamp - forced completion",
+                )
 
         session_id = str(uuid.uuid4())
         start_time = datetime.now()
@@ -642,8 +675,8 @@ class PomodoroManager:
 
         Steps:
         1. Update status to 'processing'
-        2. Wait for all work phases to complete
-        3. Trigger LLM evaluation
+        2. Wait for all work phases to complete (max 5 minutes)
+        3. Trigger LLM evaluation (with timeout protection)
         4. Update status to 'completed'
         5. Emit completion event
 
@@ -660,8 +693,26 @@ class PomodoroManager:
 
             logger.info(f"→ Waiting for work phases to complete: {session_id}")
 
-            # Wait for all work phases to complete before triggering LLM evaluation
-            await self._wait_and_trigger_llm_evaluation(session_id)
+            # Wrap entire processing in timeout (max 10 minutes total)
+            # This prevents processing from hanging indefinitely
+            try:
+                await asyncio.wait_for(
+                    self._wait_and_trigger_llm_evaluation(session_id),
+                    timeout=600  # 10 minutes: 5 min wait + ~5 min LLM evaluation
+                )
+            except asyncio.TimeoutError:
+                logger.error(
+                    f"Processing timeout (10 minutes) for session {session_id}, "
+                    f"marking as failed"
+                )
+                await self.db.pomodoro_sessions.update(
+                    session_id=session_id,
+                    processing_status="failed",
+                    processing_error="Processing timeout (10 minutes exceeded)",
+                )
+                self._emit_failure_event(session_id, job_id, "Processing timeout")
+                self._processing_tasks.pop(job_id, None)
+                return
 
             # Update status
             await self.db.pomodoro_sessions.update(
