@@ -130,12 +130,6 @@ export function ActivityItem({
     return formatDuration(duration, 'short')
   }, [duration])
 
-  // Determine if this is a milestone (long activity > 30 minutes)
-  const isMilestone = useMemo(() => {
-    const durationMinutes = duration / (1000 * 60)
-    return durationMinutes > 30
-  }, [duration])
-
   // Get focus score display info
   const focusScoreInfo = useMemo(() => {
     return getFocusScoreInfo(activity.focusScore)
@@ -318,12 +312,6 @@ export function ActivityItem({
                   <Timer className="h-3.5 w-3.5" />
                   <span>{durationFormatted}</span>
                 </div>
-                {isMilestone && (
-                  <Badge variant="default" className="bg-primary rounded-full px-3 text-[10px]">
-                    <Sparkles className="mr-1 h-2.5 w-2.5" />
-                    {t('activity.milestone', 'Milestone')}
-                  </Badge>
-                )}
                 {focusScoreInfo && (
                   <Badge
                     variant={focusScoreInfo.variant}
