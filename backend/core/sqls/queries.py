@@ -176,11 +176,11 @@ SELECT_MESSAGE_COUNT = """
 # Maintenance / cleanup queries
 DELETE_EVENT_IMAGES_BEFORE_TIMESTAMP = """
     DELETE FROM event_images
-    WHERE event_id IN (SELECT id FROM events WHERE timestamp < ?)
+    WHERE event_id IN (SELECT id FROM events WHERE start_time < ?)
 """
 
 DELETE_EVENTS_BEFORE_TIMESTAMP = """
-    DELETE FROM events WHERE timestamp < ?
+    DELETE FROM events WHERE start_time < ?
 """
 
 SOFT_DELETE_ACTIVITIES_BEFORE_START_TIME = """

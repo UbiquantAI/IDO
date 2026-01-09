@@ -188,9 +188,11 @@ merge_similarity_threshold = 0.6
 # Similarity threshold (0.0-1.0)
 # Description: Two screenshots are considered duplicates if similarity exceeds this value
 # - 0.85-0.90: Relaxed mode (retains more screenshots, suitable for fast-changing scenarios)
-# - 0.90-0.95: Standard mode (recommended, balances deduplication and information retention) ⭐
+# - 0.90-0.95: Standard mode (recommended, balances deduplication and information retention)
 # - 0.95-0.98: Strict mode (aggressive deduplication, suitable for static content scenarios)
-screenshot_similarity_threshold = 0.92  # Optimized: increased from 0.90 for more aggressive deduplication
+# OPTIMIZED: Lowered from 0.92 to 0.88 for video-watching scenarios ⭐
+# This allows more content variations to be captured (e.g., video progress, UI changes)
+screenshot_similarity_threshold = 0.88
 
 # Hash cache size
 # Description: Keep hash values of the last N screenshots for comparison
@@ -212,23 +214,24 @@ screenshot_hash_algorithms = ["phash", "dhash", "average_hash"]
 enable_adaptive_threshold = true
 
 # Action extraction configuration (RawAgent → ActionAgent flow)
-# CRITICAL UPDATE: Significantly increased to combat extreme token consumption
-# Analysis: 23:00-00:00 consumed 1.24M tokens in 1 hour (345 tokens/second!)
+# OPTIMIZED: Balanced threshold for better data generation in Pomodoro sessions
 #
-# Threshold calculation: Higher threshold = fewer LLM calls = dramatic cost reduction
+# Threshold calculation: Balance between LLM calls and data completeness
 # With 1 screenshot/second capture rate:
-# - 12: Trigger every ~12 seconds (too frequent, 300 calls/hour)
-# - 20: Trigger every ~20 seconds (still high, 180 calls/hour)
-# - 40: Trigger every ~40 seconds (balanced, 90 calls/hour) ⭐ NEW
-# - 60: Trigger every ~60 seconds (conservative, 60 calls/hour)
+# - 12: Trigger every ~12 seconds (frequent, 300 calls/hour, high data completeness)
+# - 20: Trigger every ~20 seconds (balanced, 180 calls/hour)
+# - 25: Trigger every ~25 seconds (optimized, 144 calls/hour) ⭐ OPTIMIZED
+# - 40: Trigger every ~40 seconds (conservative, 90 calls/hour, may miss activities)
 #
-# Expected savings with threshold=40:
-# - API calls: 180/hour → 90/hour (50% reduction)
-# - Token consumption: ~1.24M/hour → ~620K/hour (50% reduction)
-# - Cost savings: ~$37/hour → ~$18.50/hour (GPT-4 pricing)
+# RATIONALE: Previous threshold of 40 caused "no actions found" errors in Pomodoro sessions
+# because screenshots were too sparse (especially for video-watching scenarios).
+# Lowering to 25 provides:
+# - 60% more action generation frequency (40→25 screenshots)
+# - Better activity coverage in diverse scenarios (coding, watching, reading)
+# - Acceptable token cost (~$20-25/hour vs $18.50/hour at threshold=40)
 #
-# Note: Buffer persists until threshold is reached, accumulating screenshots continuously
-action_extraction_threshold = 40  # URGENT FIX: Increased from 20 to drastically reduce token consumption
+# Note: Combined with screenshot_similarity_threshold=0.88, this provides optimal balance
+action_extraction_threshold = 25  # OPTIMIZED: Lowered from 40 for better Pomodoro data generation
 max_screenshots_per_extraction = 8  # Final limit: ImageSampler will select best 8 from filtered results
 
 # UI configuration
@@ -250,28 +253,27 @@ enable_screenshot_buffering = true
 
 # Count threshold - trigger batch when this many screenshots accumulated
 # Description: With 1 screenshot/sec capture rate:
-# - 40: Batch every ~40 seconds (matches action_extraction_threshold) ⭐ CURRENT
-# - 50: Batch every ~50 seconds (balanced)
+# - 25: Batch every ~25 seconds (matches action_extraction_threshold) ⭐ OPTIMIZED
+# - 40: Batch every ~40 seconds (balanced)
 # - 60: Batch every ~60 seconds (conservative)
 # - 100: Batch every ~100 seconds (less frequent, more memory)
-# CRITICAL UPDATE: Increased to 40 to match new action_extraction_threshold
-# This prevents excessive token consumption (was 1.24M tokens/hour at threshold=20)
-screenshot_buffer_count_threshold = 40
+# OPTIMIZED: Lowered from 40 to 25 to align with action_extraction_threshold
+# This ensures faster action generation and better Pomodoro session data
+screenshot_buffer_count_threshold = 25
 
 # Time threshold - trigger batch after this many seconds elapsed
 # Description: Ensures timely processing even if screenshot rate is low
-# - 45: Slightly longer than count threshold (recommended) ⭐ UPDATED
-# - 60: Balanced
-# - 120: Less frequent batching
-# UPDATED: Set to 45s to work with new 40-screenshot count threshold
-# This prevents screenshots from being buffered too long during idle periods
-screenshot_buffer_time_threshold = 45
+# - 30: More frequent batching (recommended) ⭐ OPTIMIZED
+# - 45: Balanced
+# - 60: Conservative
+# OPTIMIZED: Lowered from 45s to 30s for more responsive action extraction
+screenshot_buffer_time_threshold = 30
 
 # Maximum buffer size - emergency flush to prevent memory overflow
 # Description: Should be 2-4x count_threshold for safety
-# - 80: Conservative (2x count_threshold=40)
-# - 160: Standard (4x count_threshold=40) ⭐ UPDATED
-# - 240: Generous (6x count_threshold=40)
+# - 50: Conservative (2x count_threshold=25)
+# - 100: Standard (4x count_threshold=25) ⭐ OPTIMIZED
+# - 160: Generous (6.4x count_threshold=25)
 screenshot_buffer_max_size = 160
 
 # Processing timeout - maximum time to wait for batch processing

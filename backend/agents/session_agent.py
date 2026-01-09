@@ -1529,8 +1529,10 @@ class SessionAgent:
                 )
                 return []
 
-            # Step 2.3: Filter out short-duration activities (< 2 minutes)
-            activities = self._filter_activities_by_duration(activities, min_duration_minutes=2)
+            # Step 2.3: Filter out short-duration activities
+            # RELAXED THRESHOLD for Pomodoro work phases (use 1 min instead of 2 min)
+            # Pomodoro sessions are already 25-minute focused work, so we trust shorter activities
+            activities = self._filter_activities_by_duration(activities, min_duration_minutes=1)
 
             if not activities:
                 logger.debug(
@@ -2275,7 +2277,20 @@ class SessionAgent:
                     end_time = start_time
 
                 # Calculate duration
-                duration_minutes = int((end_time - start_time).total_seconds() / 60)
+                duration_seconds = (end_time - start_time).total_seconds()
+
+                # CRITICAL FIX: For single-action activities, use minimum duration
+                # This prevents activities from being filtered out due to zero duration
+                if len(source_actions) == 1 and duration_seconds < 60:
+                    # Single action represents a meaningful work moment
+                    # Use 5 minutes as reasonable default duration
+                    duration_minutes = 5
+                    logger.debug(
+                        f"Single-action activity: using default duration of 5min "
+                        f"(original: {duration_seconds:.1f}s)"
+                    )
+                else:
+                    duration_minutes = int(duration_seconds / 60)
 
                 # Extract topic tags from LLM response
                 topic_tags = activity_data.get("topic_tags", [])
