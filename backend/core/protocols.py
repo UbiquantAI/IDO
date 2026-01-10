@@ -246,6 +246,42 @@ class TodosRepositoryProtocol(Protocol):
 class KnowledgeRepositoryProtocol(Protocol):
     """Protocol for knowledge repository operations"""
 
+    async def save(
+        self,
+        knowledge_id: str,
+        title: str,
+        description: str,
+        keywords: List[str],
+        *,
+        created_at: Optional[str] = None,
+        source_action_id: Optional[str] = None,
+        favorite: bool = False,
+    ) -> None:
+        """Save or update knowledge"""
+        ...
+
+    async def get_list(self, include_deleted: bool = False) -> List[Dict[str, Any]]:
+        """Get knowledge list"""
+        ...
+
+    async def delete(self, knowledge_id: str) -> None:
+        """Soft delete knowledge"""
+        ...
+
+    async def update(
+        self,
+        knowledge_id: str,
+        title: str,
+        description: str,
+        keywords: List[str],
+    ) -> None:
+        """Update knowledge"""
+        ...
+
+    async def toggle_favorite(self, knowledge_id: str) -> Optional[bool]:
+        """Toggle favorite status"""
+        ...
+
     async def insert(self, knowledge_data: Dict[str, Any]) -> int:
         """Insert new knowledge"""
         ...

@@ -39,6 +39,7 @@ from models.responses import (
     CachedImagesResponse,
     CleanupBrokenActionsResponse,
     CleanupImagesResponse,
+    CleanupSoftDeletedResponse,
     ClearMemoryCacheResponse,
     ImageOptimizationConfigResponse,
     ImageOptimizationStatsResponse,
@@ -1354,5 +1355,53 @@ async def get_llm_usage_trend(
         return LLMUsageTrendResponse(
             success=False,
             message=f"Failed to get LLM usage trend: {str(e)}",
+            timestamp=datetime.now().isoformat(),
+        )
+
+
+# ============ Soft-Deleted Items Cleanup ============
+
+
+@api_handler(
+    method="POST",
+    path="/resources/cleanup-soft-deleted",
+    tags=["resources"],
+    summary="Permanently delete soft-deleted items",
+    description="Permanently delete all soft-deleted items (todos, knowledge, etc.) from the database",
+)
+async def cleanup_soft_deleted_items() -> CleanupSoftDeletedResponse:
+    """Permanently delete all soft-deleted items
+
+    This cleanup operation permanently removes items that have been
+    soft-deleted (deleted = 1) from the database.
+
+    Currently supports:
+    - Todos
+
+    @returns Cleanup result with counts for each item type
+    """
+    try:
+        db = get_db()
+
+        results: Dict[str, int] = {}
+
+        # Clean up soft-deleted todos
+        todos_deleted = await db.todos.delete_soft_deleted_permanent()
+        results["todos"] = todos_deleted
+
+        total_deleted = sum(results.values())
+
+        return CleanupSoftDeletedResponse(
+            success=True,
+            message=f"Permanently deleted {total_deleted} soft-deleted items",
+            data=results,
+            timestamp=datetime.now().isoformat(),
+        )
+
+    except Exception as e:
+        logger.error(f"Failed to cleanup soft-deleted items: {e}", exc_info=True)
+        return CleanupSoftDeletedResponse(
+            success=False,
+            message=f"Failed to cleanup soft-deleted items: {str(e)}",
             timestamp=datetime.now().isoformat(),
         )

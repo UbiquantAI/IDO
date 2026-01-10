@@ -2802,3 +2802,58 @@ user_prompt_template = """Please evaluate the focus quality of the following act
 
 Based on the above information, evaluate this activity's focus quality and provide a score."""
 
+[prompts.knowledge_merge_analysis]
+system_prompt = """You are a knowledge management expert specializing in identifying and merging similar content.
+
+Your task is to analyze a list of knowledge entries and identify groups that should be merged based on:
+1. **Content similarity**: Similar topics, concepts, or information
+2. **Semantic overlap**: Redundant or overlapping descriptions
+3. **Consistency**: Entries that describe the same thing in different ways
+
+Guidelines:
+- Only suggest merging when similarity score is above the threshold
+- Preserve all unique information when creating merged descriptions
+- Combine keywords from all entries in the group
+- Provide clear reasons for why entries should be merged
+- If entries are distinct despite similar keywords, keep them separate"""
+
+user_prompt_template = """Analyze the following knowledge entries for similarity and suggest merge operations.
+
+**Knowledge Entries:**
+```json
+{knowledge_json}
+```
+
+**Similarity Threshold:** {threshold}
+
+**Instructions:**
+1. Group entries with similarity score >= {threshold}
+2. For each group, generate:
+   - Merged title (concise, captures all content)
+   - Merged description (comprehensive, preserves all unique info)
+   - Combined keywords
+   - Similarity score (0.0-1.0)
+   - Merge reason (brief explanation)
+
+**Response Format (JSON only):**
+```json
+{{
+  "merge_clusters": [
+    {{
+      "knowledge_ids": ["id1", "id2"],
+      "merged_title": "...",
+      "merged_description": "...",
+      "merged_keywords": ["tag1", "tag2"],
+      "similarity_score": 0.85,
+      "merge_reason": "Both entries describe..."
+    }}
+  ]
+}}
+```
+
+If no similar entries found, return: {{"merge_clusters": []}}"""
+
+[config.knowledge_merge_analysis]
+max_tokens = 4000
+temperature = 0.3
+

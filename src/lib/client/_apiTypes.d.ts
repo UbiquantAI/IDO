@@ -220,6 +220,70 @@ export type Success17 = boolean
 export type Message15 = string
 export type Error16 = string
 export type Timestamp10 = string
+export type Title7 = string
+export type Description6 = string
+export type Keywords4 = string[]
+export type Scheduleddate3 = (string | null)
+export type Scheduledtime1 = (string | null)
+export type Scheduledendtime1 = (string | null)
+export type Success18 = boolean
+export type Message16 = string
+export type Error17 = string
+export type Id8 = string
+export type Title8 = string
+export type Description7 = string
+export type Keywords5 = string[]
+export type Createdat5 = (string | null)
+export type Completed = boolean
+export type Deleted1 = boolean
+export type Scheduleddate4 = (string | null)
+export type Scheduledtime2 = (string | null)
+export type Scheduledendtime2 = (string | null)
+export type Recurrencerule1 = ({
+[k: string]: any
+} | null)
+export type Expiresat = (string | null)
+export type Sourcetype = string
+export type Timestamp11 = string
+export type Filterbykeyword = (string | null)
+export type Includefavorites = boolean
+export type Similaritythreshold = number
+export type Success19 = boolean
+export type Message17 = string
+export type Error18 = string
+export type Timestamp12 = string
+export type Groupid = string
+export type Knowledgeids = string[]
+export type Mergedtitle1 = string
+export type Mergeddescription1 = string
+export type Mergedkeywords = string[]
+export type Similarityscore = number
+export type Mergereason = string
+export type Estimatedtokens = number
+export type Suggestions = MergeSuggestion[]
+export type Totalestimatedtokens = number
+export type Analyzedcount = number
+export type Suggestedmergecount = number
+export type Groupid1 = string
+export type Knowledgeids1 = string[]
+export type Mergedtitle2 = string
+export type Mergeddescription2 = string
+export type Mergedkeywords1 = string[]
+export type Mergereason1 = (string | null)
+export type Keepfavorite = boolean
+export type Mergegroups = MergeGroup[]
+export type Success20 = boolean
+export type Message18 = string
+export type Error19 = string
+export type Timestamp13 = string
+export type Groupid2 = string
+export type Mergedknowledgeid = string
+export type Deletedknowledgeids = string[]
+export type Success21 = boolean
+export type Error20 = (string | null)
+export type Results = MergeResult[]
+export type Totalmerged = number
+export type Totaldeleted = number
 export type Intervalseconds = (number | null)
 export type Monitorindex = number
 export type Monitorname = string
@@ -243,33 +307,33 @@ export type PermissionType = ("accessibility" | "screen_recording")
  */
 export type PermissionStatus = ("granted" | "denied" | "not_determined" | "restricted")
 export type Name = string
-export type Description6 = string
+export type Description8 = string
 export type Required = boolean
 export type Systemsettingspath = string
 export type Platform = string
 export type Needsrestart = boolean
-export type Success18 = boolean
-export type Message16 = string
-export type Error17 = string
-export type Success19 = boolean
-export type Message17 = string
-export type Error18 = string
+export type Success22 = boolean
+export type Message19 = string
+export type Error21 = string
+export type Success23 = boolean
+export type Message20 = string
+export type Error22 = string
 export type Granted = (boolean | null)
 export type Delayseconds = number
-export type Success20 = boolean
-export type Message18 = string
-export type Error19 = string
+export type Success24 = boolean
+export type Message21 = string
+export type Error23 = string
 export type Delayseconds1 = (number | null)
-export type Timestamp11 = string
+export type Timestamp14 = string
 export type Userintent = string
 export type Durationminutes = number
 export type Associatedtodoid = (string | null)
 export type Workdurationminutes = number
 export type Breakdurationminutes = number
 export type Totalrounds = number
-export type Success21 = boolean
-export type Message19 = string
-export type Error20 = string
+export type Success25 = boolean
+export type Message22 = string
+export type Error24 = string
 export type Sessionid = string
 export type Userintent1 = string
 export type Starttime3 = string
@@ -286,27 +350,27 @@ export type Phasestarttime = (string | null)
 export type Completedrounds = number
 export type Remainingphaseseconds = (number | null)
 export type Pureworkdurationminutes = number
-export type Timestamp12 = string
+export type Timestamp15 = string
 export type Status1 = string
-export type Success22 = boolean
-export type Message20 = string
-export type Error21 = string
+export type Success26 = boolean
+export type Message23 = string
+export type Error25 = string
 export type Sessionid1 = string
 export type Processingjobid = (string | null)
 export type Rawrecordscount = number
-export type Message21 = string
-export type Timestamp13 = string
-export type Success23 = boolean
-export type Message22 = string
-export type Error22 = string
-export type Timestamp14 = string
+export type Message24 = string
+export type Timestamp16 = string
+export type Success27 = boolean
+export type Message25 = string
+export type Error26 = string
+export type Timestamp17 = string
 export type Sessionid2 = string
 export type Workphase = number
 export type Sessionid3 = string
-export type Success24 = boolean
-export type Message23 = string
-export type Error23 = string
-export type Data5 = (WorkPhaseInfo[] | null)
+export type Success28 = boolean
+export type Message26 = string
+export type Error27 = string
+export type Data7 = (WorkPhaseInfo[] | null)
 export type Phaseid = string
 export type Phasenumber = number
 export type Status2 = string
@@ -315,54 +379,54 @@ export type Retrycount = number
 export type Phasestarttime1 = string
 export type Phaseendtime = (string | null)
 export type Activitycount = number
-export type Timestamp15 = string
+export type Timestamp18 = string
 export type Sessionid4 = string
-export type Success25 = boolean
-export type Message24 = string
-export type Error24 = string
+export type Success29 = boolean
+export type Message27 = string
+export type Error28 = string
 export type Dailyfocusgoalminutes = number
 export type Weeklyfocusgoalminutes = number
-export type Timestamp16 = string
+export type Timestamp19 = string
 export type Dailyfocusgoalminutes1 = (number | null)
 export type Weeklyfocusgoalminutes1 = (number | null)
-export type Success26 = boolean
-export type Message25 = string
-export type Error25 = string
-export type Timestamp17 = string
+export type Success30 = boolean
+export type Message28 = string
+export type Error29 = string
+export type Timestamp20 = string
 export type Sessionid5 = string
-export type Success27 = boolean
-export type Message26 = string
-export type Error26 = string
-export type Timestamp18 = string
-export type Id8 = string
-export type Title7 = string
+export type Success31 = boolean
+export type Message29 = string
+export type Error30 = string
+export type Timestamp21 = string
+export type Id9 = string
+export type Title9 = string
 export type Starttime4 = string
 export type Endtime3 = string
 export type Sessiondurationminutes = number
 export type Activities1 = UnlinkedActivityData[]
 export type Sessionid6 = string
 export type Activityids2 = string[]
-export type Success28 = boolean
-export type Message27 = string
-export type Error27 = string
-export type Timestamp19 = string
+export type Success32 = boolean
+export type Message30 = string
+export type Error31 = string
+export type Timestamp22 = string
 export type Linkedcount = number
-export type Success29 = boolean
-export type Message28 = string
-export type Error28 = string
-export type Id9 = string
+export type Success33 = boolean
+export type Message31 = string
+export type Error32 = string
+export type Id10 = string
 export type Name1 = string
-export type Description7 = string
+export type Description9 = string
 export type Workdurationminutes2 = number
 export type Breakdurationminutes2 = number
 export type Totalrounds2 = number
 export type Icon = string
-export type Data8 = PomodoroPreset[]
-export type Timestamp20 = string
+export type Data10 = PomodoroPreset[]
+export type Timestamp23 = string
 export type Date2 = string
-export type Success30 = boolean
-export type Message29 = string
-export type Error29 = string
+export type Success34 = boolean
+export type Message32 = string
+export type Error33 = string
 export type Date3 = string
 export type Completedcount = number
 export type Totalfocusminutes = number
@@ -370,14 +434,14 @@ export type Averagedurationminutes = number
 export type Sessions = {
 [k: string]: any
 }[]
-export type Timestamp21 = string
+export type Timestamp24 = string
 export type Sessionid7 = string
-export type Success31 = boolean
-export type Message30 = string
-export type Error30 = string
-export type Id10 = string
-export type Title8 = string
-export type Description8 = string
+export type Success35 = boolean
+export type Message33 = string
+export type Error34 = string
+export type Id11 = string
+export type Title10 = string
+export type Description10 = string
 export type Starttime5 = string
 export type Endtime4 = string
 export type Sessiondurationminutes1 = number
@@ -402,7 +466,7 @@ export type Workquality = number
 export type Goalorientation = number
 export type Strengths = string[]
 export type Weaknesses = string[]
-export type Suggestions = string[]
+export type Suggestions1 = string[]
 export type Worktype = ("development" | "writing" | "learning" | "research" | "design" | "communication" | "entertainment" | "productivity_analysis" | "mixed" | "unclear")
 export type Isfocusedwork = boolean
 export type Distractionpercentage = number
@@ -414,12 +478,12 @@ export type Starttime6 = string
 export type Endtime5 = string
 export type Durationminutes1 = number
 export type Phasetimeline = PhaseTimelineItem[]
-export type Timestamp22 = string
+export type Timestamp25 = string
 export type Period = string
 export type Referencedate = (string | null)
-export type Success32 = boolean
-export type Message31 = string
-export type Error31 = string
+export type Success36 = boolean
+export type Message34 = string
+export type Error35 = string
 export type Period1 = string
 export type Startdate1 = string
 export type Enddate1 = string
@@ -432,14 +496,14 @@ export type Date4 = string
 export type Sessions1 = number
 export type Minutes = number
 export type Dailydata = DailyFocusData[]
-export type Timestamp23 = string
+export type Timestamp26 = string
 export type Sessionid8 = string
-export type Success33 = boolean
-export type Message32 = string
-export type Error32 = string
+export type Success37 = boolean
+export type Message35 = string
+export type Error36 = string
 export type Sessionid9 = string
 export type Deletedactivitiescount = number
-export type Timestamp24 = string
+export type Timestamp27 = string
 export type Days = number
 export type Startdate2 = string
 export type Enddate2 = string
@@ -447,40 +511,40 @@ export type Startdate3 = string
 export type Enddate3 = string
 export type Startdate4 = string
 export type Enddate4 = string
-export type Success34 = boolean
-export type Message33 = string
-export type Error33 = string
+export type Success38 = boolean
+export type Message36 = string
+export type Error37 = string
 export type Stats = ({
 [k: string]: any
 } | null)
 export type Hashes = string[]
-export type Success35 = boolean
-export type Message34 = string
-export type Error34 = string
+export type Success39 = boolean
+export type Message37 = string
+export type Error38 = string
 export type Foundcount = number
 export type Requestedcount = number
 export type Maxagehours = number
-export type Success36 = boolean
-export type Message35 = string
-export type Error35 = string
+export type Success40 = boolean
+export type Message38 = string
+export type Error39 = string
 export type Cleanedcount = number
-export type Success37 = boolean
-export type Message36 = string
-export type Error36 = string
+export type Success41 = boolean
+export type Message39 = string
+export type Error40 = string
 export type Clearedcount = number
-export type Success38 = boolean
-export type Message37 = string
-export type Error37 = string
+export type Success42 = boolean
+export type Message40 = string
+export type Error41 = string
 export type Enabled2 = boolean
 export type Strategy = string
 export type Phashthreshold = number
 export type Mininterval = number
 export type Enablecontentanalysis = boolean
 export type Enabletextdetection = boolean
-export type Timestamp25 = string
-export type Success39 = boolean
-export type Message38 = string
-export type Error38 = string
+export type Timestamp28 = string
+export type Success43 = boolean
+export type Message41 = string
+export type Error42 = string
 export type Stats1 = ({
 [k: string]: any
 } | null)
@@ -494,18 +558,18 @@ export type Mininterval1 = (number | null)
 export type Maximages = (number | null)
 export type Enablecontentanalysis1 = (boolean | null)
 export type Enabletextdetection1 = (boolean | null)
-export type Success40 = boolean
-export type Message39 = string
-export type Error39 = string
-export type Timestamp26 = string
+export type Success44 = boolean
+export type Message42 = string
+export type Error43 = string
+export type Timestamp29 = string
 export type Filepath = string
-export type Success41 = boolean
-export type Message40 = string
-export type Error40 = string
+export type Success45 = boolean
+export type Message43 = string
+export type Error44 = string
 export type Dataurl = string
-export type Success42 = boolean
-export type Message41 = string
-export type Error41 = string
+export type Success46 = boolean
+export type Message44 = string
+export type Error45 = string
 export type Totalactions = number
 export type Actionswithscreenshots = number
 export type Actionsallimagesok = number
@@ -523,9 +587,9 @@ export type Actionswithissues = {
 }[]
 export type Strategy2 = ("delete_actions" | "remove_references" | "dry_run")
 export type Actionids = (string[] | null)
-export type Success43 = boolean
-export type Message42 = string
-export type Error42 = string
+export type Success47 = boolean
+export type Message45 = string
+export type Error46 = string
 export type Actionsprocessed = number
 export type Actionsdeleted = number
 export type Referencesremoved = number
@@ -541,15 +605,15 @@ export type Inputtokenprice = number
 export type Outputtokenprice = number
 export type Currency = string
 export type Apikey = string
-export type Success44 = boolean
-export type Message43 = string
-export type Error43 = string
-export type Data9 = ({
+export type Success48 = boolean
+export type Message46 = string
+export type Error47 = string
+export type Data11 = ({
 [k: string]: any
 } | {
 [k: string]: any
 }[] | null)
-export type Timestamp27 = (string | null)
+export type Timestamp30 = (string | null)
 export type Modelid2 = string
 export type Name3 = (string | null)
 export type Apiurl1 = (string | null)
@@ -565,10 +629,10 @@ export type Apikey1 = (string | null)
 export type Modelid3 = string
 export type Modelid4 = string
 export type Modelid5 = string
-export type Success45 = boolean
-export type Message44 = string
-export type Error44 = string
-export type Timestamp28 = string
+export type Success49 = boolean
+export type Message47 = string
+export type Error48 = string
+export type Timestamp31 = string
 export type Modelid6 = string
 export type Model2 = string
 export type Prompttokens = number
@@ -581,63 +645,70 @@ export type Days1 = number
 export type Startdate5 = (string | null)
 export type Enddate5 = (string | null)
 export type Modelconfigid = (string | null)
-export type Success46 = boolean
-export type Message45 = string
-export type Error45 = string
-export type Timestamp29 = string
+export type Success50 = boolean
+export type Message48 = string
+export type Error49 = string
+export type Timestamp32 = string
 export type Dimension4 = (string | null)
 export type Days2 = (number | null)
-export type Success47 = boolean
-export type Message46 = string
-export type Timestamp30 = string
-export type Success48 = boolean
+export type Success51 = boolean
+export type Message49 = string
+export type Error50 = string
+export type Data14 = ({
+[k: string]: number
+} | null)
+export type Timestamp33 = string
+export type Success52 = boolean
+export type Message50 = string
+export type Timestamp34 = string
+export type Success53 = boolean
 export type Path = string
-export type Timestamp31 = string
-export type Success49 = boolean
-export type Message47 = string
-export type Error46 = string
+export type Timestamp35 = string
+export type Success54 = boolean
+export type Message51 = string
+export type Error51 = string
 export type Language = string
-export type Timestamp32 = string
+export type Timestamp36 = string
 export type Databasepath = (string | null)
 export type Screenshotsavepath = (string | null)
 export type Language1 = (string | null)
-export type Success50 = boolean
-export type Message48 = string
-export type Timestamp33 = string
-export type Success51 = boolean
-export type Message49 = string
-export type Error47 = string
+export type Success55 = boolean
+export type Message52 = string
+export type Timestamp37 = string
+export type Success56 = boolean
+export type Message53 = string
+export type Error52 = string
 export type Compressionlevel = number
 export type Enableregioncropping = boolean
 export type Cropthreshold = number
-export type Timestamp34 = string
+export type Timestamp38 = string
 export type Compressionlevel1 = (string | null)
 export type Enableregioncropping1 = (boolean | null)
 export type Cropthreshold1 = (number | null)
-export type Success52 = boolean
-export type Message50 = string
-export type Error48 = string
-export type Timestamp35 = string
-export type Success53 = boolean
-export type Message51 = string
-export type Error49 = string
+export type Success57 = boolean
+export type Message54 = string
+export type Error53 = string
+export type Timestamp39 = string
+export type Success58 = boolean
+export type Message55 = string
+export type Error54 = string
 export type Totalprocessed = number
 export type Totalsavedbytes = number
 export type Averagecompressionratio = number
-export type Timestamp36 = string
-export type Success54 = boolean
-export type Message52 = string
-export type Error50 = string
+export type Timestamp40 = string
+export type Success59 = boolean
+export type Message56 = string
+export type Error55 = string
 export type Hasmodels = boolean
 export type Hasactivemodel = boolean
 export type Hascompletedsetup = boolean
 export type Needssetup = boolean
 export type Modelcount = number
-export type Timestamp37 = string
-export type Success55 = boolean
-export type Message53 = string
-export type Error51 = string
-export type Timestamp38 = string
+export type Timestamp41 = string
+export type Success60 = boolean
+export type Message57 = string
+export type Error56 = string
+export type Timestamp42 = string
 export type Show = string
 export type Hide = string
 export type Dashboard = string
@@ -647,13 +718,13 @@ export type Agents = string
 export type Settings1 = string
 export type About = string
 export type Quit = string
-export type Success56 = boolean
-export type Message54 = string
-export type Error52 = string
+export type Success61 = boolean
+export type Message58 = string
+export type Error57 = string
 export type Visible = boolean
-export type Success57 = boolean
-export type Message55 = string
-export type Error53 = string
+export type Success62 = boolean
+export type Message59 = string
+export type Error58 = string
 export type Visible1 = boolean
 export type Name4 = string
 export type RootModelStr = string
@@ -893,6 +964,22 @@ output: RootModelDictStrAny
 get_knowledge_count_by_date: {
 input: void | undefined
 output: RootModelDictStrAny
+}
+create_todo: {
+input: CreateTodoRequest
+output: CreateTodoResponse
+}
+cleanup_expired_todos: {
+input: void | undefined
+output: RootModelDictStrAny
+}
+analyze_knowledge_merge: {
+input: AnalyzeKnowledgeMergeRequest
+output: AnalyzeKnowledgeMergeResponse
+}
+execute_knowledge_merge: {
+input: ExecuteKnowledgeMergeRequest
+output: ExecuteKnowledgeMergeResponse
 }
 get_monitors: {
 input: void | undefined
@@ -1169,6 +1256,10 @@ output: DashboardResponse
 get_llm_usage_trend: {
 input: GetLLMUsageTrendRequest
 output: LLMUsageTrendResponse
+}
+cleanup_soft_deleted_items: {
+input: void | undefined
+output: CleanupSoftDeletedResponse
 }
 start_system: {
 input: void | undefined
@@ -1952,6 +2043,142 @@ error?: Error16
 timestamp?: Timestamp10
 }
 /**
+ * Request parameters for manually creating a todo.
+ * 
+ * @property title - Todo title (required)
+ * @property description - Todo description (required)
+ * @property keywords - List of keywords/tags (optional)
+ * @property scheduled_date - Optional scheduled date (YYYY-MM-DD format)
+ * @property scheduled_time - Optional scheduled time (HH:MM format)
+ * @property scheduled_end_time - Optional scheduled end time (HH:MM format)
+ */
+export interface CreateTodoRequest {
+title: Title7
+description: Description6
+keywords?: Keywords4
+scheduledDate?: Scheduleddate3
+scheduledTime?: Scheduledtime1
+scheduledEndTime?: Scheduledendtime1
+}
+/**
+ * Response for creating a todo manually
+ */
+export interface CreateTodoResponse {
+success: Success18
+message?: Message16
+error?: Error17
+data?: (TodoData | null)
+timestamp?: Timestamp11
+}
+/**
+ * Todo data for API responses
+ */
+export interface TodoData {
+id: Id8
+title: Title8
+description: Description7
+keywords: Keywords5
+createdAt?: Createdat5
+completed?: Completed
+deleted?: Deleted1
+scheduledDate?: Scheduleddate4
+scheduledTime?: Scheduledtime2
+scheduledEndTime?: Scheduledendtime2
+recurrenceRule?: Recurrencerule1
+expiresAt?: Expiresat
+sourceType?: Sourcetype
+}
+/**
+ * Request parameters for analyzing knowledge similarity and generating merge suggestions.
+ * 
+ * @property filter_by_keyword - Only analyze knowledge with this keyword (None = all)
+ * @property include_favorites - Whether to include favorite knowledge in analysis
+ * @property similarity_threshold - Similarity threshold for merging (0.0-1.0)
+ */
+export interface AnalyzeKnowledgeMergeRequest {
+filterByKeyword?: Filterbykeyword
+includeFavorites?: Includefavorites
+similarityThreshold?: Similaritythreshold
+}
+/**
+ * Response after analyzing knowledge for merge suggestions
+ */
+export interface AnalyzeKnowledgeMergeResponse {
+success: Success19
+message?: Message17
+error?: Error18
+data?: any
+timestamp?: Timestamp12
+suggestions: Suggestions
+totalEstimatedTokens: Totalestimatedtokens
+analyzedCount: Analyzedcount
+suggestedMergeCount: Suggestedmergecount
+}
+/**
+ * Represents a suggested merge of similar knowledge entries
+ */
+export interface MergeSuggestion {
+groupId: Groupid
+knowledgeIds: Knowledgeids
+mergedTitle: Mergedtitle1
+mergedDescription: Mergeddescription1
+mergedKeywords: Mergedkeywords
+similarityScore: Similarityscore
+mergeReason: Mergereason
+estimatedTokens: Estimatedtokens
+}
+/**
+ * Request parameters for executing approved knowledge merge operations.
+ * 
+ * @property merge_groups - List of merge groups to execute
+ */
+export interface ExecuteKnowledgeMergeRequest {
+mergeGroups: Mergegroups
+}
+/**
+ * Represents a user-confirmed merge group.
+ * 
+ * @property group_id - Unique identifier for this merge group
+ * @property knowledge_ids - List of knowledge IDs to merge
+ * @property merged_title - Title for the merged knowledge
+ * @property merged_description - Description for the merged knowledge
+ * @property merged_keywords - Keywords for the merged knowledge
+ * @property merge_reason - Optional reason for merging
+ * @property keep_favorite - Whether to keep favorite status if any source is favorite
+ */
+export interface MergeGroup {
+groupId: Groupid1
+knowledgeIds: Knowledgeids1
+mergedTitle: Mergedtitle2
+mergedDescription: Mergeddescription2
+mergedKeywords?: Mergedkeywords1
+mergeReason?: Mergereason1
+keepFavorite?: Keepfavorite
+}
+/**
+ * Response after executing knowledge merge operations
+ */
+export interface ExecuteKnowledgeMergeResponse {
+success: Success20
+message?: Message18
+error?: Error19
+data?: any
+timestamp?: Timestamp13
+results: Results
+totalMerged: Totalmerged
+totalDeleted: Totaldeleted
+}
+/**
+ * Result of executing a merge operation
+ */
+export interface MergeResult {
+groupId: Groupid2
+mergedKnowledgeId: Mergedknowledgeid
+deletedKnowledgeIds: Deletedknowledgeids
+success: Success21
+error?: Error20
+}
+/**
  * Request to start monitors auto refresh.
  */
 export interface StartMonitorsAutoRefreshRequest {
@@ -2013,7 +2240,7 @@ export interface PermissionInfo {
 type: PermissionType
 status: PermissionStatus
 name: Name
-description: Description6
+description: Description8
 required: Required
 systemSettingsPath: Systemsettingspath
 }
@@ -2027,17 +2254,17 @@ permissionType: PermissionType
  * Response for opening system settings
  */
 export interface OpenSystemSettingsResponse {
-success: Success18
-message?: Message16
-error?: Error17
+success: Success22
+message?: Message19
+error?: Error21
 }
 /**
  * Response for requesting accessibility permission
  */
 export interface AccessibilityPermissionResponse {
-success: Success19
-message?: Message17
-error?: Error18
+success: Success23
+message?: Message20
+error?: Error22
 granted?: Granted
 }
 /**
@@ -2050,11 +2277,11 @@ delaySeconds?: Delayseconds
  * Response for restarting the application
  */
 export interface RestartAppResponse {
-success: Success20
-message?: Message18
-error?: Error19
+success: Success24
+message?: Message21
+error?: Error23
 delaySeconds?: Delayseconds1
-timestamp?: Timestamp11
+timestamp?: Timestamp14
 }
 /**
  * Start Pomodoro request with rounds configuration
@@ -2071,11 +2298,11 @@ totalRounds?: Totalrounds
  * Response after starting a Pomodoro session
  */
 export interface StartPomodoroResponse {
-success: Success21
-message?: Message19
-error?: Error20
+success: Success25
+message?: Message22
+error?: Error24
 data?: (PomodoroSessionData | null)
-timestamp?: Timestamp12
+timestamp?: Timestamp15
 }
 /**
  * Pomodoro session data with rounds support
@@ -2108,11 +2335,11 @@ status?: Status1
  * Response after ending a Pomodoro session
  */
 export interface EndPomodoroResponse {
-success: Success22
-message?: Message20
-error?: Error21
+success: Success26
+message?: Message23
+error?: Error25
 data?: (EndPomodoroData | null)
-timestamp?: Timestamp13
+timestamp?: Timestamp16
 }
 /**
  * End Pomodoro session result data
@@ -2121,17 +2348,17 @@ export interface EndPomodoroData {
 sessionId: Sessionid1
 processingJobId?: Processingjobid
 rawRecordsCount?: Rawrecordscount
-message?: Message21
+message?: Message24
 }
 /**
  * Response for getting current Pomodoro session status
  */
 export interface GetPomodoroStatusResponse {
-success: Success23
-message?: Message22
-error?: Error22
+success: Success27
+message?: Message25
+error?: Error26
 data?: (PomodoroSessionData | null)
-timestamp?: Timestamp14
+timestamp?: Timestamp17
 }
 /**
  * Retry work phase activity aggregation request
@@ -2150,11 +2377,11 @@ sessionId: Sessionid3
  * Response for get_session_phases endpoint
  */
 export interface GetSessionPhasesResponse {
-success: Success24
-message?: Message23
-error?: Error23
-data?: Data5
-timestamp?: Timestamp15
+success: Success28
+message?: Message26
+error?: Error27
+data?: Data7
+timestamp?: Timestamp18
 }
 /**
  * Work phase status information
@@ -2179,11 +2406,11 @@ sessionId: Sessionid4
  * Response with Pomodoro goal settings
  */
 export interface GetPomodoroGoalsResponse {
-success: Success25
-message?: Message24
-error?: Error24
+success: Success29
+message?: Message27
+error?: Error28
 data?: (PomodoroGoalsData | null)
-timestamp?: Timestamp16
+timestamp?: Timestamp19
 }
 /**
  * Pomodoro goal settings data
@@ -2203,11 +2430,11 @@ weeklyFocusGoalMinutes?: Weeklyfocusgoalminutes1
  * Response with updated Pomodoro goal settings
  */
 export interface UpdatePomodoroGoalsResponse {
-success: Success26
-message?: Message25
-error?: Error25
+success: Success30
+message?: Message28
+error?: Error29
 data?: (PomodoroGoalsData | null)
-timestamp?: Timestamp17
+timestamp?: Timestamp20
 }
 /**
  * Request to find activities that could be linked to a session
@@ -2219,19 +2446,19 @@ sessionId: Sessionid5
  * Response with unlinked activities
  */
 export interface FindUnlinkedActivitiesResponse {
-success: Success27
-message?: Message26
-error?: Error26
+success: Success31
+message?: Message29
+error?: Error30
 data?: any
-timestamp?: Timestamp18
+timestamp?: Timestamp21
 activities?: Activities1
 }
 /**
  * Activity that could be linked to session
  */
 export interface UnlinkedActivityData {
-id: Id8
-title: Title7
+id: Id9
+title: Title9
 startTime: Starttime4
 endTime: Endtime3
 sessionDurationMinutes: Sessiondurationminutes
@@ -2247,30 +2474,30 @@ activityIds: Activityids2
  * Response after linking activities
  */
 export interface LinkActivitiesResponse {
-success: Success28
-message?: Message27
-error?: Error27
+success: Success32
+message?: Message30
+error?: Error31
 data?: any
-timestamp?: Timestamp19
+timestamp?: Timestamp22
 linkedCount?: Linkedcount
 }
 /**
  * Response with list of Pomodoro presets
  */
 export interface GetPomodoroPresetsResponse {
-success: Success29
-message?: Message28
-error?: Error28
-data?: Data8
-timestamp?: Timestamp20
+success: Success33
+message?: Message31
+error?: Error32
+data?: Data10
+timestamp?: Timestamp23
 }
 /**
  * Pomodoro configuration preset
  */
 export interface PomodoroPreset {
-id: Id9
+id: Id10
 name: Name1
-description: Description7
+description: Description9
 workDurationMinutes: Workdurationminutes2
 breakDurationMinutes: Breakdurationminutes2
 totalRounds: Totalrounds2
@@ -2286,11 +2513,11 @@ date: Date2
  * Response with Pomodoro statistics
  */
 export interface GetPomodoroStatsResponse {
-success: Success30
-message?: Message29
-error?: Error29
+success: Success34
+message?: Message32
+error?: Error33
 data?: (PomodoroStatsData | null)
-timestamp?: Timestamp21
+timestamp?: Timestamp24
 }
 /**
  * Pomodoro statistics for a specific date
@@ -2312,11 +2539,11 @@ sessionId: Sessionid7
  * Response with detailed Pomodoro session data
  */
 export interface GetPomodoroSessionDetailResponse {
-success: Success31
-message?: Message30
-error?: Error30
+success: Success35
+message?: Message33
+error?: Error34
 data?: (PomodoroSessionDetailData | null)
-timestamp?: Timestamp22
+timestamp?: Timestamp25
 }
 /**
  * Detailed Pomodoro session with activities and focus metrics
@@ -2335,9 +2562,9 @@ export interface Session {
  * Activity data for Pomodoro session detail view
  */
 export interface PomodoroActivityData {
-id: Id10
-title: Title8
-description: Description8
+id: Id11
+title: Title10
+description: Description10
 startTime: Starttime5
 endTime: Endtime4
 sessionDurationMinutes: Sessiondurationminutes1
@@ -2388,7 +2615,7 @@ goalOrientation: Goalorientation
 export interface LLMFocusAnalysis {
 strengths: Strengths
 weaknesses: Weaknesses
-suggestions: Suggestions
+suggestions: Suggestions1
 }
 /**
  * Single phase in timeline (work or break)
@@ -2411,11 +2638,11 @@ referenceDate?: Referencedate
  * Response with Pomodoro period statistics
  */
 export interface GetPomodoroPeriodStatsResponse {
-success: Success32
-message?: Message31
-error?: Error31
+success: Success36
+message?: Message34
+error?: Error35
 data?: (PomodoroPeriodStatsData | null)
-timestamp?: Timestamp23
+timestamp?: Timestamp26
 }
 /**
  * Pomodoro statistics for a time period
@@ -2449,11 +2676,11 @@ sessionId: Sessionid8
  * Response after deleting a Pomodoro session
  */
 export interface DeletePomodoroSessionResponse {
-success: Success33
-message?: Message32
-error?: Error32
+success: Success37
+message?: Message35
+error?: Error36
 data?: (DeletePomodoroSessionData | null)
-timestamp?: Timestamp24
+timestamp?: Timestamp27
 }
 /**
  * Data returned after deleting a session
@@ -2504,9 +2731,9 @@ endDate: Enddate4
  * Response containing image cache statistics
  */
 export interface ImageStatsResponse {
-success: Success34
-message?: Message33
-error?: Error33
+success: Success38
+message?: Message36
+error?: Error37
 stats?: Stats
 }
 /**
@@ -2521,9 +2748,9 @@ hashes: Hashes
  * Response containing cached images in base64 format
  */
 export interface CachedImagesResponse {
-success: Success35
-message?: Message34
-error?: Error34
+success: Success39
+message?: Message37
+error?: Error38
 images: Images1
 foundCount: Foundcount
 requestedCount: Requestedcount
@@ -2543,29 +2770,29 @@ maxAgeHours?: Maxagehours
  * Response after cleaning up old images
  */
 export interface CleanupImagesResponse {
-success: Success36
-message?: Message35
-error?: Error35
+success: Success40
+message?: Message38
+error?: Error39
 cleanedCount?: Cleanedcount
 }
 /**
  * Response after clearing memory cache
  */
 export interface ClearMemoryCacheResponse {
-success: Success37
-message?: Message36
-error?: Error36
+success: Success41
+message?: Message39
+error?: Error40
 clearedCount?: Clearedcount
 }
 /**
  * Response for get_image_optimization_config handler
  */
 export interface GetImageOptimizationConfigResponse {
-success: Success38
-message?: Message37
-error?: Error37
+success: Success42
+message?: Message40
+error?: Error41
 data?: (ImageOptimizationConfigData | null)
-timestamp?: Timestamp25
+timestamp?: Timestamp28
 }
 /**
  * Image optimization configuration data
@@ -2582,9 +2809,9 @@ enableTextDetection?: Enabletextdetection
  * Response containing image optimization statistics
  */
 export interface ImageOptimizationStatsResponse {
-success: Success39
-message?: Message38
-error?: Error38
+success: Success43
+message?: Message41
+error?: Error42
 stats?: Stats1
 config?: Config
 }
@@ -2612,11 +2839,11 @@ enableTextDetection?: Enabletextdetection1
  * Response for update_image_optimization_config handler
  */
 export interface UpdateImageOptimizationConfigResponseV2 {
-success: Success40
-message?: Message39
-error?: Error39
+success: Success44
+message?: Message42
+error?: Error43
 data?: (ImageOptimizationConfigData | null)
-timestamp?: Timestamp26
+timestamp?: Timestamp29
 }
 /**
  * Request parameters for reading an image file.
@@ -2630,18 +2857,18 @@ filePath: Filepath
  * Response containing image file data as base64
  */
 export interface ReadImageFileResponse {
-success: Success41
-message?: Message40
-error?: Error40
+success: Success45
+message?: Message43
+error?: Error44
 dataUrl?: Dataurl
 }
 /**
  * Response containing image persistence health check results
  */
 export interface ImagePersistenceHealthResponse {
-success: Success42
-message?: Message41
-error?: Error41
+success: Success46
+message?: Message44
+error?: Error45
 data?: (ImagePersistenceHealthData | null)
 }
 /**
@@ -2676,9 +2903,9 @@ actionIds?: Actionids
  * Response after cleaning up broken action images
  */
 export interface CleanupBrokenActionsResponse {
-success: Success43
-message?: Message42
-error?: Error42
+success: Success47
+message?: Message45
+error?: Error46
 actionsProcessed?: Actionsprocessed
 actionsDeleted?: Actionsdeleted
 referencesRemoved?: Referencesremoved
@@ -2711,11 +2938,11 @@ apiKey: Apikey
  * Generic model management response with optional payload and timestamp.
  */
 export interface ModelOperationResponse {
-success: Success44
-message?: Message43
-error?: Error43
-data?: Data9
-timestamp?: Timestamp27
+success: Success48
+message?: Message46
+error?: Error47
+data?: Data11
+timestamp?: Timestamp30
 }
 /**
  * Request parameters for updating a model configuration.
@@ -2770,11 +2997,11 @@ modelId: Modelid5
  * Standard dashboard response with optional data payload.
  */
 export interface DashboardResponse {
-success: Success45
-message?: Message44
-error?: Error44
+success: Success49
+message?: Message47
+error?: Error48
 data?: any
-timestamp?: Timestamp28
+timestamp?: Timestamp31
 }
 /**
  * Request parameters for retrieving LLM statistics of a specific model.
@@ -2822,30 +3049,40 @@ modelConfigId?: Modelconfigid
  * Dashboard trend response with dimension metadata.
  */
 export interface LLMUsageTrendResponse {
-success: Success46
-message?: Message45
-error?: Error45
+success: Success50
+message?: Message48
+error?: Error49
 data?: any
-timestamp?: Timestamp29
+timestamp?: Timestamp32
 dimension?: Dimension4
 days?: Days2
+}
+/**
+ * Response for cleanup_soft_deleted endpoint
+ */
+export interface CleanupSoftDeletedResponse {
+success: Success51
+message?: Message49
+error?: Error50
+data?: Data14
+timestamp?: Timestamp33
 }
 /**
  * Common system operation response
  */
 export interface SystemResponse {
-success: Success47
-message?: Message46
+success: Success52
+message?: Message50
 data?: any
-timestamp: Timestamp30
+timestamp: Timestamp34
 }
 /**
  * Database path response
  */
 export interface DatabasePathResponse {
-success: Success48
+success: Success53
 data: DatabasePathData
-timestamp: Timestamp31
+timestamp: Timestamp35
 }
 /**
  * Database path data
@@ -2857,11 +3094,11 @@ path: Path
  * Response for get_settings_info handler
  */
 export interface GetSettingsInfoResponse {
-success: Success49
-message?: Message47
-error?: Error46
+success: Success54
+message?: Message51
+error?: Error51
 data?: (SettingsInfoData | null)
-timestamp?: Timestamp32
+timestamp?: Timestamp36
 }
 /**
  * Settings info data structure
@@ -2904,19 +3141,19 @@ language?: Language1
  * Update settings response
  */
 export interface UpdateSettingsResponse {
-success: Success50
-message: Message48
-timestamp: Timestamp33
+success: Success55
+message: Message52
+timestamp: Timestamp37
 }
 /**
  * Response for get_image_compression_config handler
  */
 export interface GetImageCompressionConfigResponse {
-success: Success51
-message?: Message49
-error?: Error47
+success: Success56
+message?: Message53
+error?: Error52
 data?: (ImageCompressionConfigData | null)
-timestamp?: Timestamp34
+timestamp?: Timestamp38
 }
 /**
  * Image compression configuration data
@@ -2942,21 +3179,21 @@ cropThreshold?: Cropthreshold1
  * Response for update_image_compression_config handler
  */
 export interface UpdateImageCompressionConfigResponseV2 {
-success: Success52
-message?: Message50
-error?: Error48
+success: Success57
+message?: Message54
+error?: Error53
 data?: (ImageCompressionConfigData | null)
-timestamp?: Timestamp35
+timestamp?: Timestamp39
 }
 /**
  * Response for get_image_compression_stats handler
  */
 export interface GetImageCompressionStatsResponse {
-success: Success53
-message?: Message51
-error?: Error49
+success: Success58
+message?: Message55
+error?: Error54
 data?: (ImageCompressionStatsData | null)
-timestamp?: Timestamp36
+timestamp?: Timestamp40
 }
 /**
  * Image compression statistics data
@@ -2970,11 +3207,11 @@ averageCompressionRatio?: Averagecompressionratio
  * Response for check_initial_setup handler
  */
 export interface CheckInitialSetupResponse {
-success: Success54
-message?: Message52
-error?: Error50
+success: Success59
+message?: Message56
+error?: Error55
 data?: (InitialSetupData | null)
-timestamp?: Timestamp37
+timestamp?: Timestamp41
 }
 /**
  * Initial setup check data
@@ -2990,11 +3227,11 @@ modelCount: Modelcount
  * Response for complete_initial_setup handler
  */
 export interface CompleteInitialSetupResponse {
-success: Success55
-message?: Message53
-error?: Error51
+success: Success60
+message?: Message57
+error?: Error56
 data?: any
-timestamp?: Timestamp38
+timestamp?: Timestamp42
 }
 /**
  * Request to update tray menu labels with i18n translations.
@@ -3014,9 +3251,9 @@ quit: Quit
  * Response from tray update operation.
  */
 export interface TrayUpdateResponse {
-success: Success56
-message?: Message54
-error?: Error52
+success: Success61
+message?: Message58
+error?: Error57
 }
 /**
  * Request to change tray icon visibility.
@@ -3028,9 +3265,9 @@ visible: Visible
  * Response from tray visibility operation.
  */
 export interface TrayVisibilityResponse {
-success: Success57
-message?: Message55
-error?: Error53
+success: Success62
+message?: Message59
+error?: Error58
 visible: Visible1
 }
 /**

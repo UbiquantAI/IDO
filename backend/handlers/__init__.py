@@ -211,6 +211,7 @@ from . import (
     chat,
     events,
     insights,
+    knowledge_merge,
     monitoring,
     pomodoro,
     pomodoro_goals,

@@ -279,6 +279,7 @@ def emit_chat_message_chunk(
     done: bool = False,
     message_id: Optional[str] = None,
     timestamp: Optional[str] = None,
+    error: bool = False,
 ) -> bool:
     """
     Send "chat message chunk" event to frontend (for streaming output)
@@ -287,7 +288,9 @@ def emit_chat_message_chunk(
         conversation_id: Conversation ID
         chunk: Text chunk content
         done: Whether completed (True indicates streaming output ended)
-        message_id: Message ID (optional, provided when completed)
+        message_id: Message ID (optional, provided when completed successfully)
+        timestamp: Optional timestamp
+        error: Whether this is an error response (True indicates stream failed)
 
     Returns:
         True if sent successfully, False otherwise
@@ -296,6 +299,7 @@ def emit_chat_message_chunk(
         "conversationId": conversation_id,
         "chunk": chunk,
         "done": done,
+        "error": error,
     }
 
     if message_id is not None:
@@ -303,7 +307,10 @@ def emit_chat_message_chunk(
 
     success = _emit("chat-message-chunk", payload)
     if success and done:
-        logger.debug(f"✅ Chat message completion event sent: {conversation_id}")
+        if error:
+            logger.debug(f"❌ Chat message error event sent: {conversation_id}")
+        else:
+            logger.debug(f"✅ Chat message completion event sent: {conversation_id}")
     return success
 
 

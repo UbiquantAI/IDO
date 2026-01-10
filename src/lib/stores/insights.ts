@@ -17,6 +17,18 @@ import {
   updateKnowledge,
   type RecurrenceRule
 } from '@/lib/services/insights'
+import { analyzeKnowledgeMerge, executeKnowledgeMerge } from '@/lib/client/apiClient'
+
+export interface MergeSuggestion {
+  groupId: string
+  knowledgeIds: string[]
+  mergedTitle: string
+  mergedDescription: string
+  mergedKeywords: string[]
+  similarityScore: number
+  mergeReason: string
+  estimatedTokens: number
+}
 
 interface InsightsState {
   recentEvents: InsightEvent[]
@@ -46,6 +58,14 @@ interface InsightsState {
   toggleKnowledgeFavorite: (id: string) => Promise<void>
   createKnowledge: (title: string, description: string, keywords: string[]) => Promise<InsightKnowledge>
   updateKnowledge: (id: string, title: string, description: string, keywords: string[]) => Promise<void>
+
+  // Knowledge merge
+  analyzeMerge: (config: {
+    filterByKeyword?: string | null
+    includeFavorites: boolean
+    similarityThreshold: number
+  }) => Promise<MergeSuggestion[]>
+  executeMerge: (suggestions: MergeSuggestion[]) => Promise<void>
 
   // Todo scheduling
   scheduleTodo: (
@@ -179,6 +199,52 @@ export const useInsightsStore = create<InsightsState>((set, get) => ({
       }))
     } catch (error) {
       console.error('Failed to update knowledge:', error)
+      throw error
+    }
+  },
+
+  // Knowledge merge methods
+  analyzeMerge: async (config) => {
+    try {
+      const response = await analyzeKnowledgeMerge({
+        filterByKeyword: config.filterByKeyword || undefined,
+        includeFavorites: config.includeFavorites,
+        similarityThreshold: config.similarityThreshold
+      })
+
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to analyze merge')
+      }
+
+      return response.suggestions
+    } catch (error) {
+      console.error('Failed to analyze knowledge merge:', error)
+      throw error
+    }
+  },
+
+  executeMerge: async (suggestions) => {
+    try {
+      const mergeGroups = suggestions.map((s) => ({
+        groupId: s.groupId,
+        knowledgeIds: s.knowledgeIds,
+        mergedTitle: s.mergedTitle,
+        mergedDescription: s.mergedDescription,
+        mergedKeywords: s.mergedKeywords,
+        mergeReason: s.mergeReason,
+        keepFavorite: true
+      }))
+
+      const response = await executeKnowledgeMerge({ mergeGroups })
+
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to execute merge')
+      }
+
+      // Refresh knowledge list
+      await get().refreshKnowledge()
+    } catch (error) {
+      console.error('Failed to execute knowledge merge:', error)
       throw error
     }
   },

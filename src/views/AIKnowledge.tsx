@@ -3,8 +3,8 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Loader2, Plus, Search } from 'lucide-react'
-import { useInsightsStore } from '@/lib/stores/insights'
+import { Loader2, Plus, Search, Sparkles } from 'lucide-react'
+import { useInsightsStore, type MergeSuggestion } from '@/lib/stores/insights'
 import { PageLayout } from '@/components/layout/PageLayout'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { KnowledgeCard } from '@/components/insights/KnowledgeCard'
@@ -12,6 +12,9 @@ import { CategorySidebar } from '@/components/insights/CategorySidebar'
 import { KnowledgeFilterTabs } from '@/components/insights/KnowledgeFilterTabs'
 import { NewNoteDialog } from '@/components/insights/NewNoteDialog'
 import { KnowledgeDetailDialog } from '@/components/insights/KnowledgeDetailDialog'
+import { KnowledgeMergeDialog, type MergeConfig } from '@/components/insights/KnowledgeMergeDialog'
+import { MergeSuggestionsDialog } from '@/components/insights/MergeSuggestionsDialog'
+import { RetryDialog } from '@/components/ui/retry-dialog'
 import { useKnowledgeSync } from '@/hooks/useKnowledgeSync'
 import type { InsightKnowledge } from '@/lib/services/insights'
 
@@ -30,6 +33,8 @@ export default function AIKnowledgeView() {
   const toggleKnowledgeFavorite = useInsightsStore((state) => state.toggleKnowledgeFavorite)
   const createKnowledge = useInsightsStore((state) => state.createKnowledge)
   const updateKnowledge = useInsightsStore((state) => state.updateKnowledge)
+  const analyzeMerge = useInsightsStore((state) => state.analyzeMerge)
+  const executeMerge = useInsightsStore((state) => state.executeMerge)
   const lastError = useInsightsStore((state) => state.lastError)
   const clearError = useInsightsStore((state) => state.clearError)
 
@@ -39,6 +44,16 @@ export default function AIKnowledgeView() {
   const [newNoteDialogOpen, setNewNoteDialogOpen] = useState(false)
   const [selectedKnowledge, setSelectedKnowledge] = useState<InsightKnowledge | null>(null)
   const [detailDialogOpen, setDetailDialogOpen] = useState(false)
+  const [showMergeDialog, setShowMergeDialog] = useState(false)
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const [mergeSuggestions, setMergeSuggestions] = useState<MergeSuggestion[]>([])
+  const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [isMerging, setIsMerging] = useState(false)
+
+  // Retry dialog state for LLM errors
+  const [retryDialogOpen, setRetryDialogOpen] = useState(false)
+  const [retryError, setRetryError] = useState<string>('')
+  const [pendingMergeConfig, setPendingMergeConfig] = useState<MergeConfig | null>(null)
 
   useEffect(() => {
     void refreshKnowledge()
@@ -95,6 +110,100 @@ export default function AIKnowledgeView() {
     setDetailDialogOpen(true)
   }
 
+  const handleStartAnalysis = async (config: MergeConfig) => {
+    setShowMergeDialog(false)
+    setIsAnalyzing(true)
+
+    try {
+      const suggestions = await analyzeMerge({
+        filterByKeyword: config.filterByKeyword,
+        includeFavorites: config.includeFavorites,
+        similarityThreshold: config.similarityThreshold
+      })
+
+      if (suggestions.length === 0) {
+        toast.info(t('insights.merge.noSuggestions'))
+        return
+      }
+
+      setMergeSuggestions(suggestions)
+      setShowSuggestions(true)
+    } catch (error) {
+      const errorMessage = (error as Error).message
+      // Check if it's an LLM service error that should show retry dialog
+      if (errorMessage.includes('LLM service') || errorMessage.includes('LLM service unavailable')) {
+        setRetryError(errorMessage)
+        setPendingMergeConfig(config)
+        setRetryDialogOpen(true)
+      } else {
+        toast.error(t('insights.merge.error', { error: errorMessage }))
+      }
+    } finally {
+      setIsAnalyzing(false)
+    }
+  }
+
+  const handleRetryAnalysis = async () => {
+    if (!pendingMergeConfig) return
+
+    try {
+      const suggestions = await analyzeMerge({
+        filterByKeyword: pendingMergeConfig.filterByKeyword,
+        includeFavorites: pendingMergeConfig.includeFavorites,
+        similarityThreshold: pendingMergeConfig.similarityThreshold
+      })
+
+      if (suggestions.length === 0) {
+        toast.info(t('insights.merge.noSuggestions'))
+        return
+      }
+
+      setMergeSuggestions(suggestions)
+      setShowSuggestions(true)
+    } catch (error) {
+      const errorMessage = (error as Error).message
+      if (errorMessage.includes('LLM service') || errorMessage.includes('LLM service unavailable')) {
+        // Keep retry dialog open for another retry attempt
+        setRetryError(errorMessage)
+      } else {
+        setRetryDialogOpen(false)
+        toast.error(t('insights.merge.error', { error: errorMessage }))
+      }
+    }
+  }
+
+  const handleExecuteMerge = async (selectedSuggestions: MergeSuggestion[]) => {
+    setShowSuggestions(false)
+    setIsMerging(true)
+
+    try {
+      await executeMerge(selectedSuggestions)
+      toast.success(t('insights.merge.success', { count: selectedSuggestions.length }))
+    } catch (error) {
+      toast.error(t('insights.merge.error', { error: (error as Error).message }))
+    } finally {
+      setIsMerging(false)
+    }
+  }
+
+  // Extract all unique keywords
+  const availableKeywords = useMemo(() => {
+    const keywords = new Set<string>()
+    knowledge.forEach((k) => {
+      k.keywords.forEach((kw) => keywords.add(kw))
+    })
+    return Array.from(keywords).sort()
+  }, [knowledge])
+
+  // Create knowledge map for suggestions dialog
+  const knowledgeMap = useMemo(() => {
+    const map = new Map()
+    knowledge.forEach((k) => {
+      map.set(k.id, { title: k.title, description: k.description })
+    })
+    return map
+  }, [knowledge])
+
   // Filter knowledge based on active filter, category, and search
   const filteredKnowledge = useMemo(() => {
     let result = [...knowledge]
@@ -139,10 +248,20 @@ export default function AIKnowledgeView() {
         title={t('insights.knowledgeSummary')}
         description={t('insights.knowledgePageDescription')}
         actions={
-          <Button size="sm" onClick={() => setNewNoteDialogOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            {t('insights.newNote')}
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowMergeDialog(true)}
+              disabled={knowledge.length < 2 || isAnalyzing || isMerging}>
+              <Sparkles className="mr-2 h-4 w-4" />
+              {isAnalyzing ? t('insights.merge.analyzing') : t('insights.smartMerge')}
+            </Button>
+            <Button size="sm" onClick={() => setNewNoteDialogOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              {t('insights.newNote')}
+            </Button>
+          </div>
         }
       />
 
@@ -219,6 +338,34 @@ export default function AIKnowledgeView() {
         open={detailDialogOpen}
         onOpenChange={setDetailDialogOpen}
         onUpdate={handleUpdateKnowledge}
+      />
+
+      {/* Knowledge Merge Dialogs */}
+      <KnowledgeMergeDialog
+        open={showMergeDialog}
+        onOpenChange={setShowMergeDialog}
+        onConfirm={handleStartAnalysis}
+        availableKeywords={availableKeywords}
+        knowledgeCount={knowledge.length}
+      />
+
+      <MergeSuggestionsDialog
+        open={showSuggestions}
+        onOpenChange={setShowSuggestions}
+        suggestions={mergeSuggestions}
+        knowledgeMap={knowledgeMap}
+        onConfirm={handleExecuteMerge}
+      />
+
+      {/* Retry Dialog for LLM Errors */}
+      <RetryDialog
+        open={retryDialogOpen}
+        onOpenChange={setRetryDialogOpen}
+        title={t('knowledge.merge.llmErrorTitle')}
+        message={retryError}
+        onRetry={handleRetryAnalysis}
+        retryLabel={t('knowledge.merge.retryAnalysis')}
+        cancelLabel={t('common.cancel')}
       />
     </PageLayout>
   )

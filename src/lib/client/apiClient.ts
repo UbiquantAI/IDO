@@ -786,6 +786,62 @@ export async function getKnowledgeCountByDate(
 }
 
 /**
+ * Create a todo manually
+ *
+ * Manually created todos have no expiration time and source_type='manual'.
+ * They will persist until explicitly deleted or completed.
+ *
+ * @param body - Contains title, description, keywords, and optional scheduling info
+ * @returns Created todo data
+ */
+export async function createTodo(
+    body: Commands["create_todo"]["input"],
+    options?: InvokeOptions
+): Promise<Commands["create_todo"]["output"]> {
+    return await pyInvoke("create_todo", body, options);
+}
+
+/**
+ * Clean up expired AI-generated todos
+ *
+ * Soft deletes todos that:
+ * - Are AI-generated (source_type='ai')
+ * - Have an expires_at timestamp in the past
+ * - Are not already deleted
+ * - Are not completed
+ *
+ * @returns Cleanup result with count of deleted todos
+ */
+export async function cleanupExpiredTodos(
+    body: Commands["cleanup_expired_todos"]["input"],
+    options?: InvokeOptions
+): Promise<Commands["cleanup_expired_todos"]["output"]> {
+    return await pyInvoke("cleanup_expired_todos", body, options);
+}
+
+/**
+ * Analyze knowledge entries for similarity and generate merge suggestions.
+ * Uses LLM to detect similar content and propose merges.
+ */
+export async function analyzeKnowledgeMerge(
+    body: Commands["analyze_knowledge_merge"]["input"],
+    options?: InvokeOptions
+): Promise<Commands["analyze_knowledge_merge"]["output"]> {
+    return await pyInvoke("analyze_knowledge_merge", body, options);
+}
+
+/**
+ * Execute approved knowledge merge operations.
+ * Creates merged knowledge entries and soft-deletes sources.
+ */
+export async function executeKnowledgeMerge(
+    body: Commands["execute_knowledge_merge"]["input"],
+    options?: InvokeOptions
+): Promise<Commands["execute_knowledge_merge"]["output"]> {
+    return await pyInvoke("execute_knowledge_merge", body, options);
+}
+
+/**
  * Get available monitors information.
  *
  * Returns information about all available monitors including resolution and position.
@@ -1743,6 +1799,24 @@ export async function getLlmUsageTrend(
     options?: InvokeOptions
 ): Promise<Commands["get_llm_usage_trend"]["output"]> {
     return await pyInvoke("get_llm_usage_trend", body, options);
+}
+
+/**
+ * Permanently delete all soft-deleted items
+ *
+ * This cleanup operation permanently removes items that have been
+ * soft-deleted (deleted = 1) from the database.
+ *
+ * Currently supports:
+ * - Todos
+ *
+ * @returns Cleanup result with counts for each item type
+ */
+export async function cleanupSoftDeletedItems(
+    body: Commands["cleanup_soft_deleted_items"]["input"],
+    options?: InvokeOptions
+): Promise<Commands["cleanup_soft_deleted_items"]["output"]> {
+    return await pyInvoke("cleanup_soft_deleted_items", body, options);
 }
 
 /**

@@ -15,7 +15,9 @@ export const zhCN = {
     and: '和',
     more: '个',
     none: '无',
-    references: '引用'
+    references: '引用',
+    selectAll: '全选',
+    deselectAll: '取消全选'
   },
   friendlyChat: {
     title: '友好聊天',
@@ -44,6 +46,33 @@ export const zhCN = {
       updateFailed: '更新友好聊天设置失败',
       notificationUpdateFailed: '更新通知设置失败',
       live2dUpdateFailed: '更新 Live2D 设置失败'
+    }
+  },
+  knowledge: {
+    merge: {
+      title: '智能知识合并',
+      description: '使用 AI 分析并合并相似的知识条目',
+      tokenWarning: '本次操作将分析 {{count}} 条知识，预计消耗约 {{tokens}} tokens（约 ${{cost}} 美元）。是否继续？',
+      filterByTag: '按标签筛选',
+      allTags: '所有标签',
+      filterByTagHint: '建议：选择特定标签以避免跨主题误合并',
+      includeFavorites: '包含收藏项',
+      similarityThreshold: '相似度阈值',
+      thresholdHint: '值越高匹配越严格（合并越少）',
+      startAnalysis: '开始分析',
+      suggestionsTitle: '合并建议',
+      suggestionsDescription: '发现 {{count}} 组相似知识',
+      selectedCount: '已选择 {{selected}} / {{total}}',
+      similarity: '相似度',
+      viewSources: '查看 {{count}} 个源条目',
+      executeMerge: '合并 {{count}} 组',
+      analyzing: '正在分析知识...',
+      merging: '正在合并知识...',
+      success: '成功合并 {{count}} 组',
+      noSuggestions: '未发现相似知识',
+      error: '分析失败：{{error}}',
+      llmErrorTitle: 'LLM 服务不可用',
+      retryAnalysis: '重试分析'
     }
   },
   insights: {
@@ -168,7 +197,44 @@ export const zhCN = {
     viewKnowledgeDescription: '查看完整的知识条目',
     editKnowledgeDescription: '更新知识条目的详细信息',
     keywordsHint: '用逗号分隔多个关键词',
-    createNoteDescription: '添加新笔记到知识库'
+    createNoteDescription: '添加新笔记到知识库',
+    // 知识合并
+    smartMerge: '智能合并',
+    merge: {
+      title: '智能知识合并',
+      description: '使用 AI 分析并合并相似的知识条目',
+      tokenWarning: '本次操作将分析 {{count}} 条知识，预计消耗约 {{tokens}} tokens（约 ${{cost}} 美元）。是否继续？',
+      filterByTag: '按标签筛选',
+      allTags: '所有标签',
+      filterByTagHint: '建议：选择特定标签以避免跨主题误合并',
+      includeFavorites: '包含收藏项',
+      similarityThreshold: '相似度阈值',
+      thresholdHint: '值越高匹配越严格（合并越少）',
+      startAnalysis: '开始分析',
+      suggestionsTitle: '合并建议',
+      suggestionsDescription: '发现 {{count}} 组相似知识',
+      selectedCount: '已选择 {{selected}} / {{total}}',
+      similarity: '相似度',
+      viewSources: '查看 {{count}} 个源条目',
+      executeMerge: '合并 {{count}} 组',
+      analyzing: '正在分析知识...',
+      merging: '正在合并知识...',
+      success: '成功合并 {{count}} 组',
+      noSuggestions: '未发现相似知识',
+      error: '分析失败：{{error}}'
+    },
+    // Manual todo creation
+    createTodo: '创建待办',
+    createTodoDescription: '手动创建一个新的待办事项',
+    createTodoTitle: '标题',
+    createTodoTitlePlaceholder: '输入待办标题',
+    createTodoDesc: '描述',
+    createTodoDescPlaceholder: '输入待办描述',
+    createTodoKeywords: '关键词',
+    createTodoKeywordsPlaceholder: '输入关键词，用逗号分隔',
+    createTodoKeywordsHelp: '用逗号分隔多个关键词',
+    todoCreated: '待办创建成功',
+    createTodoError: '创建待办失败'
   },
   menu: {
     dashboard: '仪表盘',
@@ -331,6 +397,9 @@ export const zhCN = {
     retry: '重试',
     retrying: '重试中...',
     requestFailed: '请求失败',
+    generationFailed: 'AI 生成失败',
+    networkError: '网络错误，请检查您的网络连接',
+    llmServiceError: 'LLM 服务错误，请重试',
     relatedActivity: '关联活动',
     viewDetails: '查看详情',
     hideDetails: '收起详情',
@@ -615,7 +684,10 @@ export const zhCN = {
       cleanupOrphaned: '清理孤立图片',
       cleaning: '清理中...',
       cleanupSuccess: '成功清理 {{count}} 张孤立图片',
-      cleanupFailed: '清理孤立图片失败'
+      cleanupFailed: '清理孤立图片失败',
+      oneClickCleanup: '一键清理',
+      oneClickCleanupSuccess: '成功清理 {{count}} 个项目',
+      oneClickCleanupFailed: '清理失败'
     }
   },
   live2d: {

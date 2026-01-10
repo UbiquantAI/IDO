@@ -75,7 +75,7 @@ interface ChatState {
 
   // Streaming message handling
   appendStreamingChunk: (conversationId: string, chunk: string) => void
-  setStreamingComplete: (conversationId: string, messageId?: string) => void
+  setStreamingComplete: (conversationId: string, messageId?: string, isError?: boolean) => void
   resetStreaming: (conversationId: string) => void
 }
 
@@ -422,7 +422,7 @@ export const useChatStore = create<ChatState>()((set, get) => {
     },
 
     // Streaming message completed
-    setStreamingComplete: async (conversationId, messageId) => {
+    setStreamingComplete: async (conversationId, messageId, isError?: boolean) => {
       clearScheduledFlush(conversationId)
 
       // Refresh pending chunks for this conversation
@@ -435,13 +435,17 @@ export const useChatStore = create<ChatState>()((set, get) => {
       const streamingMessage = streamingMessages[conversationId] || ''
 
       // Save the streaming message into the message list
-      if (streamingMessage) {
+      if (streamingMessage || isError) {
+        const errorMessage = isError ? streamingMessage : null
+
         const assistantMessage: Message = {
           id: messageId || `msg-${Date.now()}`,
           conversationId,
           role: 'assistant',
           content: streamingMessage,
-          timestamp: Date.now()
+          timestamp: Date.now(),
+          error: errorMessage || undefined,
+          metadata: errorMessage ? { error: true, error_type: 'network' } : undefined
         }
 
         set((state) => {

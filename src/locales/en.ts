@@ -12,7 +12,9 @@ export const en = {
     and: 'and',
     more: 'more',
     none: 'None',
-    references: 'References'
+    references: 'References',
+    selectAll: 'Select All',
+    deselectAll: 'Deselect All'
   },
   friendlyChat: {
     title: 'Friendly Chat',
@@ -42,6 +44,34 @@ export const en = {
       updateFailed: 'Failed to update Friendly Chat settings',
       notificationUpdateFailed: 'Failed to update notification settings',
       live2dUpdateFailed: 'Failed to update Live2D settings'
+    }
+  },
+  knowledge: {
+    merge: {
+      title: 'Smart Knowledge Merge',
+      description: 'Use AI to analyze and merge similar knowledge entries',
+      tokenWarning:
+        'This will analyze {{count}} knowledge entries and consume approximately {{tokens}} tokens (≈${{cost}} USD). Continue?',
+      filterByTag: 'Filter by Tag',
+      allTags: 'All Tags',
+      filterByTagHint: 'Recommended: Select a specific tag to avoid cross-topic merging',
+      includeFavorites: 'Include Favorites',
+      similarityThreshold: 'Similarity Threshold',
+      thresholdHint: 'Higher values = stricter matching (fewer merges)',
+      startAnalysis: 'Start Analysis',
+      suggestionsTitle: 'Merge Suggestions',
+      suggestionsDescription: 'Found {{count}} groups of similar knowledge',
+      selectedCount: '{{selected}} / {{total}} selected',
+      similarity: 'Similarity',
+      viewSources: 'View {{count}} source entries',
+      executeMerge: 'Merge {{count}} groups',
+      analyzing: 'Analyzing knowledge...',
+      merging: 'Merging knowledge...',
+      success: 'Successfully merged {{count}} groups',
+      noSuggestions: 'No similar knowledge found',
+      error: 'Failed to analyze: {{error}}',
+      llmErrorTitle: 'LLM Service Unavailable',
+      retryAnalysis: 'Retry Analysis'
     }
   },
   insights: {
@@ -166,7 +196,45 @@ export const en = {
     viewKnowledgeDescription: 'View the complete knowledge item',
     editKnowledgeDescription: 'Update the knowledge item details',
     keywordsHint: 'Separate keywords with commas',
-    createNoteDescription: 'Add a new note to your knowledge base'
+    createNoteDescription: 'Add a new note to your knowledge base',
+    // Knowledge merge
+    smartMerge: 'Smart Merge',
+    merge: {
+      title: 'Smart Knowledge Merge',
+      description: 'Use AI to analyze and merge similar knowledge entries',
+      tokenWarning:
+        'This will analyze {{count}} knowledge entries and consume approximately {{tokens}} tokens (≈${{cost}} USD). Continue?',
+      filterByTag: 'Filter by Tag',
+      allTags: 'All Tags',
+      filterByTagHint: 'Recommended: Select a specific tag to avoid cross-topic merging',
+      includeFavorites: 'Include Favorites',
+      similarityThreshold: 'Similarity Threshold',
+      thresholdHint: 'Higher values = stricter matching (fewer merges)',
+      startAnalysis: 'Start Analysis',
+      suggestionsTitle: 'Merge Suggestions',
+      suggestionsDescription: 'Found {{count}} groups of similar knowledge',
+      selectedCount: '{{selected}} / {{total}} selected',
+      similarity: 'Similarity',
+      viewSources: 'View {{count}} source entries',
+      executeMerge: 'Merge {{count}} groups',
+      analyzing: 'Analyzing knowledge...',
+      merging: 'Merging knowledge...',
+      success: 'Successfully merged {{count}} groups',
+      noSuggestions: 'No similar knowledge found',
+      error: 'Failed to analyze: {{error}}'
+    },
+    // Manual todo creation
+    createTodo: 'Create Todo',
+    createTodoDescription: 'Manually create a new todo item',
+    createTodoTitle: 'Title',
+    createTodoTitlePlaceholder: 'Enter todo title',
+    createTodoDesc: 'Description',
+    createTodoDescPlaceholder: 'Enter todo description',
+    createTodoKeywords: 'Keywords',
+    createTodoKeywordsPlaceholder: 'Enter keywords separated by commas',
+    createTodoKeywordsHelp: 'Separate multiple keywords with commas',
+    todoCreated: 'Todo created successfully',
+    createTodoError: 'Failed to create todo'
   },
   menu: {
     dashboard: 'Dashboard',
@@ -329,6 +397,9 @@ export const en = {
     retry: 'Retry',
     retrying: 'Retrying...',
     requestFailed: 'Request failed',
+    generationFailed: 'AI Generation Failed',
+    networkError: 'Network error, please check your connection',
+    llmServiceError: 'LLM service error, please try again',
     relatedActivity: 'Related activity',
     viewDetails: 'View details',
     hideDetails: 'Hide details',
@@ -619,7 +690,10 @@ export const en = {
       cleanupOrphaned: 'Cleanup Orphaned',
       cleaning: 'Cleaning...',
       cleanupSuccess: 'Successfully cleaned {{count}} orphaned images',
-      cleanupFailed: 'Failed to cleanup orphaned images'
+      cleanupFailed: 'Failed to cleanup orphaned images',
+      oneClickCleanup: 'Clean Up All',
+      oneClickCleanupSuccess: 'Successfully cleaned {{count}} items',
+      oneClickCleanupFailed: 'Cleanup failed'
     }
   },
   live2d: {

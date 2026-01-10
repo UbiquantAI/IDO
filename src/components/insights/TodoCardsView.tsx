@@ -1,11 +1,10 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Plus } from 'lucide-react'
 import type { InsightTodo } from '@/lib/services/insights'
-import { Input } from '@/components/ui/input'
 
 interface TodoCardsViewProps {
   todos: InsightTodo[]
+  selectedCategory: string | null
   onComplete: (todo: InsightTodo) => void
   onDelete: (todoId: string) => void
   onExecuteInChat: (todoId: string) => void
@@ -14,34 +13,31 @@ interface TodoCardsViewProps {
 
 type TodoStatus = 'unscheduled' | 'scheduled' | 'completed' | 'all'
 
-export function TodoCardsView({ todos, onComplete, onDelete, onTodoClick }: TodoCardsViewProps) {
+export function TodoCardsView({ todos, selectedCategory, onComplete, onDelete, onTodoClick }: TodoCardsViewProps) {
   const { t } = useTranslation()
-  const [activeTab, setActiveTab] = useState<TodoStatus>('unscheduled')
-  const [newTodoTitle, setNewTodoTitle] = useState('')
+  const [activeTab, setActiveTab] = useState<TodoStatus>('scheduled')
+
+  // Filter todos by category first
+  const categoryFilteredTodos = useMemo(() => {
+    if (!selectedCategory) return todos
+    return todos.filter((todo) => todo.keywords && todo.keywords.length > 0 && todo.keywords[0] === selectedCategory)
+  }, [todos, selectedCategory])
 
   // Statistics
-  const unscheduledCount = todos.filter((todo) => !todo.completed && !todo.scheduledDate).length
-  const scheduledCount = todos.filter((todo) => !todo.completed && todo.scheduledDate).length
-  const completedCount = todos.filter((todo) => todo.completed).length
+  const unscheduledCount = categoryFilteredTodos.filter((todo) => !todo.completed && !todo.scheduledDate).length
+  const scheduledCount = categoryFilteredTodos.filter((todo) => !todo.completed && todo.scheduledDate).length
+  const completedCount = categoryFilteredTodos.filter((todo) => todo.completed).length
 
   // Filter todos based on active tab
-  const filteredTodos = todos.filter((todo) => {
+  const filteredTodos = categoryFilteredTodos.filter((todo) => {
     if (activeTab === 'unscheduled') return !todo.completed && !todo.scheduledDate
     if (activeTab === 'scheduled') return !todo.completed && todo.scheduledDate
     if (activeTab === 'completed') return todo.completed
     return true
   })
 
-  const handleAddTodo = () => {
-    if (newTodoTitle.trim()) {
-      // TODO: Implement add todo functionality
-      console.log('Add todo:', newTodoTitle)
-      setNewTodoTitle('')
-    }
-  }
-
   return (
-    <div className="flex h-full flex-col gap-6 p-6">
+    <div className="flex h-full flex-col gap-6">
       {/* Statistics Cards */}
       <div className="grid grid-cols-3 gap-4">
         <div className="bg-card rounded-lg border p-4">
@@ -61,7 +57,7 @@ export function TodoCardsView({ todos, onComplete, onDelete, onTodoClick }: Todo
       </div>
 
       {/* Add Todo Input */}
-      <div className="bg-muted/50 relative rounded-lg p-4">
+      {/*<div className="bg-muted/50 relative rounded-lg p-4">
         <Input
           placeholder={t('insights.addNewTodo', 'Add new task...')}
           value={newTodoTitle}
@@ -78,7 +74,7 @@ export function TodoCardsView({ todos, onComplete, onDelete, onTodoClick }: Todo
           className="bg-foreground text-background absolute top-1/2 right-6 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full transition-opacity hover:opacity-80">
           <Plus className="h-5 w-5" />
         </button>
-      </div>
+      </div>*/}
 
       {/* Tabs */}
       <div className="bg-muted flex rounded-lg p-1">

@@ -152,6 +152,7 @@ class TodoAgent:
                 # Calculate timestamp from scenes
                 todo_timestamp = self._calculate_todo_timestamp_from_scenes(scenes)
 
+                # AI-generated todos will have automatic expiration set in save()
                 await self.db.todos.save(
                     todo_id=todo_id,
                     title=todo_data.get("title", ""),
@@ -159,6 +160,7 @@ class TodoAgent:
                     keywords=todo_data.get("keywords", []),
                     created_at=todo_timestamp.isoformat(),
                     completed=todo_data.get("completed", False),
+                    source_type="ai",
                 )
                 saved_count += 1
 

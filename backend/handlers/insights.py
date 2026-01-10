@@ -12,6 +12,7 @@ from core.db import get_db
 from core.logger import get_logger
 from models.requests import (
     CreateKnowledgeRequest,
+    CreateTodoRequest,
     DeleteItemRequest,
     GenerateDiaryRequest,
     GetDiaryListRequest,
@@ -24,12 +25,14 @@ from models.requests import (
 )
 from models.responses import (
     CreateKnowledgeResponse,
+    CreateTodoResponse,
     DeleteDiaryResponse,
     DiaryData,
     DiaryListData,
     GenerateDiaryResponse,
     GetDiaryListResponse,
     KnowledgeData,
+    TodoData,
     ToggleKnowledgeFavoriteResponse,
     UpdateKnowledgeResponse,
 )
@@ -862,5 +865,112 @@ async def get_knowledge_count_by_date() -> Dict[str, Any]:
         return {
             "success": False,
             "message": f"Failed to get knowledge count by date: {str(e)}",
+            "timestamp": datetime.now().isoformat(),
+        }
+
+
+# ============ Manual Todo Creation ============
+
+
+@api_handler(
+    body=CreateTodoRequest,
+    method="POST",
+    path="/insights/create-todo",
+    tags=["insights"],
+    summary="Create todo manually",
+    description="Create a new todo manually (no expiration, source_type='manual')",
+)
+async def create_todo(body: CreateTodoRequest) -> CreateTodoResponse:
+    """Create a todo manually
+
+    Manually created todos have no expiration time and source_type='manual'.
+    They will persist until explicitly deleted or completed.
+
+    @param body - Contains title, description, keywords, and optional scheduling info
+    @returns Created todo data
+    """
+    try:
+        db, _ = _get_data_access()
+
+        # Generate unique ID
+        todo_id = str(uuid.uuid4())
+        created_at = datetime.now().isoformat()
+
+        # Save todo manually (source_type='manual', no expiration)
+        await db.todos.save(
+            todo_id=todo_id,
+            title=body.title,
+            description=body.description,
+            keywords=body.keywords,
+            created_at=created_at,
+            completed=False,
+            scheduled_date=body.scheduled_date,
+            scheduled_time=body.scheduled_time,
+            scheduled_end_time=body.scheduled_end_time,
+            source_type="manual",
+        )
+
+        # Get the saved todo
+        saved_todo = await db.todos.get_by_id(todo_id)
+
+        if saved_todo:
+            todo_data = TodoData(**saved_todo)
+            return CreateTodoResponse(
+                success=True,
+                data=todo_data,
+                message="Todo created successfully",
+                timestamp=datetime.now().isoformat(),
+            )
+        else:
+            return CreateTodoResponse(
+                success=False,
+                message="Failed to retrieve created todo",
+                timestamp=datetime.now().isoformat(),
+            )
+
+    except Exception as e:
+        logger.error(f"Failed to create todo: {e}", exc_info=True)
+        return CreateTodoResponse(
+            success=False,
+            message=f"Failed to create todo: {str(e)}",
+            timestamp=datetime.now().isoformat(),
+        )
+
+
+@api_handler(
+    method="POST",
+    path="/insights/cleanup-expired-todos",
+    tags=["insights"],
+    summary="Clean up expired todos",
+    description="Soft delete all expired AI-generated todos",
+)
+async def cleanup_expired_todos() -> Dict[str, Any]:
+    """Clean up expired AI-generated todos
+
+    Soft deletes todos that:
+    - Are AI-generated (source_type='ai')
+    - Have an expires_at timestamp in the past
+    - Are not already deleted
+    - Are not completed
+
+    @returns Cleanup result with count of deleted todos
+    """
+    try:
+        db, _ = _get_data_access()
+
+        deleted_count = await db.todos.delete_expired()
+
+        return {
+            "success": True,
+            "message": f"Cleaned up {deleted_count} expired todos",
+            "data": {"deleted_count": deleted_count},
+            "timestamp": datetime.now().isoformat(),
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to cleanup expired todos: {e}", exc_info=True)
+        return {
+            "success": False,
+            "message": f"Failed to cleanup expired todos: {str(e)}",
             "timestamp": datetime.now().isoformat(),
         }

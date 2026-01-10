@@ -56,7 +56,9 @@ CREATE_TODOS_TABLE = """
         scheduled_date TEXT,
         scheduled_time TEXT,
         scheduled_end_time TEXT,
-        recurrence_rule TEXT
+        recurrence_rule TEXT,
+        expires_at TEXT,
+        source_type TEXT DEFAULT 'ai'
     )
 """
 

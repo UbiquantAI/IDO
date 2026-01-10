@@ -583,6 +583,46 @@ class UpdateKnowledgeResponse(TimedOperationResponse):
     data: Optional[KnowledgeData] = None
 
 
+class MergeSuggestion(BaseModel):
+    """Represents a suggested merge of similar knowledge entries"""
+
+    group_id: str
+    knowledge_ids: List[str]
+    merged_title: str
+    merged_description: str
+    merged_keywords: List[str]
+    similarity_score: float
+    merge_reason: str
+    estimated_tokens: int
+
+
+class AnalyzeKnowledgeMergeResponse(TimedOperationResponse):
+    """Response after analyzing knowledge for merge suggestions"""
+
+    suggestions: List[MergeSuggestion]
+    total_estimated_tokens: int
+    analyzed_count: int
+    suggested_merge_count: int
+
+
+class MergeResult(BaseModel):
+    """Result of executing a merge operation"""
+
+    group_id: str
+    merged_knowledge_id: str
+    deleted_knowledge_ids: List[str]
+    success: bool
+    error: Optional[str] = None
+
+
+class ExecuteKnowledgeMergeResponse(TimedOperationResponse):
+    """Response after executing knowledge merge operations"""
+
+    results: List[MergeResult]
+    total_merged: int
+    total_deleted: int
+
+
 # ==================== Pomodoro Work Phases ====================
 
 
@@ -603,5 +643,44 @@ class GetSessionPhasesResponse(TimedOperationResponse):
     """Response for get_session_phases endpoint"""
 
     data: Optional[List[WorkPhaseInfo]] = None
+
+
+# ============ Todo Responses ============
+
+
+class TodoData(BaseModel):
+    """Todo data for API responses"""
+
+    id: str
+    title: str
+    description: str
+    keywords: List[str]
+    created_at: Optional[str] = None
+    completed: bool = False
+    deleted: bool = False
+    scheduled_date: Optional[str] = None
+    scheduled_time: Optional[str] = None
+    scheduled_end_time: Optional[str] = None
+    recurrence_rule: Optional[Dict[str, Any]] = None
+    expires_at: Optional[str] = None
+    source_type: str = "ai"
+
+
+class CreateTodoResponse(TimedOperationResponse):
+    """Response for creating a todo manually"""
+
+    data: Optional[TodoData] = None
+
+
+class CleanupExpiredTodosResponse(TimedOperationResponse):
+    """Response for cleanup_expired_todos endpoint"""
+
+    data: Optional[Dict[str, int]] = None
+
+
+class CleanupSoftDeletedResponse(TimedOperationResponse):
+    """Response for cleanup_soft_deleted endpoint"""
+
+    data: Optional[Dict[str, int]] = None
 
 

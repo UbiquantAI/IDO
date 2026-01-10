@@ -870,3 +870,68 @@ class UpdateKnowledgeRequest(BaseModel):
     title: str = Field(..., min_length=1, max_length=500)
     description: str = Field(..., min_length=1)
     keywords: List[str] = Field(default_factory=list)
+
+
+class AnalyzeKnowledgeMergeRequest(BaseModel):
+    """Request parameters for analyzing knowledge similarity and generating merge suggestions.
+
+    @property filter_by_keyword - Only analyze knowledge with this keyword (None = all)
+    @property include_favorites - Whether to include favorite knowledge in analysis
+    @property similarity_threshold - Similarity threshold for merging (0.0-1.0)
+    """
+
+    filter_by_keyword: Optional[str] = None
+    include_favorites: bool = True
+    similarity_threshold: float = Field(default=0.7, ge=0.0, le=1.0)
+
+
+class MergeGroup(BaseModel):
+    """Represents a user-confirmed merge group.
+
+    @property group_id - Unique identifier for this merge group
+    @property knowledge_ids - List of knowledge IDs to merge
+    @property merged_title - Title for the merged knowledge
+    @property merged_description - Description for the merged knowledge
+    @property merged_keywords - Keywords for the merged knowledge
+    @property merge_reason - Optional reason for merging
+    @property keep_favorite - Whether to keep favorite status if any source is favorite
+    """
+
+    group_id: str
+    knowledge_ids: List[str]
+    merged_title: str = Field(..., min_length=1, max_length=500)
+    merged_description: str = Field(..., min_length=1)
+    merged_keywords: List[str] = Field(default_factory=list)
+    merge_reason: Optional[str] = None
+    keep_favorite: bool = True
+
+
+class ExecuteKnowledgeMergeRequest(BaseModel):
+    """Request parameters for executing approved knowledge merge operations.
+
+    @property merge_groups - List of merge groups to execute
+    """
+
+    merge_groups: List[MergeGroup]
+
+
+# ============ Todo Requests ============
+
+
+class CreateTodoRequest(BaseModel):
+    """Request parameters for manually creating a todo.
+
+    @property title - Todo title (required)
+    @property description - Todo description (required)
+    @property keywords - List of keywords/tags (optional)
+    @property scheduled_date - Optional scheduled date (YYYY-MM-DD format)
+    @property scheduled_time - Optional scheduled time (HH:MM format)
+    @property scheduled_end_time - Optional scheduled end time (HH:MM format)
+    """
+
+    title: str = Field(..., min_length=1, max_length=500)
+    description: str = Field(..., min_length=1)
+    keywords: List[str] = Field(default_factory=list)
+    scheduled_date: Optional[str] = Field(None, pattern=r"^\d{4}-\d{2}-\d{2}$")
+    scheduled_time: Optional[str] = Field(None, pattern=r"^\d{2}:\d{2}$")
+    scheduled_end_time: Optional[str] = Field(None, pattern=r"^\d{2}:\d{2}$")

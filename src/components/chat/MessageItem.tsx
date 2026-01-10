@@ -27,6 +27,17 @@ export function MessageItem({ message, isStreaming, isThinking, onRetry }: Messa
   const deferredContent = useDeferredValue(message.content)
   const assistantContent = isStreaming ? deferredContent : message.content
 
+  // Get error type from metadata
+  const errorType = message.metadata?.error_type
+
+  // Determine error title based on error type
+  const errorTitle =
+    errorType === 'network'
+      ? t('chat.networkError', 'Network error')
+      : errorType === 'llm'
+        ? t('chat.llmServiceError', 'LLM service error')
+        : t('chat.generationFailed', 'AI Generation Failed')
+
   if (isSystem) {
     return <div className="text-muted-foreground mx-4 my-2 rounded-lg px-4 py-2 text-sm">{message.content}</div>
   }
@@ -76,8 +87,8 @@ export function MessageItem({ message, isStreaming, isThinking, onRetry }: Messa
           </div>
         )}
 
-        {/* Render text content */}
-        {message.content && !isThinking && (
+        {/* Render text content - hide for error messages (error details shown in error section) */}
+        {message.content && !isThinking && !hasError && (
           <div className="text-foreground prose dark:prose-invert max-w-none text-sm select-text [&_.code-block-container]:m-0! [&_p:has(>.code-block-container)]:m-0! [&_p:has(>.code-block-container)]:p-0!">
             {isUser ? (
               // Keep user messages as-is
@@ -114,7 +125,7 @@ export function MessageItem({ message, isStreaming, isThinking, onRetry }: Messa
                 </svg>
               </div>
               <div className="flex-1">
-                <p className="text-destructive text-sm font-medium">{t('chat.requestFailed', 'Request failed')}</p>
+                <p className="text-destructive text-sm font-medium">{errorTitle}</p>
                 <p className="text-muted-foreground mt-1 text-xs whitespace-pre-wrap">{message.error}</p>
               </div>
             </div>
@@ -133,7 +144,7 @@ export function MessageItem({ message, isStreaming, isThinking, onRetry }: Messa
               disabled={isRetrying}
               className="hover:bg-primary/10 flex items-center gap-1.5">
               <RotateCw className={cn('h-3.5 w-3.5', isRetrying && 'animate-spin')} />
-              {isRetrying ? t('chat.retrying', '重试中...') : t('chat.retry', '重试')}
+              {isRetrying ? t('chat.retrying') : t('chat.retry')}
             </Button>
           </div>
         )}

@@ -10,7 +10,7 @@ import { TodoCardsView } from '@/components/insights/TodoCardsView'
 import { TodosDetailDialog } from '@/components/insights/TodosDetailDialog'
 import { ViewModeToggle } from '@/components/insights/ViewModeToggle'
 import { LoadingPage } from '@/components/shared/LoadingPage'
-import { Bot, ListTodo, X } from 'lucide-react'
+import { Bot, ListTodo, Plus, X } from 'lucide-react'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { ScrollToTop } from '@/components/shared/ScrollToTop'
 import { emitTodoToChat } from '@/lib/events/eventBus'
@@ -25,6 +25,8 @@ import {
   type TodoDragTarget
 } from '@/lib/drag/todoDragController'
 import { useTodoSync } from '@/hooks/useTodoSync'
+import { CreateTodoDialog } from '@/components/insights/CreateTodoDialog'
+import { TodoCategorySidebar } from '@/components/insights/TodoCategorySidebar'
 
 type ViewMode = 'calendar' | 'cards'
 
@@ -45,7 +47,7 @@ export default function AITodosView() {
   const navigate = useNavigate()
 
   // View mode state
-  const [viewMode, setViewMode] = useState<ViewMode>('calendar')
+  const [viewMode, setViewMode] = useState<ViewMode>('cards')
 
   // Enable TODO auto-sync
   useTodoSync()
@@ -65,7 +67,9 @@ export default function AITodosView() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [selectedTodoId, setSelectedTodoId] = useState<string | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
 
   // Get fresh todos for dialog from store (not a snapshot)
@@ -298,11 +302,19 @@ export default function AITodosView() {
   }
 
   return (
-    <PageLayout stickyHeader maxWidth="7xl">
+    <PageLayout stickyHeader maxWidth="5xl">
       <PageHeader
         title={t('insights.pendingTodos', 'Pending Todos')}
         description={t('insights.todosGeneratedFromActivities')}
-        actions={<ViewModeToggle viewMode={viewMode} onViewModeChange={setViewMode} />}
+        actions={
+          <div className="flex items-center gap-2">
+            <Button size="sm" onClick={() => setCreateDialogOpen(true)}>
+              <Plus className="mr-1 h-4 w-4" />
+              {t('insights.createTodo', 'Create Todo')}
+            </Button>
+            <ViewModeToggle viewMode={viewMode} onViewModeChange={setViewMode} />
+          </div>
+        }
       />
 
       <AnimatePresence mode="wait">
@@ -314,10 +326,19 @@ export default function AITodosView() {
             exit="exit"
             variants={viewVariants}
             transition={viewTransition}
-            className="flex-1 overflow-hidden px-6 pb-6">
-            <div className="mx-auto h-full w-full max-w-4xl">
+            className="flex h-full flex-1 gap-6 overflow-hidden px-6 pb-6">
+            {/* Left Sidebar - Categories */}
+            <TodoCategorySidebar
+              todos={todos}
+              selectedCategory={selectedCategory}
+              onCategoryChange={setSelectedCategory}
+            />
+
+            {/* Main Content */}
+            <div className="flex flex-1 flex-col overflow-hidden">
               <TodoCardsView
                 todos={todos}
+                selectedCategory={selectedCategory}
                 onComplete={handleCompleteTodo}
                 onDelete={handleDeleteTodo}
                 onExecuteInChat={handleExecuteInChat}
@@ -440,6 +461,13 @@ export default function AITodosView() {
         onUnschedule={handleUnscheduleTodo}
         onUpdateSchedule={handleUpdateSchedule}
         onSendToChat={handleExecuteInChat}
+      />
+
+      {/* Create Todo Dialog */}
+      <CreateTodoDialog
+        open={createDialogOpen}
+        onOpenChange={setCreateDialogOpen}
+        onSuccess={() => refreshTodos(true)}
       />
     </PageLayout>
   )
