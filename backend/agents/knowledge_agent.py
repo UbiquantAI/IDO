@@ -3,8 +3,6 @@ KnowledgeAgent - Intelligent agent for knowledge extraction and periodic merging
 Extracts knowledge from screenshots and merges related knowledge periodically
 """
 
-import asyncio
-import json
 import uuid
 from datetime import datetime
 from typing import Any, Dict, List, Optional
@@ -381,4 +379,3 @@ class KnowledgeAgent:
                     )
 
         return min(timestamps) if timestamps else datetime.now()
-

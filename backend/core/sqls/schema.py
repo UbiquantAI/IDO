@@ -39,6 +39,7 @@ CREATE_KNOWLEDGE_TABLE = """
         source_action_id TEXT,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
         deleted BOOLEAN DEFAULT 0,
+        favorite BOOLEAN DEFAULT 0,
         FOREIGN KEY (source_action_id) REFERENCES actions(id) ON DELETE SET NULL
     )
 """
@@ -55,7 +56,9 @@ CREATE_TODOS_TABLE = """
         scheduled_date TEXT,
         scheduled_time TEXT,
         scheduled_end_time TEXT,
-        recurrence_rule TEXT
+        recurrence_rule TEXT,
+        expires_at TEXT,
+        source_type TEXT DEFAULT 'ai'
     )
 """
 
@@ -80,8 +83,13 @@ CREATE_ACTIVITIES_TABLE = """
         session_duration_minutes INTEGER,
         topic_tags TEXT,
         source_event_ids TEXT,
+        source_action_ids TEXT,
+        aggregation_mode TEXT DEFAULT 'action_based' CHECK(aggregation_mode IN ('event_based', 'action_based')),
         user_merged_from_ids TEXT,
         user_split_into_ids TEXT,
+        pomodoro_session_id TEXT,
+        pomodoro_work_phase INTEGER,
+        focus_score REAL,
         deleted BOOLEAN DEFAULT 0,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
         updated_at TEXT DEFAULT CURRENT_TIMESTAMP
@@ -228,6 +236,60 @@ CREATE_SESSION_PREFERENCES_TABLE = """
     )
 """
 
+CREATE_POMODORO_SESSIONS_TABLE = """
+    CREATE TABLE IF NOT EXISTS pomodoro_sessions (
+        id TEXT PRIMARY KEY,
+        user_intent TEXT NOT NULL,
+        planned_duration_minutes INTEGER DEFAULT 25,
+        actual_duration_minutes INTEGER,
+        start_time TEXT NOT NULL,
+        end_time TEXT,
+        status TEXT NOT NULL,
+        processing_status TEXT DEFAULT 'pending',
+        processing_started_at TEXT,
+        processing_completed_at TEXT,
+        processing_error TEXT,
+        llm_evaluation_result TEXT,
+        llm_evaluation_computed_at TEXT,
+        interruption_count INTEGER DEFAULT 0,
+        interruption_reasons TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        deleted BOOLEAN DEFAULT 0,
+        CHECK(status IN ('active', 'completed', 'abandoned')),
+        CHECK(processing_status IN ('pending', 'processing', 'completed', 'failed'))
+    )
+"""
+
+CREATE_POMODORO_WORK_PHASES_TABLE = """
+    CREATE TABLE IF NOT EXISTS pomodoro_work_phases (
+        id TEXT PRIMARY KEY,
+        session_id TEXT NOT NULL,
+        phase_number INTEGER NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending',
+        processing_error TEXT,
+        retry_count INTEGER DEFAULT 0,
+        phase_start_time TEXT NOT NULL,
+        phase_end_time TEXT,
+        activity_count INTEGER DEFAULT 0,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (session_id) REFERENCES pomodoro_sessions(id) ON DELETE CASCADE,
+        CHECK(status IN ('pending', 'processing', 'completed', 'failed')),
+        UNIQUE(session_id, phase_number)
+    )
+"""
+
+CREATE_POMODORO_WORK_PHASES_SESSION_INDEX = """
+    CREATE INDEX IF NOT EXISTS idx_work_phases_session
+    ON pomodoro_work_phases(session_id, phase_number)
+"""
+
+CREATE_POMODORO_WORK_PHASES_STATUS_INDEX = """
+    CREATE INDEX IF NOT EXISTS idx_work_phases_status
+    ON pomodoro_work_phases(status)
+"""
+
 CREATE_KNOWLEDGE_CREATED_INDEX = """
     CREATE INDEX IF NOT EXISTS idx_knowledge_created
     ON knowledge(created_at DESC)
@@ -241,6 +303,11 @@ CREATE_KNOWLEDGE_DELETED_INDEX = """
 CREATE_KNOWLEDGE_SOURCE_ACTION_INDEX = """
     CREATE INDEX IF NOT EXISTS idx_knowledge_source_action
     ON knowledge(source_action_id)
+"""
+
+CREATE_KNOWLEDGE_FAVORITE_INDEX = """
+    CREATE INDEX IF NOT EXISTS idx_knowledge_favorite
+    ON knowledge(favorite)
 """
 
 CREATE_TODOS_CREATED_INDEX = """
@@ -386,6 +453,28 @@ CREATE_SESSION_PREFERENCES_CONFIDENCE_INDEX = """
     ON session_preferences(confidence_score DESC)
 """
 
+# ============ Pomodoro Sessions Indexes ============
+
+CREATE_POMODORO_SESSIONS_STATUS_INDEX = """
+    CREATE INDEX IF NOT EXISTS idx_pomodoro_sessions_status
+    ON pomodoro_sessions(status)
+"""
+
+CREATE_POMODORO_SESSIONS_PROCESSING_STATUS_INDEX = """
+    CREATE INDEX IF NOT EXISTS idx_pomodoro_sessions_processing_status
+    ON pomodoro_sessions(processing_status)
+"""
+
+CREATE_POMODORO_SESSIONS_START_TIME_INDEX = """
+    CREATE INDEX IF NOT EXISTS idx_pomodoro_sessions_start_time
+    ON pomodoro_sessions(start_time DESC)
+"""
+
+CREATE_POMODORO_SESSIONS_CREATED_INDEX = """
+    CREATE INDEX IF NOT EXISTS idx_pomodoro_sessions_created
+    ON pomodoro_sessions(created_at DESC)
+"""
+
 # All table creation statements in order
 ALL_TABLES = [
     CREATE_RAW_RECORDS_TABLE,
@@ -405,6 +494,9 @@ ALL_TABLES = [
     CREATE_ACTIONS_TABLE,
     CREATE_ACTION_IMAGES_TABLE,
     CREATE_SESSION_PREFERENCES_TABLE,
+    # Pomodoro feature
+    CREATE_POMODORO_SESSIONS_TABLE,
+    CREATE_POMODORO_WORK_PHASES_TABLE,
 ]
 
 # All index creation statements
@@ -416,10 +508,13 @@ ALL_INDEXES = [
     CREATE_KNOWLEDGE_CREATED_INDEX,
     CREATE_KNOWLEDGE_DELETED_INDEX,
     CREATE_KNOWLEDGE_SOURCE_ACTION_INDEX,
+    CREATE_KNOWLEDGE_FAVORITE_INDEX,
     CREATE_TODOS_CREATED_INDEX,
     CREATE_TODOS_COMPLETED_INDEX,
     CREATE_TODOS_DELETED_INDEX,
     CREATE_DIARIES_DATE_INDEX,
+    CREATE_POMODORO_WORK_PHASES_SESSION_INDEX,
+    CREATE_POMODORO_WORK_PHASES_STATUS_INDEX,
     CREATE_LLM_USAGE_TIMESTAMP_INDEX,
     CREATE_LLM_USAGE_MODEL_INDEX,
     CREATE_LLM_USAGE_MODEL_CONFIG_ID_INDEX,
@@ -441,4 +536,9 @@ ALL_INDEXES = [
     CREATE_ACTION_IMAGES_HASH_INDEX,
     CREATE_SESSION_PREFERENCES_TYPE_INDEX,
     CREATE_SESSION_PREFERENCES_CONFIDENCE_INDEX,
+    # Pomodoro sessions indexes
+    CREATE_POMODORO_SESSIONS_STATUS_INDEX,
+    CREATE_POMODORO_SESSIONS_PROCESSING_STATUS_INDEX,
+    CREATE_POMODORO_SESSIONS_START_TIME_INDEX,
+    CREATE_POMODORO_SESSIONS_CREATED_INDEX,
 ]

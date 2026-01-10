@@ -1,10 +1,10 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { getPersistenceStats, cleanupOrphanedImages } from '@/lib/client/apiClient'
-import { RefreshCw, Database, HardDrive, FileText, Image as ImageIcon, Trash2 } from 'lucide-react'
+import { getPersistenceStats, cleanupOrphanedImages, cleanupSoftDeletedItems } from '@/lib/client/apiClient'
+import { RefreshCw, Database, HardDrive, FileText, Image as ImageIcon, Sparkles } from 'lucide-react'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 
 interface PersistenceStats {
   databasePath?: string
@@ -77,25 +77,36 @@ export function StorageSettings({ className }: StorageSettingsProps) {
     void fetchStats()
   }, [])
 
-  const handleCleanupOrphanedImages = async () => {
+  const handleOneClickCleanup = async () => {
     try {
       setCleaning(true)
-      const response = await cleanupOrphanedImages()
+      let totalCleaned = 0
 
-      if (response && typeof response === 'object' && 'success' in response) {
-        if (response.success) {
-          const data = response.data as { cleanedCount?: number }
+      // Cleanup orphaned images
+      const imagesResponse = await cleanupOrphanedImages()
+      if (imagesResponse && typeof imagesResponse === 'object' && 'success' in imagesResponse) {
+        if (imagesResponse.success) {
+          const data = imagesResponse.data as { cleanedCount?: number }
           const count = data?.cleanedCount || 0
-          toast.success(t('settings.storage.cleanupSuccess', { count }))
-          // Refresh stats after cleanup
-          await fetchStats(true)
-        } else {
-          toast.error(t('settings.storage.cleanupFailed'))
+          totalCleaned += count
         }
       }
+
+      // Cleanup soft-deleted database items
+      const dbResponse = await cleanupSoftDeletedItems()
+      if (dbResponse && typeof dbResponse === 'object' && 'success' in dbResponse) {
+        if (dbResponse.success) {
+          const data = dbResponse.data as Record<string, number>
+          const dbCount = Object.values(data).reduce((sum, v) => sum + v, 0)
+          totalCleaned += dbCount
+        }
+      }
+
+      toast.success(t('settings.storage.oneClickCleanupSuccess', { count: totalCleaned }))
+      await fetchStats(true)
     } catch (error) {
-      console.error('Failed to cleanup orphaned images:', error)
-      toast.error(t('settings.storage.cleanupFailed'))
+      console.error('Failed to cleanup:', error)
+      toast.error(t('settings.storage.oneClickCleanupFailed'))
     } finally {
       setCleaning(false)
     }
@@ -172,10 +183,16 @@ export function StorageSettings({ className }: StorageSettingsProps) {
             <CardTitle>{t('settings.storage.title')}</CardTitle>
             <CardDescription>{t('settings.storage.description')}</CardDescription>
           </div>
-          <Button variant="outline" size="sm" onClick={() => fetchStats(true)} disabled={refreshing}>
-            <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-            {t('common.refresh')}
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => fetchStats(true)} disabled={refreshing}>
+              <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+              {t('common.refresh')}
+            </Button>
+            <Button variant="destructive" size="sm" onClick={handleOneClickCleanup} disabled={cleaning}>
+              <Sparkles className={`mr-2 h-4 w-4 ${cleaning ? 'animate-pulse' : ''}`} />
+              {cleaning ? t('settings.storage.cleaning') : t('settings.storage.oneClickCleanup')}
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -221,7 +238,7 @@ export function StorageSettings({ className }: StorageSettingsProps) {
           )}
         </div>
 
-        {/* Storage Breakdown with Cleanup Button */}
+        {/* Storage Breakdown */}
         <div className="grid gap-3 sm:grid-cols-2">
           {/* Database */}
           <div className="bg-muted/50 rounded-lg p-4">
@@ -235,7 +252,7 @@ export function StorageSettings({ className }: StorageSettingsProps) {
             </div>
           </div>
 
-          {/* Screenshots with Cleanup Button */}
+          {/* Screenshots */}
           <div className="bg-muted/50 rounded-lg p-4">
             <div className="mb-2 flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -247,15 +264,6 @@ export function StorageSettings({ className }: StorageSettingsProps) {
             <div className="text-muted-foreground mt-1 text-xs">
               {screenshotPercentage.toFixed(1)}% {t('settings.storage.ofTotal')}
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleCleanupOrphanedImages}
-              disabled={cleaning}
-              className="mt-3 w-full">
-              <Trash2 className={`mr-2 h-3 w-3 ${cleaning ? 'animate-pulse' : ''}`} />
-              {cleaning ? t('settings.storage.cleaning') : t('settings.storage.cleanupOrphaned')}
-            </Button>
           </div>
         </div>
 
@@ -302,11 +310,6 @@ export function StorageSettings({ className }: StorageSettingsProps) {
               })}
             </div>
           </div>
-        </div>
-
-        {/* Tips */}
-        <div className="bg-muted/50 rounded-md p-4">
-          <p className="text-muted-foreground text-sm">💡 {t('settings.storage.tip')}</p>
         </div>
       </CardContent>
     </Card>

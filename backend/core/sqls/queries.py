@@ -176,11 +176,11 @@ SELECT_MESSAGE_COUNT = """
 # Maintenance / cleanup queries
 DELETE_EVENT_IMAGES_BEFORE_TIMESTAMP = """
     DELETE FROM event_images
-    WHERE event_id IN (SELECT id FROM events WHERE timestamp < ?)
+    WHERE event_id IN (SELECT id FROM events WHERE start_time < ?)
 """
 
 DELETE_EVENTS_BEFORE_TIMESTAMP = """
-    DELETE FROM events WHERE timestamp < ?
+    DELETE FROM events WHERE start_time < ?
 """
 
 SOFT_DELETE_ACTIVITIES_BEFORE_START_TIME = """
@@ -301,3 +301,45 @@ UPDATE_MODEL_TEST_RESULT = """
 
 # Pragma queries (for table inspection)
 PRAGMA_TABLE_INFO = "PRAGMA table_info({})"
+
+# ==================== Pomodoro Work Phases Queries ====================
+
+INSERT_WORK_PHASE = """
+    INSERT INTO pomodoro_work_phases (
+        id, session_id, phase_number, status,
+        phase_start_time, phase_end_time, retry_count
+    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+"""
+
+SELECT_WORK_PHASES_BY_SESSION = """
+    SELECT * FROM pomodoro_work_phases
+    WHERE session_id = ?
+    ORDER BY phase_number ASC
+"""
+
+SELECT_WORK_PHASE_BY_SESSION_AND_NUMBER = """
+    SELECT * FROM pomodoro_work_phases
+    WHERE session_id = ? AND phase_number = ?
+"""
+
+UPDATE_WORK_PHASE_STATUS = """
+    UPDATE pomodoro_work_phases
+    SET status = ?, processing_error = ?, retry_count = ?,
+        updated_at = CURRENT_TIMESTAMP
+    WHERE id = ?
+"""
+
+UPDATE_WORK_PHASE_COMPLETED = """
+    UPDATE pomodoro_work_phases
+    SET status = 'completed', activity_count = ?,
+        updated_at = CURRENT_TIMESTAMP
+    WHERE id = ?
+"""
+
+INCREMENT_WORK_PHASE_RETRY = """
+    UPDATE pomodoro_work_phases
+    SET retry_count = retry_count + 1,
+        updated_at = CURRENT_TIMESTAMP
+    WHERE id = ?
+    RETURNING retry_count
+"""

@@ -252,17 +252,6 @@ class SettingsManager:
             logger.error(f"Failed to update screenshot save path in config: {e}")
             return False
 
-    def get_screenshot_force_save_interval(self) -> float:
-        """Get screenshot force save interval (seconds)
-
-        Returns the interval in seconds after which a screenshot will be force-saved
-        even if it appears to be a duplicate. Default is 60 seconds (1 minute).
-        """
-        if not self.config_loader:
-            return 60.0  # Default 1 minute
-
-        return float(self.config_loader.get("screenshot.force_save_interval", 60.0))
-
     # ======================== Live2D Configuration ========================
 
     @staticmethod
@@ -680,6 +669,112 @@ class SettingsManager:
             Language code (zh or en), defaults to zh
         """
         return self.get("language.default_language", "zh")
+
+    # ======================== Pomodoro Buffering Configuration ========================
+
+    def get_pomodoro_buffering_config(self) -> Dict[str, Any]:
+        """Get Pomodoro screenshot buffering configuration
+
+        Screenshot buffering improves performance by batching screenshots before
+        sending to LLM for processing. This reduces API calls and improves response time.
+
+        Returns:
+            Dictionary with buffering configuration:
+            - enabled: Whether buffering is enabled (default: True)
+            - count_threshold: Number of screenshots to trigger batch (default: 20)
+              Lowered from 50 to 20 to match action extraction threshold.
+              At 1 screenshot/sec, this means 20 seconds worst case delay.
+            - time_threshold: Seconds elapsed to trigger batch (default: 30.0)
+              Lowered from 60 to 30 seconds to reduce latency during idle periods.
+            - max_buffer_size: Emergency flush limit (default: 200)
+              Safety limit to prevent memory issues if processing is slow.
+            - processing_timeout: Timeout for LLM calls in seconds (default: 720.0)
+              12 minutes timeout for batch processing. If exceeded, buffer is reset.
+
+        Note: After Phase 1 optimization (Jan 2026), these settings work well with
+        the simplified retry mechanism (1 retry instead of 4).
+        """
+        return {
+            "enabled": self.get("pomodoro.enable_screenshot_buffering", True),
+            # CRITICAL FIX: Lowered from 50 to 20 to match action extraction threshold
+            # This ensures screenshots are batched more frequently and don't get stuck in buffer
+            # At 1 screenshot/sec, 20 screenshots = 20 seconds worst case delay
+            "count_threshold": int(self.get("pomodoro.screenshot_buffer_count_threshold", 20)),
+            # CRITICAL FIX: Lowered from 60 to 30 seconds to reduce latency
+            # This prevents screenshots from being buffered too long during idle periods
+            "time_threshold": float(self.get("pomodoro.screenshot_buffer_time_threshold", 30.0)),
+            "max_buffer_size": int(self.get("pomodoro.screenshot_buffer_max_size", 200)),
+            "processing_timeout": float(self.get("pomodoro.screenshot_buffer_processing_timeout", 720.0)),
+        }
+
+    # ======================== Pomodoro Goal Configuration ========================
+
+    @staticmethod
+    def _default_pomodoro_goal_settings() -> Dict[str, Any]:
+        """Get default pomodoro goal configuration"""
+        return {
+            "daily_focus_goal_minutes": 120,  # 2 hours
+            "weekly_focus_goal_minutes": 600,  # 10 hours
+        }
+
+    def get_pomodoro_goal_settings(self) -> Dict[str, Any]:
+        """Get Pomodoro goal configuration from database
+
+        Returns:
+            Dictionary with goal configuration:
+            - daily_focus_goal_minutes: Daily focus time goal in minutes (default: 120)
+            - weekly_focus_goal_minutes: Weekly focus time goal in minutes (default: 600)
+        """
+        defaults = self._default_pomodoro_goal_settings()
+
+        if not self.db:
+            logger.warning("Database not initialized, using defaults")
+            return defaults
+
+        try:
+            merged = self._load_dict_from_db("pomodoro", defaults)
+
+            # Validate ranges: daily 30-720 minutes (0.5-12h), weekly 60-5040 minutes (1-84h)
+            merged["daily_focus_goal_minutes"] = max(
+                30, min(720, int(merged.get("daily_focus_goal_minutes", 120)))
+            )
+            merged["weekly_focus_goal_minutes"] = max(
+                60, min(5040, int(merged.get("weekly_focus_goal_minutes", 600)))
+            )
+
+            return merged
+        except Exception as exc:
+            logger.warning(f"Failed to read Pomodoro goal settings from database, using defaults: {exc}")
+            return defaults
+
+    def update_pomodoro_goal_settings(self, updates: Dict[str, Any]) -> Dict[str, Any]:
+        """Update Pomodoro goal configuration values in database
+
+        Args:
+            updates: Dictionary with goal updates (daily_focus_goal_minutes, weekly_focus_goal_minutes)
+
+        Returns:
+            Updated goal configuration dictionary
+        """
+        if not self.db:
+            logger.error("Database not initialized")
+            return self._default_pomodoro_goal_settings()
+
+        current = self.get_pomodoro_goal_settings()
+        merged = current.copy()
+
+        if "daily_focus_goal_minutes" in updates:
+            merged["daily_focus_goal_minutes"] = max(30, min(720, int(updates["daily_focus_goal_minutes"])))
+        if "weekly_focus_goal_minutes" in updates:
+            merged["weekly_focus_goal_minutes"] = max(60, min(5040, int(updates["weekly_focus_goal_minutes"])))
+
+        try:
+            self._save_dict_to_db("pomodoro", merged)
+            logger.debug("✓ Pomodoro goal settings updated in database")
+        except Exception as exc:
+            logger.error(f"Failed to update Pomodoro goal settings in database: {exc}")
+
+        return merged
 
     def set_language(self, language: str) -> bool:
         """Set application language

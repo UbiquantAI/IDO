@@ -2,8 +2,9 @@
 Processing pipeline (agent-based architecture)
 Simplified pipeline that delegates to specialized agents:
 - raw_records → ActionAgent → actions (complete flow: extract + save)
-- actions → EventAgent → events (complete flow: aggregate + save)
-- events → SessionAgent → activities (complete flow: aggregate + save)
+- actions → SessionAgent → activities (action-based aggregation)
+
+EventAgent has been DISABLED - using direct action-based aggregation only.
 
 Pipeline now only handles:
 - Filtering raw records
@@ -20,6 +21,7 @@ from core.logger import get_logger
 from core.models import RawRecord, RecordType
 from perception.image_manager import get_image_manager
 
+from .behavior_analyzer import BehaviorAnalyzer
 from .image_filter import ImageFilter
 from .image_sampler import ImageSampler
 from .record_filter import RecordFilter
@@ -92,6 +94,15 @@ class ProcessingPipeline:
             click_merge_threshold=0.5,
         )
 
+        # BehaviorAnalyzer: analyzes keyboard/mouse patterns to classify user behavior
+        # Helps LLM distinguish between operation (active work) and browsing (passive consumption)
+        self.behavior_analyzer = BehaviorAnalyzer(
+            operation_threshold=0.6,
+            browsing_threshold=0.3,
+            keyboard_weight=0.6,
+            mouse_weight=0.4,
+        )
+
         self.db = get_db()
         self.image_manager = get_image_manager()
 
@@ -108,8 +119,8 @@ class ProcessingPipeline:
         self.screenshot_accumulator: List[RawRecord] = []
 
         # Note: No scheduled tasks in pipeline anymore
-        # - Event aggregation: handled by EventAgent
-        # - Session aggregation: handled by SessionAgent
+        # - Event aggregation: DISABLED (action-based aggregation only)
+        # - Session aggregation: handled by SessionAgent (action-based)
         # - Knowledge merge: handled by KnowledgeAgent
         # - Todo merge: handled by TodoAgent
 
@@ -142,14 +153,14 @@ class ProcessingPipeline:
 
         self.is_running = True
 
-        # Note: Event aggregation is now handled by EventAgent (started by coordinator)
+        # Note: Event aggregation DISABLED - using action-based aggregation only
         # Note: Todo merge and knowledge merge are handled by TodoAgent and KnowledgeAgent (started by coordinator)
         # Pipeline now only handles action extraction (triggered by raw record processing)
 
         logger.info(f"Processing pipeline started (language: {self.language})")
         logger.debug(f"- Screenshot threshold: {self.screenshot_threshold}")
         logger.debug("- Action extraction: handled inline via ActionAgent")
-        logger.debug("- Event aggregation: handled by EventAgent")
+        logger.debug("- Event aggregation: DISABLED (action-based aggregation only)")
         logger.debug("- Todo extraction and merge: handled by TodoAgent")
         logger.debug("- Knowledge extraction and merge: handled by KnowledgeAgent")
 
@@ -160,7 +171,7 @@ class ProcessingPipeline:
 
         self.is_running = False
 
-        # Note: Event aggregation task removed as aggregation is handled by EventAgent
+        # Note: Event aggregation DISABLED - using action-based aggregation only
         # Note: Todo and knowledge merge tasks removed as merging is handled by dedicated agents
 
         # Process remaining accumulated screenshots with a hard timeout to avoid shutdown hangs
@@ -325,12 +336,24 @@ class ProcessingPipeline:
                 logger.error("ActionAgent not available, cannot process actions")
                 raise Exception("ActionAgent not available")
 
+            # NEW: Analyze behavior patterns from keyboard/mouse data
+            behavior_analysis = self.behavior_analyzer.analyze(
+                keyboard_records=keyboard_records,
+                mouse_records=mouse_records,
+            )
+
+            logger.debug(
+                f"Behavior analysis: {behavior_analysis['behavior_type']} "
+                f"(confidence={behavior_analysis['confidence']:.2f})"
+            )
+
             # Step 1: Extract scene descriptions from screenshots (RawAgent)
             logger.debug("Step 1: Extracting scene descriptions via RawAgent")
             scenes = await self.raw_agent.extract_scenes(
                 records,
                 keyboard_records=keyboard_records,
                 mouse_records=mouse_records,
+                behavior_analysis=behavior_analysis,  # NEW: pass behavior context
             )
 
             if not scenes:
@@ -352,6 +375,7 @@ class ProcessingPipeline:
                 scenes,
                 keyboard_records=keyboard_records,
                 mouse_records=mouse_records,
+                behavior_analysis=behavior_analysis,  # NEW: pass behavior context
             )
 
             # Update statistics
@@ -470,7 +494,7 @@ class ProcessingPipeline:
 
 
     # ============ Scheduled Tasks ============
-    # Note: Event aggregation is now handled by EventAgent (started by coordinator)
+    # Note: Event aggregation DISABLED - using action-based aggregation only
     # Note: Knowledge merge is now handled by KnowledgeAgent (started by coordinator)
     # Note: Todo merge is now handled by TodoAgent (started by coordinator)
 

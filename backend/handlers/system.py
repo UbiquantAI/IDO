@@ -437,14 +437,16 @@ async def check_initial_setup() -> CheckInitialSetupResponse:
         has_completed_setup = (setup_completed_str or "false").lower() in ("true", "1", "yes")
 
         # Determine if setup is needed
-        # Setup is required if user hasn't completed setup AND there are no models configured
-        needs_setup = not has_completed_setup and not has_models
+        # IMPORTANT: Setup is required if there are no models configured,
+        # regardless of has_completed_setup status.
+        # This ensures that if user deletes their models/config, they'll see the setup again.
+        needs_setup = not has_models
 
         logger.debug(
             f"Initial setup check: has_models={has_models}, "
             f"has_active_model={has_active_model}, "
             f"has_completed_setup={has_completed_setup}, "
-            f"needs_setup={needs_setup}"
+            f"needs_setup={needs_setup} (always true when no models)"
         )
 
         return CheckInitialSetupResponse(

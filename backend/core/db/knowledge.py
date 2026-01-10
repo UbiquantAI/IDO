@@ -29,6 +29,7 @@ class KnowledgeRepository(BaseRepository):
         *,
         created_at: Optional[str] = None,
         source_action_id: Optional[str] = None,
+        favorite: bool = False,
     ) -> None:
         """Save or update knowledge"""
         try:
@@ -38,8 +39,8 @@ class KnowledgeRepository(BaseRepository):
                     """
                     INSERT OR REPLACE INTO knowledge (
                         id, title, description, keywords,
-                        source_action_id, created_at, deleted
-                    ) VALUES (?, ?, ?, ?, ?, ?, 0)
+                        source_action_id, created_at, deleted, favorite
+                    ) VALUES (?, ?, ?, ?, ?, ?, 0, ?)
                     """,
                     (
                         knowledge_id,
@@ -48,6 +49,7 @@ class KnowledgeRepository(BaseRepository):
                         json.dumps(keywords, ensure_ascii=False),
                         source_action_id,
                         created,
+                        int(favorite),
                     ),
                 )
                 conn.commit()
@@ -66,6 +68,7 @@ class KnowledgeRepository(BaseRepository):
                         "keywords": keywords,
                         "created_at": created,
                         "source_action_id": source_action_id,
+                        "favorite": favorite,
                         "type": "original",
                     }
                 )
@@ -89,7 +92,7 @@ class KnowledgeRepository(BaseRepository):
             with self._get_conn() as conn:
                 cursor = conn.execute(
                     f"""
-                    SELECT id, title, description, keywords, source_action_id, created_at, deleted
+                    SELECT id, title, description, keywords, source_action_id, created_at, deleted, favorite
                     FROM knowledge
                     {base_where}
                     ORDER BY created_at DESC
@@ -99,6 +102,12 @@ class KnowledgeRepository(BaseRepository):
 
             knowledge_list: List[Dict[str, Any]] = []
             for row in rows:
+                # Handle favorite field which might not exist in older databases
+                try:
+                    favorite = bool(row["favorite"])
+                except (KeyError, IndexError):
+                    favorite = False
+
                 knowledge_list.append(
                     {
                         "id": row["id"],
@@ -110,6 +119,7 @@ class KnowledgeRepository(BaseRepository):
                         "source_action_id": row["source_action_id"],
                         "created_at": row["created_at"],
                         "deleted": bool(row["deleted"]),
+                        "favorite": favorite,
                     }
                 )
 
@@ -136,6 +146,47 @@ class KnowledgeRepository(BaseRepository):
         except Exception as e:
             logger.error(
                 f"Failed to delete knowledge {knowledge_id}: {e}", exc_info=True
+            )
+            raise
+
+    async def update(
+        self,
+        knowledge_id: str,
+        title: str,
+        description: str,
+        keywords: List[str],
+    ) -> None:
+        """Update knowledge title, description, and keywords"""
+        try:
+            with self._get_conn() as conn:
+                conn.execute(
+                    """
+                    UPDATE knowledge
+                    SET title = ?, description = ?, keywords = ?
+                    WHERE id = ? AND deleted = 0
+                    """,
+                    (
+                        title,
+                        description,
+                        json.dumps(keywords, ensure_ascii=False),
+                        knowledge_id,
+                    ),
+                )
+                conn.commit()
+                logger.debug(f"Updated knowledge: {knowledge_id}")
+
+                # Send event to frontend
+                from core.events import emit_knowledge_updated
+
+                emit_knowledge_updated({
+                    "id": knowledge_id,
+                    "title": title,
+                    "description": description,
+                    "keywords": keywords,
+                })
+        except Exception as e:
+            logger.error(
+                f"Failed to update knowledge {knowledge_id}: {e}", exc_info=True
             )
             raise
 
@@ -187,6 +238,97 @@ class KnowledgeRepository(BaseRepository):
                 exc_info=True,
             )
             return 0
+
+    async def hard_delete(self, knowledge_id: str) -> bool:
+        """Hard delete knowledge from database (permanent deletion)"""
+        try:
+            with self._get_conn() as conn:
+                cursor = conn.execute(
+                    "DELETE FROM knowledge WHERE id = ?", (knowledge_id,)
+                )
+                conn.commit()
+
+                if cursor.rowcount > 0:
+                    logger.debug(f"Hard deleted knowledge: {knowledge_id}")
+                    # Send event to frontend
+                    from core.events import emit_knowledge_deleted
+                    emit_knowledge_deleted(knowledge_id)
+                    return True
+                return False
+        except Exception as e:
+            logger.error(
+                f"Failed to hard delete knowledge {knowledge_id}: {e}", exc_info=True
+            )
+            raise
+
+    async def hard_delete_batch(self, knowledge_ids: List[str]) -> int:
+        """Hard delete multiple knowledge rows (permanent deletion)"""
+        if not knowledge_ids:
+            return 0
+
+        try:
+            placeholders = ",".join("?" for _ in knowledge_ids)
+            with self._get_conn() as conn:
+                cursor = conn.execute(
+                    f"DELETE FROM knowledge WHERE id IN ({placeholders})",
+                    knowledge_ids,
+                )
+                conn.commit()
+                deleted_count = cursor.rowcount
+
+                if deleted_count > 0:
+                    logger.debug(f"Hard deleted {deleted_count} knowledge entries")
+
+                return deleted_count
+
+        except Exception as e:
+            logger.error(f"Failed to batch hard delete knowledge: {e}", exc_info=True)
+            return 0
+
+    async def toggle_favorite(self, knowledge_id: str) -> Optional[bool]:
+        """Toggle favorite status of knowledge
+
+        Returns:
+            New favorite status (True/False) if successful, None if knowledge not found
+        """
+        try:
+            with self._get_conn() as conn:
+                # Get current favorite status
+                cursor = conn.execute(
+                    "SELECT favorite FROM knowledge WHERE id = ? AND deleted = 0",
+                    (knowledge_id,)
+                )
+                row = cursor.fetchone()
+
+                if not row:
+                    logger.warning(f"Knowledge {knowledge_id} not found or deleted")
+                    return None
+
+                current_favorite = bool(row["favorite"])
+                new_favorite = not current_favorite
+
+                # Update favorite status
+                conn.execute(
+                    "UPDATE knowledge SET favorite = ? WHERE id = ?",
+                    (int(new_favorite), knowledge_id)
+                )
+                conn.commit()
+
+                logger.debug(f"Toggled favorite for knowledge {knowledge_id}: {new_favorite}")
+
+                # Send update event to frontend
+                from core.events import emit_knowledge_updated
+
+                emit_knowledge_updated({
+                    "id": knowledge_id,
+                    "favorite": new_favorite
+                })
+
+                return new_favorite
+
+        except Exception as e:
+            logger.error(f"Failed to toggle favorite for knowledge {knowledge_id}: {e}", exc_info=True)
+            raise
 
     async def get_count_by_date(self) -> Dict[str, int]:
         """

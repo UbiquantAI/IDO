@@ -1,13 +1,6 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle
-} from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
@@ -230,7 +223,7 @@ export function TodosDetailDialog({
             )}
           </div>
 
-          <DialogDescription>
+          <div className="text-muted-foreground mt-2 text-sm">
             {isScheduled ? (
               <span className="flex items-center gap-1 text-xs">
                 <Calendar className="size-3" />
@@ -250,7 +243,7 @@ export function TodosDetailDialog({
                 {t('insights.unscheduledTodo', 'This todo has not been scheduled yet')}
               </span>
             )}
-          </DialogDescription>
+          </div>
         </DialogHeader>
 
         <ScrollArea className="max-h-[calc(85vh-200px)]">

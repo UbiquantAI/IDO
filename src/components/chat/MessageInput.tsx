@@ -44,8 +44,18 @@ export function MessageInput({
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   // Fetch the model list
-  const { models, activeModel } = useModelsStore()
+  const { models, activeModel, fetchModels, fetchActiveModel } = useModelsStore()
   const [localModelId, setLocalModelId] = useState<string | null>(null)
+
+  // Ensure models are loaded
+  useEffect(() => {
+    if (models.length === 0) {
+      fetchModels()
+    }
+    if (!activeModel) {
+      fetchActiveModel()
+    }
+  }, [models.length, activeModel, fetchModels, fetchActiveModel])
 
   // Initialize the selected model
   useEffect(() => {
@@ -53,8 +63,11 @@ export function MessageInput({
       setLocalModelId(selectedModelId)
     } else if (activeModel) {
       setLocalModelId(activeModel.id)
+    } else if (models.length > 0 && !localModelId) {
+      // Fallback to first model if no active model
+      setLocalModelId(models[0].id)
     }
-  }, [selectedModelId, activeModel])
+  }, [selectedModelId, activeModel, models, localModelId])
 
   // Handle model changes
   const handleModelChange = (modelId: string) => {
@@ -230,16 +243,16 @@ export function MessageInput({
   const modelDisplayName = currentModel?.name || activeModel?.name || 'Select Model'
 
   return (
-    <div onDrop={handleDrop} onDragOver={handleDragOver} className="bg-background w-full">
+    <div onDrop={handleDrop} onDragOver={handleDragOver} className="w-full">
       {/* Image preview */}
       {images.length > 0 && (
-        <div className="mb-2 rounded-lg border p-2">
+        <div className="mb-3 rounded-lg border p-3">
           <ImagePreview images={images} onRemove={removeImage} />
         </div>
       )}
 
       {/* Input area */}
-      <div className="bg-muted/30 space-y-3 rounded-3xl border px-4 py-3">
+      <div className="bg-background focus-within:border-primary/50 space-y-3 rounded-xl border px-4 py-3.5 transition-colors">
         {/* Text input */}
         <Textarea
           ref={textareaRef}
@@ -249,7 +262,7 @@ export function MessageInput({
           onPaste={handlePaste}
           placeholder={placeholder || t('chat.inputPlaceholder') || 'Send a message'}
           disabled={disabled}
-          className="placeholder:text-muted-foreground/60 w-full resize-none overflow-y-auto border-0 bg-transparent! p-2 shadow-none focus-visible:ring-0"
+          className="placeholder:text-muted-foreground/60 w-full resize-none overflow-y-auto border-0 bg-transparent p-2 shadow-none focus-visible:ring-0"
           style={{ minHeight: '24px', maxHeight: '160px', height: '24px', lineHeight: '1.5' }}
           rows={1}
         />
@@ -263,7 +276,7 @@ export function MessageInput({
               variant="ghost"
               onClick={() => fileInputRef.current?.click()}
               disabled={disabled}
-              className="h-8 w-8 shrink-0 rounded-full"
+              className="hover:bg-accent h-9 w-9 shrink-0 rounded-md"
               title={t('chat.addImage') || 'Add image'}>
               <ImageIcon className="h-4 w-4" />
             </Button>
@@ -281,7 +294,7 @@ export function MessageInput({
           <div className="flex shrink-0 items-center gap-2">
             {/* Model selector */}
             <Select value={localModelId || undefined} onValueChange={handleModelChange}>
-              <SelectTrigger className="hover:bg-muted bg-muted h-8 w-auto gap-2 rounded-xl border-0 px-3 shadow-none focus:ring-0">
+              <SelectTrigger className="hover:bg-accent bg-muted/50 h-9 w-auto gap-2 rounded-md border-0 px-3 shadow-none transition-colors focus:ring-0">
                 <SelectValue>
                   <span className="text-xs font-medium">{modelDisplayName}</span>
                 </SelectValue>
@@ -306,17 +319,17 @@ export function MessageInput({
                 onClick={onCancel}
                 disabled={isCancelling}
                 size="icon"
-                variant="ghost"
-                className="h-8 w-8 rounded-full">
-                <Square className="h-3.5 w-3.5" />
+                variant="outline"
+                className="h-9 w-9 rounded-md">
+                <Square className="h-4 w-4" />
               </Button>
             ) : (
               <Button
                 onClick={handleSend}
                 disabled={disabled || (!message.trim() && images.length === 0)}
                 size="icon"
-                className="h-8 w-8 rounded-full">
-                <Send className="h-3.5 w-3.5" />
+                className="h-9 w-9 rounded-md">
+                <Send className="h-4 w-4" />
               </Button>
             )}
           </div>

@@ -30,6 +30,7 @@ export interface ChatMessageChunk {
   chunk: string
   done: boolean
   messageId?: string
+  error?: boolean
 }
 
 export interface ConversationWithLastMessage extends Conversation {

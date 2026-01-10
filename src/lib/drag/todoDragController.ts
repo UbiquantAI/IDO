@@ -57,7 +57,8 @@ export function beginTodoPointerDrag(event: React.PointerEvent<HTMLElement>, tod
     cancelDrag()
   }
 
-  event.preventDefault()
+  // Don't preventDefault here - only prevent when drag actually starts
+  // This allows click events to work when user doesn't drag
 
   const payload: DraggedTodoData = {
     id: todo.id,
@@ -81,7 +82,9 @@ export function beginTodoPointerDrag(event: React.PointerEvent<HTMLElement>, tod
     previewOffsetY: event.clientY - rect.top
   }
 
-  sourceElement.setPointerCapture?.(event.pointerId)
+  // Don't capture pointer yet - only capture when drag actually starts
+  // This allows click events to work when user doesn't drag
+  // sourceElement.setPointerCapture?.(event.pointerId)
 
   window.addEventListener('pointermove', handlePointerMove, true)
   window.addEventListener('pointerup', handlePointerUp, true)
@@ -109,7 +112,11 @@ function handlePointerMove(event: PointerEvent) {
 function handlePointerUp(event: PointerEvent) {
   if (!activeSession || event.pointerId !== activeSession.pointerId) return
 
-  event.preventDefault()
+  // Only preventDefault if drag actually started
+  // This allows click events to work when user doesn't drag
+  if (activeSession.started) {
+    event.preventDefault()
+  }
   finishDrag(true)
 }
 
@@ -129,8 +136,11 @@ function startDrag(event: PointerEvent) {
   if (!activeSession) return
   activeSession.started = true
 
-  // Use the Card element directly (sourceElement), not the container
+  // Capture pointer now that drag has actually started
   const source = activeSession.sourceElement
+  source.setPointerCapture?.(activeSession.pointerId)
+
+  // Use the Card element directly (sourceElement), not the container
   const container = source.closest('[data-todo-container]') as HTMLElement | null
 
   const preview = createDragPreviewElement(source)

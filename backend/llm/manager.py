@@ -116,6 +116,51 @@ class LLMManager:
         else:
             logger.debug("No client to reload, will create on next request")
 
+    async def health_check(self) -> Dict[str, Any]:
+        """
+        Check if LLM service is available
+
+        Returns:
+            Dict with 'available' (bool), 'latency_ms' (int), and optional 'error' (str)
+        """
+        import time
+
+        start_time = time.perf_counter()
+        try:
+            client = self._ensure_client()
+            # Use a minimal request to check connectivity
+            messages = [{"role": "user", "content": "hi"}]
+            result = await client.chat_completion(
+                messages=messages,
+                max_tokens=1,
+                temperature=0.0,
+            )
+            latency_ms = int((time.perf_counter() - start_time) * 1000)
+
+            # Check if we got a valid response (not an error message)
+            content = result.get("content", "")
+            if content and not content.startswith("[Error]"):
+                return {
+                    "available": True,
+                    "latency_ms": latency_ms,
+                    "model": client.model,
+                    "provider": client.provider,
+                }
+            else:
+                return {
+                    "available": False,
+                    "latency_ms": latency_ms,
+                    "error": content or "Empty response",
+                }
+        except Exception as e:
+            latency_ms = int((time.perf_counter() - start_time) * 1000)
+            logger.warning(f"LLM health check failed: {e}")
+            return {
+                "available": False,
+                "latency_ms": latency_ms,
+                "error": str(e),
+            }
+
     def reload_on_next_request(self):
         """
         Mark client for reload on next request

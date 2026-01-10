@@ -2,6 +2,7 @@ import '@/styles/index.css'
 import '@/lib/i18n'
 import { Outlet } from 'react-router'
 import { useEffect, useState } from 'react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
 import { LoadingPage } from '@/components/shared/LoadingPage'
@@ -25,6 +26,17 @@ import { InitialSetupFlow } from '@/components/setup/InitialSetupFlow'
 import { useWindowCloseHandler } from '@/hooks/useWindowCloseHandler'
 import { syncLanguageWithBackend } from '@/lib/i18n'
 import { getSettingsInfo } from '@/lib/client/apiClient'
+
+// Create a client for React Query
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      retry: 1,
+      staleTime: 5 * 60 * 1000 // 5 minutes
+    }
+  }
+})
 
 function App() {
   const isWindowsUA = () => {
@@ -159,25 +171,27 @@ function App() {
 
   return (
     <ErrorBoundary>
-      <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
-        <div
-          className={`bg-background h-screen w-screen overflow-hidden ${
-            isWindows ? 'rounded-2xl border border-black/10 shadow-xl dark:border-white/10' : ''
-          }`}>
-          {/* Global drag region for all platforms */}
-          {tauriReady ? <Titlebar /> : null}
-          {renderContent()}
-          {/* Initial Setup Flow - Welcome/Onboarding */}
-          <InitialSetupFlow />
-          {/* Hide the PermissionsGuide while the initial setup overlay is active and not yet acknowledged */}
-          {(!isSetupActive || hasAcknowledged) && <PermissionsGuide />}
-          {/* Quit confirmation dialog for tray */}
-          <QuitConfirmDialog />
-          {/* Exit loading overlay */}
-          <ExitOverlay />
-          <Toaster position="top-right" richColors closeButton visibleToasts={3} duration={3000} expand={false} />
-        </div>
-      </ThemeProvider>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
+          <div
+            className={`bg-background h-screen w-screen overflow-hidden ${
+              isWindows ? 'rounded-2xl border border-black/10 shadow-xl dark:border-white/10' : ''
+            }`}>
+            {/* Global drag region for all platforms */}
+            {tauriReady ? <Titlebar /> : null}
+            {renderContent()}
+            {/* Initial Setup Flow - Welcome/Onboarding */}
+            <InitialSetupFlow />
+            {/* Hide the PermissionsGuide while the initial setup overlay is active and not yet acknowledged */}
+            {(!isSetupActive || hasAcknowledged) && <PermissionsGuide />}
+            {/* Quit confirmation dialog for tray */}
+            <QuitConfirmDialog />
+            {/* Exit loading overlay */}
+            <ExitOverlay />
+            <Toaster position="top-right" richColors closeButton visibleToasts={3} duration={3000} expand={false} />
+          </div>
+        </ThemeProvider>
+      </QueryClientProvider>
     </ErrorBoundary>
   )
 }
