@@ -17,11 +17,8 @@ iDO itself is free and open source. However, you need to provide your own LLM AP
 Currently:
 
 - ✅ **macOS** 13 (Ventura) or later
-
-Coming soon:
-
-- ⏳ **Windows** 10 or later
-- ⏳ **Linux** (Ubuntu 20.04+)
+- ✅ **Windows** 10 or later
+- ✅ **Linux** (Ubuntu 20.04+ or equivalent)
 
 ### Is my data private?
 
@@ -66,7 +63,7 @@ On macOS, iDO requires:
 **Accessibility** - To monitor keyboard and mouse events
 **Screen Recording** - To capture screenshots
 
-You'll be prompted to grant these on first run. See [Installation Guide](./installation.md#1-grant-system-permissions) for details.
+You'll be prompted to grant these on first run. See [Installation Guide](./installation.md) for details.
 
 ### Do I need an OpenAI API key?
 
@@ -78,13 +75,14 @@ Get an OpenAI API key at: https://platform.openai.com/api-keys
 
 **Recommended**:
 
-- **gpt-4** - Best quality, ~$0.05-0.10 per hour
-- **gpt-3.5-turbo** - Good quality, ~$0.01-0.02 per hour
+- **gpt-4o-mini** - Best value, good quality, ~$0.01 per hour (default)
+- **gpt-4o** - Higher quality, ~$0.05-0.10 per hour
+- **gpt-3.5-turbo** - Budget option, ~$0.01 per hour
 
 **Tips**:
 
-- Start with gpt-3.5-turbo to save costs
-- Upgrade to gpt-4 if summaries aren't accurate enough
+- Start with gpt-4o-mini (default) for best value
+- Upgrade to gpt-4o if you need higher quality
 - You can change models anytime in Settings
 
 ## Usage
@@ -93,7 +91,7 @@ Get an OpenAI API key at: https://platform.openai.com/api-keys
 
 iDO uses a three-layer approach:
 
-1. **Perception Layer**: Captures keyboard, mouse, and screenshots every 1-3 seconds
+1. **Perception Layer**: Captures keyboard, mouse, and screenshots (default: 0.2 seconds)
 2. **Processing Layer**: Filters noise and uses LLM to create meaningful activity summaries
 3. **Consumption Layer**: Displays activities and generates task recommendations
 
@@ -122,7 +120,7 @@ Storage varies based on your settings:
 
 **Factors**:
 
-- Capture interval (1s = more screenshots)
+- Capture interval (0.2s = 5 screenshots/sec/monitor)
 - Image quality (85% is default)
 - Number of monitors
 - Image optimization (reduces duplicates)
@@ -161,7 +159,7 @@ Storage varies based on your settings:
 
 1. ✅ Permissions granted (Accessibility + Screen Recording)
 2. ✅ At least one monitor enabled in Settings
-3. ✅ Capture is running (Dashboard shows "Running")
+3. ✅ Check system status in sidebar
 
 **Solutions**:
 
@@ -206,7 +204,7 @@ Storage varies based on your settings:
 
 - Verify LLM connection (Settings → Test Connection)
 - Check API key has available credits
-- Try a different model (gpt-4 vs gpt-3.5-turbo)
+- Try a different model (gpt-4o vs gpt-4o-mini)
 - Review logs for errors
 
 ### iDO is using too much CPU/RAM
@@ -302,7 +300,7 @@ View the source code: https://github.com/UbiquantAI/iDO
 | **Privacy**  | Local-only                   | Cloud option  |
 | **LLM**      | Bring your own               | Built-in      |
 | **Cost**     | Free (+ API costs)           | Subscription  |
-| **Platform** | macOS (Linux/Windows coming) | macOS only    |
+| **Platform** | macOS, Windows, Linux | macOS only    |
 
 ## Features & Roadmap
 
@@ -340,12 +338,12 @@ See our roadmap: https://github.com/UbiquantAI/iDO/issues
 
 **Planned features**:
 
-- Windows and Linux support
 - App-specific filtering
 - Automatic data retention policies
 - Task manager integrations
 - Custom agents
 - Team/multi-user support
+- Mobile companion app
 
 ### Can I build custom agents?
 
@@ -369,13 +367,13 @@ See [Backend Development Guide](../developers/guides/backend/README.md#agent-sys
 
 **Costs depend on**:
 
-- LLM model (gpt-4 vs gpt-3.5-turbo)
+- LLM model (gpt-4o vs gpt-4o-mini)
 - Capture interval (more screenshots = more API calls)
 - Activity complexity
 
 **Tips to reduce costs**:
 
-- Use gpt-3.5-turbo instead of gpt-4
+- Use gpt-4o-mini (default) for best value
 - Increase capture interval to 2-3 seconds
 - Disable capture when not needed
 

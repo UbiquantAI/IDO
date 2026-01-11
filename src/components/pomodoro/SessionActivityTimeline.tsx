@@ -338,7 +338,7 @@ export function SessionActivityTimeline({
                 </div>
               ) : (
                 phaseActivities.map((activity) => (
-                  <Card key={activity.id} className="shadow-sm">
+                  <Card key={activity.id}>
                     <CardHeader>
                       <div className="flex items-start justify-between gap-4">
                         <div className="flex-1">

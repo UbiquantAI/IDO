@@ -888,6 +888,10 @@ export const en = {
       optional: 'Optional',
       noTodos: 'No pending TODOs available'
     },
+    todoList: {
+      allDone: 'Great job!',
+      scheduleHint: 'Schedule todos in calendar to start'
+    },
     start: 'Start',
     end: 'End Session',
     started: 'Pomodoro session started',
@@ -1035,7 +1039,13 @@ export const en = {
         distractionAlert: 'Distraction Detected',
         distractionText: 'Approximately {{percentage}}% of time spent on non-focused activities'
       }
-    }
+    },
+    guidance: {
+      title: 'Ready to focus?',
+      message: 'Select a todo below or enter your intention. Start with a clear, specific goal for this session.'
+    },
+    focusMode: 'Focus Mode',
+    todoStatusTotal: 'Total'
   },
   debug: {
     welcomeFlowReset: '🔄 Welcome flow reset',

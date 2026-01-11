@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { CheckCircle2, Clock, Flame } from 'lucide-react'
 
-import { Card, CardContent } from '@/components/ui/card'
 import { getPomodoroStats } from '@/lib/client/apiClient'
+import { cn } from '@/lib/utils'
 
 interface StatsData {
   completedToday: number
@@ -62,30 +63,52 @@ export function PomodoroStats() {
   const statItems = [
     {
       value: stats.completedToday,
-      label: t('pomodoro.stats.completedToday')
+      label: t('pomodoro.stats.completedToday'),
+      icon: CheckCircle2,
+      color: 'text-chart-2'
     },
     {
       value: stats.focusMinutes,
-      label: t('pomodoro.stats.focusMinutes')
+      label: t('pomodoro.stats.focusMinutes'),
+      icon: Clock,
+      color: 'text-chart-3'
     },
     {
       value: stats.focusHours,
-      label: t('pomodoro.stats.focusHours')
+      label: t('pomodoro.stats.focusHours'),
+      icon: Flame,
+      color: 'text-chart-4'
     }
   ]
 
   return (
-    <Card className="shadow-none">
-      <CardContent className="py-4">
-        <div className="divide-border grid grid-cols-3 divide-x">
-          {statItems.map((item, index) => (
-            <div key={index} className="flex flex-col items-center gap-1 px-4">
-              <span className="text-3xl font-bold tabular-nums">{loading ? '-' : item.value}</span>
-              <span className="text-muted-foreground text-xs">{item.label}</span>
+    <div className="flex items-center justify-between gap-2">
+      {statItems.map((item, index) => {
+        const Icon = item.icon
+        return (
+          <div key={index} className="group flex flex-1 items-center justify-center gap-2">
+            <div
+              className={cn(
+                'rounded-lg p-2 ring-1 transition-all duration-300',
+                'bg-muted/30 ring-border/40 group-hover:bg-muted/40'
+              )}>
+              <Icon className={cn('h-3.5 w-3.5 transition-all duration-300 group-hover:scale-110', item.color)} />
             </div>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
+            <div className="flex flex-col items-center gap-0.5">
+              <span
+                className={cn(
+                  'text-lg font-bold tabular-nums transition-all duration-500',
+                  loading ? 'opacity-50 blur-sm' : 'blur-0 opacity-100'
+                )}>
+                {loading ? '-' : item.value}
+              </span>
+              <span className="text-muted-foreground text-center text-[10px] leading-tight font-medium">
+                {item.label}
+              </span>
+            </div>
+          </div>
+        )
+      })}
+    </div>
   )
 }

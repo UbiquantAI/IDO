@@ -134,7 +134,7 @@ export const zhCN = {
     todoDeleted: '待办已删除',
     deleteFailed: '删除待办失败',
     deleteSuccess: '删除成功',
-    todoPending: '进行中',
+    todoPending: '待办中',
     todoUnscheduled: '待安排',
     noUnscheduledTodos: '暂无待办事项',
     noScheduledTodos: '暂无进行中的事项',
@@ -882,6 +882,10 @@ export const zhCN = {
       optional: '可选',
       noTodos: '暂无待办事项'
     },
+    todoList: {
+      allDone: '做得很棒！',
+      scheduleHint: '在日历中排期待办以开始'
+    },
     start: '开始',
     end: '结束会话',
     started: '番茄钟会话已开始',
@@ -1026,7 +1030,13 @@ export const zhCN = {
         distractionAlert: '检测到分心',
         distractionText: '约 {{percentage}}% 的时间花费在非专注活动上'
       }
-    }
+    },
+    guidance: {
+      title: '准备好专注了吗？',
+      message: '从下方选择一个待办或输入你的计划。为本次会话设定一个清晰、具体的目标吧。'
+    },
+    focusMode: '专注模式',
+    todoStatusTotal: '总数'
   },
   debug: {
     welcomeFlowReset: '🔄 欢迎流程已重置',
