@@ -77,7 +77,6 @@ Get an OpenAI API key at: https://platform.openai.com/api-keys
 
 - **gpt-4o-mini** - Best value, good quality, ~$0.01 per hour (default)
 - **gpt-4o** - Higher quality, ~$0.05-0.10 per hour
-- **gpt-3.5-turbo** - Budget option, ~$0.01 per hour
 
 **Tips**:
 
@@ -294,12 +293,12 @@ View the source code: https://github.com/UbiquantAI/iDO
 
 **Differences**:
 
-| Feature      | iDO                          | Rewind.ai     |
-| ------------ | ---------------------------- | ------------- |
-| **Source**   | Open source                  | Closed source |
-| **Privacy**  | Local-only                   | Cloud option  |
-| **LLM**      | Bring your own               | Built-in      |
-| **Cost**     | Free (+ API costs)           | Subscription  |
+| Feature      | iDO                   | Rewind.ai     |
+| ------------ | --------------------- | ------------- |
+| **Source**   | Open source           | Closed source |
+| **Privacy**  | Local-only            | Cloud option  |
+| **LLM**      | Bring your own        | Built-in      |
+| **Cost**     | Free (+ API costs)    | Subscription  |
 | **Platform** | macOS, Windows, Linux | macOS only    |
 
 ## Features & Roadmap

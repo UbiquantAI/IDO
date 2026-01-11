@@ -37,6 +37,7 @@ A locally deployed AI desktop assistant that understands your activity stream, u
 AI turns your daily activities into searchable knowledge cards. Find what you learned, organize with categories, and use Smart Merge to combine duplicates.
 
 **Features**:
+
 - Full-text search across all cards
 - Category/keyword filtering
 - Smart duplicate detection and merging
@@ -49,6 +50,7 @@ AI turns your daily activities into searchable knowledge cards. Find what you le
 AI-generated tasks from your context. Schedule on calendar, set priorities, and link to Pomodoro sessions. Drag to calendar to schedule.
 
 **Features**:
+
 - Manual creation supported
 - Calendar scheduling with start/end times
 - Recurrence rules (daily, weekly, etc.)
@@ -56,9 +58,12 @@ AI-generated tasks from your context. Schedule on calendar, set priorities, and 
 
 ### Pomodoro
 
-Stay focused with intelligent Pomodoro sessions linked to your tasks. Configure work/break durations, track focus scores, and review detailed session breakdowns.
+Focus Mode: Start a Pomodoro session to capture and analyze your focused work. Configure work/break durations and track progress.
+
+**What it does**: Focus Mode with intelligent Pomodoro timer for capturing and analyzing your focused work
 
 **Features**:
+
 - 4 preset modes: Classic (25/5), Deep (50/10), Quick (15/3), Focus (90/15)
 - Task association with AI-generated todos
 - Real-time countdown with circular progress
@@ -66,9 +71,10 @@ Stay focused with intelligent Pomodoro sessions linked to your tasks. Configure 
 
 ### Pomodoro Review
 
-Review past focus sessions with detailed breakdowns. View activity timelines, AI-powered focus analysis, and weekly statistics.
+Review your focus sessions and track your productivity. View activity timelines, AI-powered focus analysis, and weekly statistics.
 
 **Features**:
+
 - Session history with duration and timestamps
 - AI focus quality evaluation (strengths, weaknesses, suggestions)
 - Work type analysis (deep work, distractions, focus streaks)
@@ -81,6 +87,7 @@ Review past focus sessions with detailed breakdowns. View activity timelines, AI
 AI-generated daily work summaries. Scroll through history, select dates to generate, and edit summaries to reflect on your progress.
 
 **Features**:
+
 - Daily automated summaries
 - Select specific dates to generate
 - Editable content
@@ -93,6 +100,7 @@ AI-generated daily work summaries. Scroll through history, select dates to gener
 Conversational AI about your activities with streaming responses. Ask questions, analyze images, and get grounded answers from your data.
 
 **Features**:
+
 - Streaming responses for real-time feedback
 - Image drag-and-drop support (PNG, JPG, GIF)
 - Model selection per conversation
@@ -102,9 +110,12 @@ Conversational AI about your activities with streaming responses. Ask questions,
 
 ![Dashboard demo](assets/dashboard.gif)
 
-Track LLM usage statistics, token consumption, API calls, and costs across all your models with interactive trend charts.
+View Token usage and Agent task statistics. Track token consumption, API calls, and costs across all your models.
+
+**What it does**: View Token usage and Agent task statistics
 
 **Metrics**:
+
 - Total tokens processed and API calls made
 - Total cost by model with currency display
 - Usage trends over week/month/year
@@ -159,16 +170,16 @@ pnpm tauri:dev:gen-ts
 
 ### Available Commands
 
-| Command | Description |
-|---------|-------------|
-| `pnpm dev` | Frontend only |
+| Command                 | Description                               |
+| ----------------------- | ----------------------------------------- |
+| `pnpm dev`              | Frontend only                             |
 | `pnpm tauri:dev:gen-ts` | Full app with TS generation (recommended) |
-| `pnpm format` | Format code |
-| `pnpm check-i18n` | Validate translations |
-| `uv run ty check` | Backend type checking |
-| `pnpm tsc` | Frontend type checking |
-| `pnpm bundle` | Production build (macOS/Linux) |
-| `pnpm bundle:win` | Production build (Windows) |
+| `pnpm format`           | Format code                               |
+| `pnpm check-i18n`       | Validate translations                     |
+| `uv run ty check`       | Backend type checking                     |
+| `pnpm tsc`              | Frontend type checking                    |
+| `pnpm bundle`           | Production build (macOS/Linux)            |
+| `pnpm bundle:win`       | Production build (Windows)                |
 
 ---
 

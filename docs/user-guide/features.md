@@ -15,9 +15,10 @@ iDO is a local-first AI desktop copilot that:
 
 ### 1. Pomodoro Focus Mode
 
-**What it does**: Intelligent Pomodoro timer with task linking, mode selection, and focus tracking
+**What it does**: Focus Mode with intelligent Pomodoro timer for capturing and analyzing your focused work
 
 **How to use**:
+
 1. Navigate to **Pomodoro** in the sidebar
 2. Left panel shows your scheduled todos - click one to select
 3. Or enter a custom task description manually
@@ -25,22 +26,27 @@ iDO is a local-first AI desktop copilot that:
 5. Click **Start** to begin
 
 **Interface**:
+
 - **Left sidebar**: Scheduled todos with count badge for quick selection
 - **Main panel**: Timer display with mode selector and task input
 - **Task association**: Link sessions to AI-generated todos or manual intent
+- **Phase display**: Shows current phase (Work/Break) and round progress
 
 **Features**:
+
 - 4 preset modes with customizable duration
 - Links sessions to AI-generated todos
 - Real-time countdown with circular progress
 - Phase notifications (work/break transitions)
 - Activity capture during work phases
+- Work phase status tracking (activities captured during session)
 
 ### 2. Pomodoro Review
 
-**What it does**: Session history with statistics overview, activity timelines, and AI-powered focus analysis
+**What it does**: Review your focus sessions and track your productivity
 
 **How to use**:
+
 1. Navigate to **Pomodoro Review** in the sidebar
 2. View period statistics (weekly total, daily average, completion rate)
 3. Check the weekly focus chart for trends
@@ -49,6 +55,7 @@ iDO is a local-first AI desktop copilot that:
 6. Review AI-generated focus analysis in the session dialog
 
 **Interface**:
+
 - **Statistics Overview Cards**: Weekly total, focus hours, daily average, completion rate
 - **Weekly Focus Chart**: Bar chart showing daily focus minutes with goal line
 - **Time Period Selector**: Switch between week/month/year views
@@ -57,6 +64,7 @@ iDO is a local-first AI desktop copilot that:
 - **Session Detail Dialog**: Shows focus metrics, activity timeline, LLM analysis
 
 **Features**:
+
 - Period statistics with visual overview
 - Activity timeline during each session
 - AI-powered focus quality evaluation (strengths, weaknesses, suggestions)
@@ -66,9 +74,10 @@ iDO is a local-first AI desktop copilot that:
 
 ### 3. Knowledge
 
-**What it does**: Turns your daily activities into searchable, long-term knowledge cards with AI-powered organization
+**What it does**: All long-term knowledge captured from your recent activity
 
 **How to use**:
+
 1. Navigate to **Knowledge** in the sidebar
 2. Use left sidebar to filter by category/keyword
 3. Search or filter (All/Favorites/Recent)
@@ -77,6 +86,7 @@ iDO is a local-first AI desktop copilot that:
 6. Create new notes manually
 
 **Interface**:
+
 - **Left Sidebar**: Category filter showing keyword counts
 - **Search Bar**: Full-text search across titles, descriptions, keywords
 - **Filter Tabs**: All / Favorites / Recent (last 7 days)
@@ -85,6 +95,7 @@ iDO is a local-first AI desktop copilot that:
 - **Detail Dialog**: View/edit knowledge details
 
 **Features**:
+
 - AI-generated from activities
 - Full-text search across all cards
 - Favorites with quick toggle
@@ -95,9 +106,10 @@ iDO is a local-first AI desktop copilot that:
 
 ### 4. Todos
 
-**What it does**: AI-generated tasks with calendar scheduling, priority levels, and Pomodoro linking
+**What it does**: AI will automatically generate todos from your activities
 
 **How to use**:
+
 1. Navigate to **Todos** in the sidebar
 2. Toggle between Cards View and Calendar View
 3. Use left sidebar to filter by category/keyword
@@ -107,6 +119,7 @@ iDO is a local-first AI desktop copilot that:
 7. Send todos to Chat for agent execution
 
 **Interface**:
+
 - **View Mode Toggle**: Switch between Cards and Calendar views
 - **Left Sidebar**: Category filter
 - **Cards View**: Grid of todo cards with hover actions
@@ -116,6 +129,7 @@ iDO is a local-first AI desktop copilot that:
 - **Create Todo Dialog**: Manual todo creation
 
 **Features**:
+
 - Auto-generated from activities
 - Manual creation supported
 - Calendar scheduling with start/end times
@@ -128,9 +142,10 @@ iDO is a local-first AI desktop copilot that:
 
 ### 5. Diary
 
-**What it does**: AI-generated daily work summaries to reflect on your progress and track achievements
+**What it does**: Daily journals compiled from your AI activity summaries
 
 **How to use**:
+
 1. Navigate to **Diary** in the sidebar
 2. Scroll through past diaries or use date picker
 3. Click a diary card to view full content
@@ -138,11 +153,13 @@ iDO is a local-first AI desktop copilot that:
 5. Select a date and click **Generate Diary** to create new
 
 **Interface**:
+
 - **Action Bar**: Refresh, Load More, Date Picker, Generate button
 - **Diary Cards**: Scrollable list of daily summaries
 - **Diary Card**: Shows date, key highlights, work categories
 
 **Features**:
+
 - AI-generated daily summaries
 - Scrollable history with load more
 - Select specific dates to generate
@@ -156,6 +173,7 @@ iDO is a local-first AI desktop copilot that:
 **What it does**: Conversational interface about your activity history with streaming responses and image support
 
 **How to use**:
+
 1. Navigate to **Chat** in the sidebar
 2. Select an existing conversation or create a new one
 3. Type a question about your activities
@@ -163,6 +181,7 @@ iDO is a local-first AI desktop copilot that:
 5. Optionally drag & drop images to analyze
 
 **Interface**:
+
 - **Left Sidebar**: Conversation list with new/delete actions (desktop)
 - **Mobile Overlay**: Slide-out conversation list (mobile)
 - **Message Area**: Scrollable message history with streaming support
@@ -170,6 +189,7 @@ iDO is a local-first AI desktop copilot that:
 - **Input Area**: Text input with image drag-drop, model selector
 
 **Features**:
+
 - Context-aware responses grounded in your activity data
 - Streaming AI responses for real-time feedback
 - Image drag-and-drop support (PNG, JPG, GIF)
@@ -181,6 +201,7 @@ iDO is a local-first AI desktop copilot that:
 - Cancel streaming responses
 
 **Example questions**:
+
 - "What did I work on yesterday?"
 - "How much time did I spend coding this week?"
 - "What were my main activities?"
@@ -188,15 +209,17 @@ iDO is a local-first AI desktop copilot that:
 
 ### 7. Dashboard
 
-**What it does**: LLM usage statistics, token tracking, cost analysis, and productivity insights
+**What it does**: View Token usage and Agent task statistics
 
 **How to use**:
+
 1. Navigate to **Dashboard** in the sidebar
 2. Filter by all models or select a specific model
 3. View token usage, API calls, and cost metrics
 4. Check usage trends over time with interactive chart
 
 **Interface**:
+
 - **Model Filter**: Dropdown to select all models or specific model
 - **LLM Stats Cards Grid**:
   - Total Tokens (with description)
@@ -209,6 +232,7 @@ iDO is a local-first AI desktop copilot that:
 - **Trend Ranges**: Week, Month, Year
 
 **Features**:
+
 - Real-time LLM usage statistics
 - Token count and API call tracking
 - Cost analysis per model
@@ -218,6 +242,7 @@ iDO is a local-first AI desktop copilot that:
 - Responsive layout for all screen sizes
 
 **Metrics tracked**:
+
 - Total tokens processed
 - Total API calls made
 - Total cost (currency-formatted)
@@ -228,16 +253,16 @@ iDO is a local-first AI desktop copilot that:
 
 ### Sidebar Navigation
 
-| Icon | Page | Description |
-|------|------|-------------|
-| Timer | Pomodoro | Focus timer with task linking |
-| History | Pomodoro Review | Session history and metrics |
-| BookOpen | Knowledge | AI-generated knowledge cards |
-| CheckSquare | Todos | AI-generated tasks |
-| NotebookPen | Diary | Daily work summaries |
-| MessageSquare | Chat | Conversational AI about your history |
-| BarChart | Dashboard | Focus statistics and trends |
-| Settings | Settings | App configuration (bottom) |
+| Icon          | Page            | Description                           |
+| ------------- | --------------- | ------------------------------------- |
+| Timer         | Pomodoro        | Focus timer with task linking         |
+| History       | Pomodoro Review | Session history and metrics           |
+| BookOpen      | Knowledge       | AI-generated knowledge cards          |
+| CheckSquare   | Todos           | AI-generated tasks                    |
+| NotebookPen   | Diary           | Daily work summaries                  |
+| MessageSquare | Chat            | Conversational AI about your history  |
+| BarChart      | Dashboard       | Statistics and usage tracking         |
+| Settings      | Settings        | App configuration (bottom of sidebar) |
 
 ### Data Storage
 
@@ -248,6 +273,7 @@ All data is stored locally:
 - **Linux**: `~/.config/ido/`
 
 Contains:
+
 - `ido.db` - SQLite database
 - `screenshots/` - Captured screenshots
 - `logs/` - Application logs
