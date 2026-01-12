@@ -88,8 +88,8 @@ export function TodoAssociationSelector({
         <div className="space-y-3">
           {/* TODO selector */}
           <div className="space-y-2">
-            <label className="flex items-center gap-2 text-xs font-medium">
-              <ListTodo className="text-muted-foreground h-3.5 w-3.5" />
+            <label className="flex items-center gap-2 text-sm font-medium">
+              <ListTodo className="text-muted-foreground h-4 w-4" />
               {t('pomodoro.todoAssociation.linkTodo')}
             </label>
 
@@ -106,7 +106,7 @@ export function TodoAssociationSelector({
                 value="none"
                 onValueChange={(value) => onTodoSelect(value === 'none' ? null : value)}
                 disabled={disabled}>
-                <SelectTrigger className="h-9 text-xs!">
+                <SelectTrigger className="h-9 text-sm!">
                   <SelectValue placeholder={t('pomodoro.todoAssociation.selectTodo')} />
                 </SelectTrigger>
                 <SelectContent position="popper" className="max-h-[280px] w-(--radix-select-trigger-width)">
@@ -128,8 +128,8 @@ export function TodoAssociationSelector({
 
           {/* Manual input for task description */}
           <div className="space-y-2">
-            <label className="flex items-center gap-2 text-xs font-medium">
-              <Target className="text-muted-foreground h-3.5 w-3.5" />
+            <label className="flex items-center gap-2 text-sm font-medium">
+              <Target className="text-muted-foreground h-4 w-4" />
               {t('pomodoro.intent.label')}
             </label>
             <Input
@@ -138,7 +138,7 @@ export function TodoAssociationSelector({
               onChange={(e) => onUserIntentChange?.(e.target.value)}
               maxLength={200}
               disabled={disabled}
-              className="h-10 text-[14px]! placeholder:text-[12px]!"
+              className="h-10 text-sm!"
             />
           </div>
         </div>

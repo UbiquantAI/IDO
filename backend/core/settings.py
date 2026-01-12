@@ -793,10 +793,6 @@ class SettingsManager:
         Returns:
             True if successful, False otherwise
         """
-        if not self.config_loader:
-            logger.error("Configuration loader not initialized")
-            return False
-
         # Validate font size
         valid_sizes = ["small", "default", "large", "extra-large"]
         if font_size not in valid_sizes:
@@ -804,13 +800,14 @@ class SettingsManager:
             return False
 
         try:
-            # Update configuration file
-            result = self.config_loader.set("ui.font_size", font_size)
-            if result:
-                # Update cache to ensure immediate effect
-                self._config_cache["ui.font_size"] = font_size
-                logger.debug(f"✓ Application font size updated to: {font_size}")
-            return result
+            # Save to database instead of TOML file
+            # This ensures only user-level settings are stored, not system settings
+            self._save_dict_to_db("ui", {"font_size": font_size})
+
+            # Update cache to ensure immediate effect
+            self._config_cache["ui.font_size"] = font_size
+            logger.debug(f"✓ Application font size updated to: {font_size}")
+            return True
         except Exception as e:
             logger.error(f"Failed to set font size: {e}")
             return False
@@ -824,39 +821,83 @@ class SettingsManager:
         Returns:
             True if successful, False otherwise
         """
-        if not self.config_loader:
-            logger.error("Configuration loader not initialized")
-            return False
-
         # Validate language code
         if language not in ["zh", "en"]:
             logger.error(f"Invalid language code: {language}. Must be 'zh' or 'en'")
             return False
 
         try:
-            # Update configuration file
-            result = self.config_loader.set("language.default_language", language)
-            if result:
-                # Update cache to ensure immediate effect
-                self._config_cache["language.default_language"] = language
-                logger.debug(f"✓ Application language updated to: {language}")
-            return result
+            # Save to database instead of TOML file
+            # This ensures only user-level settings are stored, not system settings
+            self._save_dict_to_db("language", {"default_language": language})
+
+            # Update cache to ensure immediate effect
+            self._config_cache["language.default_language"] = language
+            logger.debug(f"✓ Application language updated to: {language}")
+            return True
         except Exception as e:
             logger.error(f"Failed to set language: {e}")
             return False
 
     def set(self, key: str, value: Any) -> bool:
-        """Set any configuration item"""
-        if not self.config_loader:
-            logger.error("Configuration loader not initialized")
-            return False
+        """Set any configuration item
+
+        Determines the appropriate storage location based on configuration type:
+        - User-level settings: Saved to TOML config file
+        - System-level settings: Saved to database
+        """
+        # User-level configuration keys that should be saved to TOML file
+        user_level_keys = {
+            "ui.font_size",
+            "language.default_language",
+            "screenshot.save_path",
+            "screenshot.force_save_interval",
+            "database.path",
+        }
 
         try:
-            result = self.config_loader.set(key, value)
-            if result:
-                # Invalidate cache when config is modified
-                self._invalidate_cache()
-            return result
+            # Check if this is a user-level setting
+            is_user_level = key in user_level_keys
+
+            if is_user_level:
+                # Save user-level setting to TOML config file
+                if not self.config_loader:
+                    logger.error("Configuration loader not initialized")
+                    return False
+
+                result = self.config_loader.set(key, value)
+                if result:
+                    # Update cache to ensure immediate effect
+                    self._config_cache[key] = value
+                    # Invalidate cache when config is modified
+                    self._invalidate_cache()
+                return result
+            else:
+                # Save system-level setting to database
+                # Parse the key to extract prefix and individual key
+                if "." in key:
+                    prefix, individual_key = key.rsplit(".", 1)
+                else:
+                    prefix = key
+                    individual_key = "value"
+
+                # Special handling for complex data structures like screen_settings array
+                if key == "screenshot.screen_settings" and isinstance(value, list):
+                    # Save each screen setting as a separate database entry
+                    for idx, screen in enumerate(value):
+                        screen_key = f"screenshot.screen_settings.{idx}"
+                        if isinstance(screen, dict):
+                            self._save_dict_to_db(screen_key, screen)
+                        else:
+                            self._save_dict_to_db(screen_key, {"value": screen})
+                else:
+                    self._save_dict_to_db(prefix, {individual_key: value})
+
+                # Update cache to ensure immediate effect
+                self._config_cache[key] = value
+                logger.debug(f"✓ System configuration {key} saved to database")
+                return True
+
         except Exception as e:
             logger.error(f"Failed to set configuration {key}: {e}")
             return False
