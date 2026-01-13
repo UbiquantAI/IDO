@@ -1034,6 +1034,9 @@ export const zhCN = {
         suggestions: '改进建议',
         distractionAlert: '检测到分心',
         distractionText: '约 {{percentage}}% 的时间花费在非专注活动上'
+      },
+      toast: {
+        actionsLoadFailed: '加载操作失败'
       }
     },
     guidance: {
@@ -1047,6 +1050,12 @@ export const zhCN = {
     welcomeFlowReset: '🔄 欢迎流程已重置',
     setupAlreadyActive: 'ℹ️ 设置已处于激活状态',
     setupReopened: '👀 已重新打开设置',
-    setupStateLogged: '📋 设置状态已打印到控制台'
+    setupStateLogged: '📋 设置状态已打印到控制台',
+    toast: {
+      welcomeFlowReset: '欢迎流程已重置',
+      welcomeFlowReopened: '欢迎流程已重新打开',
+      localStorageCleared: '本地存储已清除',
+      localStorageClearedDesc: '请刷新页面以查看更改'
+    }
   }
 } as const satisfies Translation

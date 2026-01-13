@@ -144,7 +144,7 @@ export function SessionActivityTimeline({
         }
       } catch (error) {
         console.error('[SessionActivityTimeline] Failed to load actions:', error)
-        toast.error('Failed to load actions')
+        toast.error(t('pomodoro.review.toast.actionsLoadFailed'))
       } finally {
         setLoadingActions(null)
       }

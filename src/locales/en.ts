@@ -1043,6 +1043,9 @@ export const en = {
         suggestions: 'Suggestions',
         distractionAlert: 'Distraction Detected',
         distractionText: 'Approximately {{percentage}}% of time spent on non-focused activities'
+      },
+      toast: {
+        actionsLoadFailed: 'Failed to load actions'
       }
     },
     guidance: {
@@ -1056,7 +1059,13 @@ export const en = {
     welcomeFlowReset: '🔄 Welcome flow reset',
     setupAlreadyActive: 'ℹ️ Setup is already active',
     setupReopened: '👀 Setup reopened',
-    setupStateLogged: '📋 Setup state logged to console'
+    setupStateLogged: '📋 Setup state logged to console',
+    toast: {
+      welcomeFlowReset: 'Welcome flow has been reset',
+      welcomeFlowReopened: 'Welcome flow reopened',
+      localStorageCleared: 'Local storage cleared',
+      localStorageClearedDesc: 'Reload the page to see changes'
+    }
   }
 } as const
 
