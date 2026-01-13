@@ -106,7 +106,7 @@ export function PomodoroTimerDisplay() {
   // Circular progress dimensions - compact for better layout
   const size = 180
   const strokeWidth = 6
-  const radius = (size - strokeWidth) / 2
+  const radius = (size - strokeWidth * 2) / 2 // Account for stroke width on both sides
   const circumference = radius * 2 * Math.PI
   const offset = circumference - (progress / 100) * circumference
 
@@ -260,7 +260,7 @@ export function PomodoroTimerDisplay() {
             </linearGradient>
             {/* Glow filter */}
             <filter id="glow">
-              <feGaussianBlur stdDeviation="2.5" result="coloredBlur" />
+              <feGaussianBlur stdDeviation="1.5" result="coloredBlur" />
               <feMerge>
                 <feMergeNode in="coloredBlur" />
                 <feMergeNode in="SourceGraphic" />
