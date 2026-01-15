@@ -183,6 +183,7 @@ async def get_settings_info() -> GetSettingsInfoResponse:
             database={"path": settings.get_database_path()},
             screenshot={"savePath": settings.get_screenshot_path()},
             language=settings.get_language(),
+            font_size=settings.get_font_size(),
             image={
                 "memoryCacheSize": int(settings.get("image.memory_cache_size", 500))
             },
@@ -228,6 +229,15 @@ async def update_settings(body: UpdateSettingsRequest) -> UpdateSettingsResponse
             return UpdateSettingsResponse(
                 success=False,
                 message="Failed to update language. Must be 'zh' or 'en'",
+                timestamp=timestamp,
+            )
+
+    # Update font size
+    if body.font_size:
+        if not settings.set_font_size(body.font_size):
+            return UpdateSettingsResponse(
+                success=False,
+                message="Failed to update font size. Must be 'small', 'default', 'large', or 'extra-large'",
                 timestamp=timestamp,
             )
 
@@ -437,14 +447,16 @@ async def check_initial_setup() -> CheckInitialSetupResponse:
         has_completed_setup = (setup_completed_str or "false").lower() in ("true", "1", "yes")
 
         # Determine if setup is needed
-        # Setup is required if user hasn't completed setup AND there are no models configured
-        needs_setup = not has_completed_setup and not has_models
+        # IMPORTANT: Setup is required if there are no models configured,
+        # regardless of has_completed_setup status.
+        # This ensures that if user deletes their models/config, they'll see the setup again.
+        needs_setup = not has_models
 
         logger.debug(
             f"Initial setup check: has_models={has_models}, "
             f"has_active_model={has_active_model}, "
             f"has_completed_setup={has_completed_setup}, "
-            f"needs_setup={needs_setup}"
+            f"needs_setup={needs_setup} (always true when no models)"
         )
 
         return CheckInitialSetupResponse(

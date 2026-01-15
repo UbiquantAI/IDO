@@ -8,7 +8,9 @@
     "devUrl": "http://127.0.0.1:1420/",
     "beforeBuildCommand": "pnpm run build",
     "frontendDist": "../dist",
-    "features": ["pytauri/standalone"]
+    "features": [
+      "pytauri/standalone"
+    ]
   },
   "app": {
     "security": {
@@ -16,7 +18,9 @@
       "assetProtocol": {
         "enable": true,
         "scope": {
-          "allow": ["$HOME/.config/ido/**"],
+          "allow": [
+            "$HOME/.config/ido/**"
+          ],
           "deny": []
         }
       }
@@ -35,7 +39,9 @@
   },
   "plugins": {
     "sql": {
-      "preload": ["sqlite:ido.db"]
+      "preload": [
+        "sqlite:ido.db"
+      ]
     },
     "process": {
       "allow-exit": true

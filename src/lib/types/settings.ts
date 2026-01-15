@@ -47,5 +47,6 @@ export interface AppSettings {
   screenshot?: ScreenshotSettings
   theme: 'light' | 'dark' | 'system'
   language: 'zh-CN' | 'en-US'
+  fontSize: 'small' | 'default' | 'large' | 'extra-large'
   friendlyChat?: FriendlyChatSettings
 }

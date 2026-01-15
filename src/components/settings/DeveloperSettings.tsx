@@ -1,4 +1,5 @@
 import { Bug, RotateCcw, Trash2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -8,6 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { useSetupStore } from '@/lib/stores/setup'
 
 export function DeveloperSettings() {
+  const { t } = useTranslation()
   // const [isExpanded, setIsExpanded] = useState(false)
 
   const isActive = useSetupStore((state) => state.isActive)
@@ -18,18 +20,20 @@ export function DeveloperSettings() {
 
   const handleResetSetup = () => {
     reset()
-    toast.success('Welcome flow has been reset')
+    toast.success(t('debug.toast.welcomeFlowReset'))
   }
 
   const handleReopenSetup = () => {
     reopen()
-    toast.success('Welcome flow reopened')
+    toast.success(t('debug.toast.welcomeFlowReopened'))
   }
 
   const handleClearLocalStorage = () => {
     if (window.confirm('This will clear ALL local storage data. Continue?')) {
       localStorage.clear()
-      toast.success('Local storage cleared. Reload the page to see changes.')
+      toast.success(t('debug.toast.localStorageCleared'), {
+        description: t('debug.toast.localStorageClearedDesc')
+      })
     }
   }
 

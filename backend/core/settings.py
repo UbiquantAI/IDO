@@ -252,17 +252,6 @@ class SettingsManager:
             logger.error(f"Failed to update screenshot save path in config: {e}")
             return False
 
-    def get_screenshot_force_save_interval(self) -> float:
-        """Get screenshot force save interval (seconds)
-
-        Returns the interval in seconds after which a screenshot will be force-saved
-        even if it appears to be a duplicate. Default is 60 seconds (1 minute).
-        """
-        if not self.config_loader:
-            return 60.0  # Default 1 minute
-
-        return float(self.config_loader.get("screenshot.force_save_interval", 60.0))
-
     # ======================== Live2D Configuration ========================
 
     @staticmethod
@@ -674,12 +663,183 @@ class SettingsManager:
         return value
 
     def get_language(self) -> str:
-        """Get current language setting
+        """Get current language setting from database
 
         Returns:
             Language code (zh or en), defaults to zh
         """
-        return self.get("language.default_language", "zh")
+        if not self.db:
+            return "zh"
+
+        try:
+            # Read from database (user-level setting)
+            language = self.db.settings.get("language.default_language", "zh")
+
+            # Validate value
+            if language not in ["zh", "en"]:
+                return "zh"
+
+            return language
+        except Exception as e:
+            logger.warning(f"Failed to read language from database: {e}")
+            return "zh"
+
+    # ======================== Pomodoro Buffering Configuration ========================
+
+    def get_pomodoro_buffering_config(self) -> Dict[str, Any]:
+        """Get Pomodoro screenshot buffering configuration
+
+        Screenshot buffering improves performance by batching screenshots before
+        sending to LLM for processing. This reduces API calls and improves response time.
+
+        Returns:
+            Dictionary with buffering configuration:
+            - enabled: Whether buffering is enabled (default: True)
+            - count_threshold: Number of screenshots to trigger batch (default: 20)
+              Lowered from 50 to 20 to match action extraction threshold.
+              At 1 screenshot/sec, this means 20 seconds worst case delay.
+            - time_threshold: Seconds elapsed to trigger batch (default: 30.0)
+              Lowered from 60 to 30 seconds to reduce latency during idle periods.
+            - max_buffer_size: Emergency flush limit (default: 200)
+              Safety limit to prevent memory issues if processing is slow.
+            - processing_timeout: Timeout for LLM calls in seconds (default: 720.0)
+              12 minutes timeout for batch processing. If exceeded, buffer is reset.
+
+        Note: After Phase 1 optimization (Jan 2026), these settings work well with
+        the simplified retry mechanism (1 retry instead of 4).
+        """
+        return {
+            "enabled": self.get("pomodoro.enable_screenshot_buffering", True),
+            # CRITICAL FIX: Lowered from 50 to 20 to match action extraction threshold
+            # This ensures screenshots are batched more frequently and don't get stuck in buffer
+            # At 1 screenshot/sec, 20 screenshots = 20 seconds worst case delay
+            "count_threshold": int(self.get("pomodoro.screenshot_buffer_count_threshold", 20)),
+            # CRITICAL FIX: Lowered from 60 to 30 seconds to reduce latency
+            # This prevents screenshots from being buffered too long during idle periods
+            "time_threshold": float(self.get("pomodoro.screenshot_buffer_time_threshold", 30.0)),
+            "max_buffer_size": int(self.get("pomodoro.screenshot_buffer_max_size", 200)),
+            "processing_timeout": float(self.get("pomodoro.screenshot_buffer_processing_timeout", 720.0)),
+        }
+
+    # ======================== Pomodoro Goal Configuration ========================
+
+    @staticmethod
+    def _default_pomodoro_goal_settings() -> Dict[str, Any]:
+        """Get default pomodoro goal configuration"""
+        return {
+            "daily_focus_goal_minutes": 120,  # 2 hours
+            "weekly_focus_goal_minutes": 600,  # 10 hours
+        }
+
+    def get_pomodoro_goal_settings(self) -> Dict[str, Any]:
+        """Get Pomodoro goal configuration from database
+
+        Returns:
+            Dictionary with goal configuration:
+            - daily_focus_goal_minutes: Daily focus time goal in minutes (default: 120)
+            - weekly_focus_goal_minutes: Weekly focus time goal in minutes (default: 600)
+        """
+        defaults = self._default_pomodoro_goal_settings()
+
+        if not self.db:
+            logger.warning("Database not initialized, using defaults")
+            return defaults
+
+        try:
+            merged = self._load_dict_from_db("pomodoro", defaults)
+
+            # Validate ranges: daily 30-720 minutes (0.5-12h), weekly 60-5040 minutes (1-84h)
+            merged["daily_focus_goal_minutes"] = max(
+                30, min(720, int(merged.get("daily_focus_goal_minutes", 120)))
+            )
+            merged["weekly_focus_goal_minutes"] = max(
+                60, min(5040, int(merged.get("weekly_focus_goal_minutes", 600)))
+            )
+
+            return merged
+        except Exception as exc:
+            logger.warning(f"Failed to read Pomodoro goal settings from database, using defaults: {exc}")
+            return defaults
+
+    def update_pomodoro_goal_settings(self, updates: Dict[str, Any]) -> Dict[str, Any]:
+        """Update Pomodoro goal configuration values in database
+
+        Args:
+            updates: Dictionary with goal updates (daily_focus_goal_minutes, weekly_focus_goal_minutes)
+
+        Returns:
+            Updated goal configuration dictionary
+        """
+        if not self.db:
+            logger.error("Database not initialized")
+            return self._default_pomodoro_goal_settings()
+
+        current = self.get_pomodoro_goal_settings()
+        merged = current.copy()
+
+        if "daily_focus_goal_minutes" in updates:
+            merged["daily_focus_goal_minutes"] = max(30, min(720, int(updates["daily_focus_goal_minutes"])))
+        if "weekly_focus_goal_minutes" in updates:
+            merged["weekly_focus_goal_minutes"] = max(60, min(5040, int(updates["weekly_focus_goal_minutes"])))
+
+        try:
+            self._save_dict_to_db("pomodoro", merged)
+            logger.debug("✓ Pomodoro goal settings updated in database")
+        except Exception as exc:
+            logger.error(f"Failed to update Pomodoro goal settings in database: {exc}")
+
+        return merged
+
+    def get_font_size(self) -> str:
+        """Get current font size setting from database
+
+        Returns:
+            Font size (small, default, large, extra-large), defaults to default
+        """
+        if not self.db:
+            return "default"
+
+        try:
+            # Read from database (user-level setting)
+            font_size = self.db.settings.get("ui.font_size", "default")
+
+            # Validate value
+            valid_sizes = ["small", "default", "large", "extra-large"]
+            if font_size not in valid_sizes:
+                return "default"
+
+            return font_size
+        except Exception as e:
+            logger.warning(f"Failed to read font size from database: {e}")
+            return "default"
+
+    def set_font_size(self, font_size: str) -> bool:
+        """Set application font size
+
+        Args:
+            font_size: Font size (small, default, large, extra-large)
+
+        Returns:
+            True if successful, False otherwise
+        """
+        # Validate font size
+        valid_sizes = ["small", "default", "large", "extra-large"]
+        if font_size not in valid_sizes:
+            logger.error(f"Invalid font size: {font_size}. Must be one of {valid_sizes}")
+            return False
+
+        try:
+            # Save to database instead of TOML file
+            # This ensures only user-level settings are stored, not system settings
+            self._save_dict_to_db("ui", {"font_size": font_size})
+
+            # Update cache to ensure immediate effect
+            self._config_cache["ui.font_size"] = font_size
+            logger.debug(f"✓ Application font size updated to: {font_size}")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to set font size: {e}")
+            return False
 
     def set_language(self, language: str) -> bool:
         """Set application language
@@ -690,39 +850,83 @@ class SettingsManager:
         Returns:
             True if successful, False otherwise
         """
-        if not self.config_loader:
-            logger.error("Configuration loader not initialized")
-            return False
-
         # Validate language code
         if language not in ["zh", "en"]:
             logger.error(f"Invalid language code: {language}. Must be 'zh' or 'en'")
             return False
 
         try:
-            # Update configuration file
-            result = self.config_loader.set("language.default_language", language)
-            if result:
-                # Update cache to ensure immediate effect
-                self._config_cache["language.default_language"] = language
-                logger.debug(f"✓ Application language updated to: {language}")
-            return result
+            # Save to database instead of TOML file
+            # This ensures only user-level settings are stored, not system settings
+            self._save_dict_to_db("language", {"default_language": language})
+
+            # Update cache to ensure immediate effect
+            self._config_cache["language.default_language"] = language
+            logger.debug(f"✓ Application language updated to: {language}")
+            return True
         except Exception as e:
             logger.error(f"Failed to set language: {e}")
             return False
 
     def set(self, key: str, value: Any) -> bool:
-        """Set any configuration item"""
-        if not self.config_loader:
-            logger.error("Configuration loader not initialized")
-            return False
+        """Set any configuration item
+
+        Determines the appropriate storage location based on configuration type:
+        - User-level settings: Saved to TOML config file
+        - System-level settings: Saved to database
+        """
+        # User-level configuration keys that should be saved to TOML file
+        user_level_keys = {
+            "ui.font_size",
+            "language.default_language",
+            "screenshot.save_path",
+            "screenshot.force_save_interval",
+            "database.path",
+        }
 
         try:
-            result = self.config_loader.set(key, value)
-            if result:
-                # Invalidate cache when config is modified
-                self._invalidate_cache()
-            return result
+            # Check if this is a user-level setting
+            is_user_level = key in user_level_keys
+
+            if is_user_level:
+                # Save user-level setting to TOML config file
+                if not self.config_loader:
+                    logger.error("Configuration loader not initialized")
+                    return False
+
+                result = self.config_loader.set(key, value)
+                if result:
+                    # Update cache to ensure immediate effect
+                    self._config_cache[key] = value
+                    # Invalidate cache when config is modified
+                    self._invalidate_cache()
+                return result
+            else:
+                # Save system-level setting to database
+                # Parse the key to extract prefix and individual key
+                if "." in key:
+                    prefix, individual_key = key.rsplit(".", 1)
+                else:
+                    prefix = key
+                    individual_key = "value"
+
+                # Special handling for complex data structures like screen_settings array
+                if key == "screenshot.screen_settings" and isinstance(value, list):
+                    # Save each screen setting as a separate database entry
+                    for idx, screen in enumerate(value):
+                        screen_key = f"screenshot.screen_settings.{idx}"
+                        if isinstance(screen, dict):
+                            self._save_dict_to_db(screen_key, screen)
+                        else:
+                            self._save_dict_to_db(screen_key, {"value": screen})
+                else:
+                    self._save_dict_to_db(prefix, {individual_key: value})
+
+                # Update cache to ensure immediate effect
+                self._config_cache[key] = value
+                logger.debug(f"✓ System configuration {key} saved to database")
+                return True
+
         except Exception as e:
             logger.error(f"Failed to set configuration {key}: {e}")
             return False

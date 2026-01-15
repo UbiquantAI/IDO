@@ -13,6 +13,7 @@ interface SettingsState {
   updateScreenshotSettings: (screenshot: Partial<ScreenshotSettings>) => Promise<void>
   updateTheme: (theme: 'light' | 'dark' | 'system') => void
   updateLanguage: (language: 'zh-CN' | 'en-US') => Promise<void>
+  updateFontSize: (fontSize: 'small' | 'default' | 'large' | 'extra-large') => Promise<void>
 }
 
 const defaultSettings: AppSettings = {
@@ -23,7 +24,8 @@ const defaultSettings: AppSettings = {
     savePath: ''
   },
   theme: 'system',
-  language: 'zh-CN'
+  language: 'zh-CN',
+  fontSize: 'default'
 }
 
 export const useSettingsStore = create<SettingsState>()((set, get) => ({
@@ -37,13 +39,14 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
       const response = await apiClient.getSettingsInfo(undefined)
       if (response && response.data) {
         const data = response.data as any
-        const { database, screenshot } = data
-        if (database || screenshot) {
+        const { database, screenshot, fontSize } = data
+        if (database || screenshot || fontSize) {
           set((state) => ({
             settings: {
               ...state.settings,
               ...(database && { database: { path: database.path } }),
-              ...(screenshot && { screenshot: { savePath: screenshot.savePath } })
+              ...(screenshot && { screenshot: { savePath: screenshot.savePath } }),
+              ...(fontSize && { fontSize })
             },
             loading: false,
             error: null
@@ -128,6 +131,27 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
       const currentState = get()
       set((state) => ({
         settings: { ...state.settings, language: currentState.settings.language }
+      }))
+    }
+  },
+
+  updateFontSize: async (fontSize) => {
+    // Update frontend state immediately for better UX
+    set((state) => ({
+      settings: { ...state.settings, fontSize }
+    }))
+
+    try {
+      await apiClient.updateSettings({
+        fontSize
+      } as any)
+      console.log(`✓ Backend font size updated to: ${fontSize}`)
+    } catch (error) {
+      console.error('Failed to update backend font size:', error)
+      // Rollback frontend state on error
+      const currentState = get()
+      set((state) => ({
+        settings: { ...state.settings, fontSize: currentState.settings.fontSize }
       }))
     }
   }

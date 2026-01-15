@@ -28,9 +28,9 @@ enable_phash = true
 
 # Memory-first storage configuration
 enable_memory_first = true          # Master switch
-memory_ttl_multiplier = 2.5         # TTL = processing_interval * multiplier
+memory_ttl_multiplier = 5.0         # TTL = processing_interval * multiplier (increased for better persistence)
 memory_ttl_min = 60                 # Minimum TTL (seconds)
-memory_ttl_max = 120                # Maximum TTL (seconds)
+memory_ttl_max = 300                # Maximum TTL (seconds) (increased from 120 to prevent eviction during LLM processing)
 
 # Screenshot configuration
 [screenshot]
@@ -141,7 +141,8 @@ crop_threshold = 30
 # Memory cache size (images)
 # Description: Cache recent image base64 data in memory
 # Recommendation: 200-500 (memory usage ~100-250MB)
-memory_cache_size = 500
+# Increased to 1000 for better persistence reliability (memory usage ~500-1000MB)
+memory_cache_size = 1000
 
 # ========== Optimization Effect Estimation ==========
 # Based on default configuration (aggressive + hybrid), with 20 original screenshots as example:
@@ -187,9 +188,11 @@ merge_similarity_threshold = 0.6
 # Similarity threshold (0.0-1.0)
 # Description: Two screenshots are considered duplicates if similarity exceeds this value
 # - 0.85-0.90: Relaxed mode (retains more screenshots, suitable for fast-changing scenarios)
-# - 0.90-0.95: Standard mode (recommended, balances deduplication and information retention) ⭐
+# - 0.90-0.95: Standard mode (recommended, balances deduplication and information retention)
 # - 0.95-0.98: Strict mode (aggressive deduplication, suitable for static content scenarios)
-screenshot_similarity_threshold = 0.92  # Optimized: increased from 0.90 for more aggressive deduplication
+# OPTIMIZED: Lowered from 0.92 to 0.88 for video-watching scenarios ⭐
+# This allows more content variations to be captured (e.g., video progress, UI changes)
+screenshot_similarity_threshold = 0.88
 
 # Hash cache size
 # Description: Keep hash values of the last N screenshots for comparison
@@ -210,11 +213,43 @@ screenshot_hash_algorithms = ["phash", "dhash", "average_hash"]
 # - false: Disable - always use fixed threshold
 enable_adaptive_threshold = true
 
+# ========== Static Scene Optimization ==========
+# Time-based forced processing (seconds)
+# Description: Maximum time to wait before forcing action extraction, even if screenshot threshold not reached
+# This ensures activity is captured in static scenes (reading, watching videos, thinking)
+# - 120: Aggressive (2 minutes, more LLM calls but better coverage)
+# - 180: Balanced (3 minutes, recommended) ⭐
+# - 300: Conservative (5 minutes, fewer LLM calls)
+max_accumulation_time = 180
+
+# Periodic sampling interval (seconds)
+# Description: Minimum interval between kept samples during deduplication
+# Even if screenshots are identical (static scene), at least one sample is kept every N seconds
+# This ensures time coverage in the accumulated screenshots
+# - 20: Aggressive (more samples, higher LLM cost)
+# - 30: Balanced (recommended) ⭐
+# - 45: Conservative (fewer samples)
+min_sample_interval = 30
+
 # Action extraction configuration (RawAgent → ActionAgent flow)
-# Threshold calculation: target 8 screenshots after filtering
-# Typical filtering rate: 30-40% (dedup + content analysis)
-# Formula: threshold = max_screenshots / (1 - filter_rate) ≈ 8 / 0.65 ≈ 12
-action_extraction_threshold = 12  # Optimized: trigger when 12 screenshots accumulated (~12 seconds)
+# OPTIMIZED: Balanced threshold for better data generation in Pomodoro sessions
+#
+# Threshold calculation: Balance between LLM calls and data completeness
+# With 1 screenshot/second capture rate:
+# - 12: Trigger every ~12 seconds (frequent, 300 calls/hour, high data completeness)
+# - 20: Trigger every ~20 seconds (balanced, 180 calls/hour)
+# - 25: Trigger every ~25 seconds (optimized, 144 calls/hour) ⭐ OPTIMIZED
+# - 40: Trigger every ~40 seconds (conservative, 90 calls/hour, may miss activities)
+#
+# RATIONALE: Previous threshold of 40 caused "no actions found" errors in Pomodoro sessions
+# because screenshots were too sparse (especially for video-watching scenarios).
+# Lowering to 25 provides:
+# - 60% more action generation frequency (40→25 screenshots)
+# - Better activity coverage in diverse scenarios (coding, watching, reading)
+# - Acceptable token cost (~$20-25/hour vs $18.50/hour at threshold=40)
+#
+# Note: Combined with screenshot_similarity_threshold=0.88, this provides optimal balance
+action_extraction_threshold = 25  # OPTIMIZED: Lowered from 40 for better Pomodoro data generation
 max_screenshots_per_extraction = 8  # Final limit: ImageSampler will select best 8 from filtered results
 
 # UI configuration
@@ -225,6 +260,68 @@ recent_events_count = 5  # Number of recent events to display (can be modified i
 [language]
 # System language configuration, affects prompt selection
 default_language = "zh"  # zh | en
+
+# Pomodoro mode screenshot buffering configuration
+[pomodoro]
+# Enable screenshot buffering during Pomodoro sessions
+# Description: Batch RawRecord generation to reduce memory pressure
+# - true: Enable buffering (recommended for Pomodoro mode) ⭐
+# - false: Disable (use normal flow)
+enable_screenshot_buffering = true
+
+# Count threshold - trigger batch when this many screenshots accumulated
+# Description: With 1 screenshot/sec capture rate:
+# - 25: Batch every ~25 seconds (matches action_extraction_threshold) ⭐ OPTIMIZED
+# - 40: Batch every ~40 seconds (balanced)
+# - 60: Batch every ~60 seconds (conservative)
+# - 100: Batch every ~100 seconds (less frequent, more memory)
+# OPTIMIZED: Lowered from 40 to 25 to align with action_extraction_threshold
+# This ensures faster action generation and better Pomodoro session data
+screenshot_buffer_count_threshold = 25
+
+# Time threshold - trigger batch after this many seconds elapsed
+# Description: Ensures timely processing even if screenshot rate is low
+# - 30: More frequent batching (recommended) ⭐ OPTIMIZED
+# - 45: Balanced
+# - 60: Conservative
+# OPTIMIZED: Lowered from 45s to 30s for more responsive action extraction
+screenshot_buffer_time_threshold = 30
+
+# Maximum buffer size - emergency flush to prevent memory overflow
+# Description: Should be 2-4x count_threshold for safety
+# - 50: Conservative (2x count_threshold=25)
+# - 100: Standard (4x count_threshold=25) ⭐ OPTIMIZED
+# - 160: Generous (6.4x count_threshold=25)
+screenshot_buffer_max_size = 160
+
+# Processing timeout - maximum time to wait for batch processing
+# Description: Timeout for LLM calls (should be 2x max LLM timeout)
+# - 600: 10 minutes (for fast LLM providers)
+# - 720: 12 minutes (recommended for most cases) ⭐
+# - 900: 15 minutes (for slow/local LLM providers)
+screenshot_buffer_processing_timeout = 720
+
+# ========== Coding Scene Optimization ==========
+# Coding-specific optimizations for IDEs, terminals, and code editors
+# When a coding app is detected, more permissive thresholds are used
+# to capture small but meaningful changes (cursor movement, typing)
+[coding_optimization]
+# Enable coding scene detection and adaptive thresholds
+enabled = true
+
+# Similarity threshold for coding scenes (0.0-1.0)
+# Higher value = more screenshots retained (less aggressive deduplication)
+# - 0.90: Conservative (may still miss some small changes)
+# - 0.92: Balanced (recommended) ⭐
+# - 0.95: Aggressive (retains most changes, higher LLM cost)
+coding_similarity_threshold = 0.92
+
+# Content analysis thresholds for coding (dark themes)
+# These are lower than default because:
+# - Dark-themed IDEs have low contrast
+# - Typing creates small visual changes
+coding_min_contrast = 25.0
+coding_min_activity = 5.0
 
 # Database configuration
 [database]

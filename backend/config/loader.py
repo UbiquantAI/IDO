@@ -134,7 +134,20 @@ class ConfigLoader:
         result = base.copy()
 
         # Filter out system-level sections from user config
-        system_sections = {'processing', 'monitoring', 'image', 'image_optimization'}
+        # These settings are managed by backend and should not be overridden by users
+        system_sections = {
+            'monitoring',          # Capture intervals, processing intervals
+            'server',              # Host, port, debug mode
+            'logging',             # Log level, directory, file rotation
+            'image',               # Image compression, dimensions, phash
+            'image_optimization',  # Optimization strategies, thresholds
+            'processing',          # Screenshot deduplication, similarity thresholds
+            'ui',                  # UI settings (managed by frontend/backend)
+            'pomodoro',            # Pomodoro buffer settings (system-level)
+        }
+
+        # System-level keys within [screenshot] section
+        screenshot_system_keys = {'smart_capture_enabled', 'inactive_timeout'}
 
         for key, value in override.items():
             # Skip system-level sections
@@ -143,6 +156,25 @@ class ConfigLoader:
                     f"Ignoring system-level section in user config: [{key}] "
                     "(use project config for system settings)"
                 )
+                continue
+
+            # Special handling for [screenshot] section (mixed user/system settings)
+            if key == 'screenshot' and isinstance(value, dict):
+                # Filter out system-level keys
+                user_screenshot_config = {
+                    k: v for k, v in value.items()
+                    if k not in screenshot_system_keys
+                }
+                if screenshot_system_keys & set(value.keys()):
+                    logger.debug(
+                        f"Ignoring system-level keys in [screenshot]: "
+                        f"{screenshot_system_keys & set(value.keys())}"
+                    )
+                # Merge user-level screenshot settings
+                if key in result and isinstance(result[key], dict):
+                    result[key] = self._merge_configs(result[key], user_screenshot_config)
+                else:
+                    result[key] = user_screenshot_config
                 continue
 
             if key in result and isinstance(result[key], dict) and isinstance(value, dict):
@@ -177,7 +209,12 @@ class ConfigLoader:
         """Get default configuration content for user configuration
 
         Note: Only user-configurable items should be in user config.
-        Development settings (logging, monitoring, etc.) are in project config.
+        System settings (logging, monitoring, processing, etc.) are in backend/config/config.toml.
+
+        User-configurable settings:
+        - [database]: Database storage path
+        - [screenshot]: Screenshot storage path, screen settings
+        - [language]: UI language preference
         """
         # Avoid circular imports: use path directly, don't import get_data_dir
         config_dir = Path.home() / ".config" / "ido"
@@ -187,9 +224,17 @@ class ConfigLoader:
         return f"""# iDO User Configuration File
 # Location: ~/.config/ido/config.toml
 #
-# This file contains user-level settings only.
-# System-level settings ([processing], [monitoring], [image], etc.) are managed
-# in project configuration (backend/config/config.toml) and cannot be overridden here.
+# ⚠️  IMPORTANT: This file contains USER-LEVEL settings only.
+#
+# System-level settings (capture intervals, processing thresholds, optimization parameters, etc.)
+# are managed in backend/config/config.toml and CANNOT be overridden here.
+#
+# If you add system-level sections here, they will be IGNORED during config merge.
+#
+# User-configurable settings:
+# - [database]: Database file location
+# - [screenshot]: Screenshot storage path, monitor settings
+# - [language]: UI language preference
 
 [database]
 # Database storage location
@@ -198,9 +243,23 @@ path = '{data_dir / "ido.db"}'
 [screenshot]
 # Screenshot storage location
 save_path = '{screenshots_dir}'
-# Force save interval when screenshots are being filtered as duplicates (seconds)
-# Even if screenshots are identical, force save one after this interval
+
+# Force save interval (seconds)
+# When screenshots are filtered as duplicates, force save one after this interval
 force_save_interval = 60
+
+# Monitor/screen configuration (auto-detected, can be customized)
+# Note: This will be auto-populated when application first runs
+# [[screenshot.screen_settings]]
+# monitor_index = 1
+# monitor_name = "Display 1"
+# is_enabled = true
+# resolution = "1920x1080"
+# is_primary = true
+
+[language]
+# UI language: "en" (English) or "zh" (Chinese)
+default_language = "zh"
 """
 
     def _replace_env_vars(self, content: str) -> str:

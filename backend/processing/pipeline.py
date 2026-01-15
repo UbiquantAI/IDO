@@ -2,8 +2,9 @@
 Processing pipeline (agent-based architecture)
 Simplified pipeline that delegates to specialized agents:
 - raw_records → ActionAgent → actions (complete flow: extract + save)
-- actions → EventAgent → events (complete flow: aggregate + save)
-- events → SessionAgent → activities (complete flow: aggregate + save)
+- actions → SessionAgent → activities (action-based aggregation)
+
+EventAgent has been DISABLED - using direct action-based aggregation only.
 
 Pipeline now only handles:
 - Filtering raw records
@@ -20,6 +21,7 @@ from core.logger import get_logger
 from core.models import RawRecord, RecordType
 from perception.image_manager import get_image_manager
 
+from .behavior_analyzer import BehaviorAnalyzer
 from .image_filter import ImageFilter
 from .image_sampler import ImageSampler
 from .record_filter import RecordFilter
@@ -41,6 +43,8 @@ class ProcessingPipeline:
         screenshot_hash_cache_size: int = 10,
         screenshot_hash_algorithms: Optional[List[str]] = None,
         enable_adaptive_threshold: bool = True,
+        max_accumulation_time: int = 180,
+        min_sample_interval: float = 30.0,
     ):
         """
         Initialize processing pipeline
@@ -55,11 +59,15 @@ class ProcessingPipeline:
             screenshot_hash_cache_size: Number of hashes to cache for comparison
             screenshot_hash_algorithms: List of hash algorithms to use
             enable_adaptive_threshold: Whether to enable scene-adaptive thresholds
+            max_accumulation_time: Maximum time (seconds) before forcing extraction even if threshold not reached
+            min_sample_interval: Minimum interval (seconds) between kept samples in static scenes
         """
         self.screenshot_threshold = screenshot_threshold
         self.max_screenshots_per_extraction = max_screenshots_per_extraction
         self.activity_summary_interval = activity_summary_interval
         self.language = language
+        self.max_accumulation_time = max_accumulation_time
+        self.last_extraction_time: Optional[datetime] = None
 
         # Initialize image preprocessing components
         # ImageFilter: handles deduplication, content analysis, and compression
@@ -71,6 +79,7 @@ class ProcessingPipeline:
             enable_adaptive_threshold=enable_adaptive_threshold,
             enable_content_analysis=True,  # Always enable content analysis
             enable_compression=True,  # Always enable compression
+            min_sample_interval=min_sample_interval,  # Periodic sampling for static scenes
         )
 
         # ImageSampler: handles sampling when sending to LLM
@@ -92,6 +101,15 @@ class ProcessingPipeline:
             click_merge_threshold=0.5,
         )
 
+        # BehaviorAnalyzer: analyzes keyboard/mouse patterns to classify user behavior
+        # Helps LLM distinguish between operation (active work) and browsing (passive consumption)
+        self.behavior_analyzer = BehaviorAnalyzer(
+            operation_threshold=0.6,
+            browsing_threshold=0.3,
+            keyboard_weight=0.6,
+            mouse_weight=0.4,
+        )
+
         self.db = get_db()
         self.image_manager = get_image_manager()
 
@@ -108,8 +126,8 @@ class ProcessingPipeline:
         self.screenshot_accumulator: List[RawRecord] = []
 
         # Note: No scheduled tasks in pipeline anymore
-        # - Event aggregation: handled by EventAgent
-        # - Session aggregation: handled by SessionAgent
+        # - Event aggregation: DISABLED (action-based aggregation only)
+        # - Session aggregation: handled by SessionAgent (action-based)
         # - Knowledge merge: handled by KnowledgeAgent
         # - Todo merge: handled by TodoAgent
 
@@ -141,15 +159,16 @@ class ProcessingPipeline:
             return
 
         self.is_running = True
+        self.last_extraction_time = datetime.now()  # Initialize time-based trigger
 
-        # Note: Event aggregation is now handled by EventAgent (started by coordinator)
+        # Note: Event aggregation DISABLED - using action-based aggregation only
         # Note: Todo merge and knowledge merge are handled by TodoAgent and KnowledgeAgent (started by coordinator)
         # Pipeline now only handles action extraction (triggered by raw record processing)
 
         logger.info(f"Processing pipeline started (language: {self.language})")
         logger.debug(f"- Screenshot threshold: {self.screenshot_threshold}")
         logger.debug("- Action extraction: handled inline via ActionAgent")
-        logger.debug("- Event aggregation: handled by EventAgent")
+        logger.debug("- Event aggregation: DISABLED (action-based aggregation only)")
         logger.debug("- Todo extraction and merge: handled by TodoAgent")
         logger.debug("- Knowledge extraction and merge: handled by KnowledgeAgent")
 
@@ -160,7 +179,7 @@ class ProcessingPipeline:
 
         self.is_running = False
 
-        # Note: Event aggregation task removed as aggregation is handled by EventAgent
+        # Note: Event aggregation DISABLED - using action-based aggregation only
         # Note: Todo and knowledge merge tasks removed as merging is handled by dedicated agents
 
         # Process remaining accumulated screenshots with a hard timeout to avoid shutdown hangs
@@ -250,6 +269,22 @@ class ProcessingPipeline:
                 )
                 should_process = True
 
+            # Time-based forced processing: ensure activity is captured in static scenes
+            # (e.g., reading, watching videos) even when screenshot count is low
+            if (
+                not should_process
+                and len(self.screenshot_accumulator) > 0
+                and self.last_extraction_time is not None
+            ):
+                time_since_last = (datetime.now() - self.last_extraction_time).total_seconds()
+                if time_since_last >= self.max_accumulation_time:
+                    logger.info(
+                        f"Time-based forced processing: {time_since_last:.0f}s elapsed "
+                        f"(threshold: {self.max_accumulation_time}s), "
+                        f"processing {len(self.screenshot_accumulator)} accumulated screenshots"
+                    )
+                    should_process = True
+
             if should_process:
                 # Step 6: Sample screenshots before sending to LLM
                 # This enforces time interval and max count limits
@@ -268,9 +303,10 @@ class ProcessingPipeline:
                     mouse_records,
                 )
 
-                # Clear accumulator
+                # Clear accumulator and update extraction time
                 processed_count = len(self.screenshot_accumulator)
                 self.screenshot_accumulator = []
+                self.last_extraction_time = datetime.now()
 
                 return {
                     "processed": processed_count,
@@ -325,12 +361,24 @@ class ProcessingPipeline:
                 logger.error("ActionAgent not available, cannot process actions")
                 raise Exception("ActionAgent not available")
 
+            # NEW: Analyze behavior patterns from keyboard/mouse data
+            behavior_analysis = self.behavior_analyzer.analyze(
+                keyboard_records=keyboard_records,
+                mouse_records=mouse_records,
+            )
+
+            logger.debug(
+                f"Behavior analysis: {behavior_analysis['behavior_type']} "
+                f"(confidence={behavior_analysis['confidence']:.2f})"
+            )
+
             # Step 1: Extract scene descriptions from screenshots (RawAgent)
             logger.debug("Step 1: Extracting scene descriptions via RawAgent")
             scenes = await self.raw_agent.extract_scenes(
                 records,
                 keyboard_records=keyboard_records,
                 mouse_records=mouse_records,
+                behavior_analysis=behavior_analysis,  # NEW: pass behavior context
             )
 
             if not scenes:
@@ -352,6 +400,7 @@ class ProcessingPipeline:
                 scenes,
                 keyboard_records=keyboard_records,
                 mouse_records=mouse_records,
+                behavior_analysis=behavior_analysis,  # NEW: pass behavior context
             )
 
             # Update statistics
@@ -470,7 +519,7 @@ class ProcessingPipeline:
 
 
     # ============ Scheduled Tasks ============
-    # Note: Event aggregation is now handled by EventAgent (started by coordinator)
+    # Note: Event aggregation DISABLED - using action-based aggregation only
     # Note: Knowledge merge is now handled by KnowledgeAgent (started by coordinator)
     # Note: Todo merge is now handled by TodoAgent (started by coordinator)
 

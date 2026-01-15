@@ -30,7 +30,7 @@ class ImageManager:
             str
         ] = None,  # Screenshot storage root directory (override config)
         enable_memory_first: bool = True,  # Enable memory-first storage strategy
-        memory_ttl: int = 75,  # TTL for memory-only images (seconds)
+        memory_ttl: int = 180,  # TTL for memory-only images (seconds) - Updated to 180s to meet recommended minimum
     ):
         # Try to read custom path from configuration
         try:
@@ -69,6 +69,15 @@ class ImageManager:
         # Image metadata: hash -> (timestamp, is_persisted)
         self._image_metadata: dict[str, Tuple[datetime, bool]] = {}
 
+        # Persistence statistics tracking
+        self.persistence_stats = {
+            "total_persist_attempts": 0,
+            "successful_persists": 0,
+            "failed_persists": 0,
+            "cache_misses": 0,
+            "already_persisted": 0,
+        }
+
         self._ensure_directories()
 
         logger.debug(
@@ -78,6 +87,14 @@ class ImageManager:
             f"scale_factor={self.scale_factor}, "
             f"quality={thumbnail_quality}, base_dir={self.base_dir}"
         )
+
+        # Validation: Warn if TTL seems too low for reliable persistence
+        if self.memory_ttl < 120:
+            logger.warning(
+                f"Memory TTL ({self.memory_ttl}s) is low and may cause image persistence failures. "
+                f"Recommended: ≥180s for reliable persistence. "
+                f"Increase 'image.memory_ttl_multiplier' in config.toml to fix."
+            )
 
     def _select_thumbnail_size(self, img: Image.Image) -> Tuple[int, int]:
         """Choose target size based on orientation and resolution"""
@@ -255,7 +272,7 @@ class ImageManager:
             return img_bytes  # Return original if thumbnail creation fails
 
     def process_image_for_cache(self, img_hash: str, img_bytes: bytes) -> None:
-        """Process image: create thumbnail and store based on memory-first strategy
+        """Process image: create thumbnail and store both in memory and disk for reliability
 
         Args:
             img_hash: Image hash value
@@ -264,17 +281,20 @@ class ImageManager:
         try:
             # Create thumbnail
             thumbnail_bytes = self._create_thumbnail(img_bytes)
+            thumbnail_base64 = base64.b64encode(thumbnail_bytes).decode("utf-8")
 
-            if self.enable_memory_first:
-                # Memory-first: store in memory only
-                thumbnail_base64 = base64.b64encode(thumbnail_bytes).decode("utf-8")
-                self.add_to_cache(img_hash, thumbnail_base64)
-                self._image_metadata[img_hash] = (datetime.now(), False)  # Mark as memory-only
-                logger.debug(f"Stored image in memory: {img_hash[:8]}...")
-            else:
-                # Legacy: immediate disk save
-                self.save_thumbnail(img_hash, thumbnail_bytes)
-                logger.debug(f"Processed image (thumbnail only) for hash: {img_hash[:8]}...")
+            # Always store in memory for fast access
+            self.add_to_cache(img_hash, thumbnail_base64)
+
+            # Always persist to disk immediately to prevent image loss
+            # This ensures images are never lost even if:
+            # 1. Memory cache is full and LRU evicts them
+            # 2. TTL cleanup removes them
+            # 3. System crashes before action persistence
+            self.save_thumbnail(img_hash, thumbnail_bytes)
+            self._image_metadata[img_hash] = (datetime.now(), True)  # Mark as persisted
+
+            logger.debug(f"Stored image in memory AND disk: {img_hash[:8]}...")
         except Exception as e:
             logger.error(f"Failed to process image for cache: {e}")
 
@@ -288,15 +308,19 @@ class ImageManager:
             True if persisted successfully, False otherwise
         """
         try:
+            self.persistence_stats["total_persist_attempts"] += 1
+
             # Check if already persisted
             metadata = self._image_metadata.get(img_hash)
             if metadata and metadata[1]:  # is_persisted = True
+                self.persistence_stats["already_persisted"] += 1
                 logger.debug(f"Image already persisted: {img_hash[:8]}...")
                 return True
 
             # Check if exists on disk already
             thumbnail_path = self.thumbnails_dir / f"{img_hash}.jpg"
             if thumbnail_path.exists():
+                self.persistence_stats["already_persisted"] += 1
                 # Update metadata
                 self._image_metadata[img_hash] = (datetime.now(), True)
                 logger.debug(f"Image already on disk: {img_hash[:8]}...")
@@ -305,6 +329,8 @@ class ImageManager:
             # Get from memory cache
             img_data = self.get_from_cache(img_hash)
             if not img_data:
+                self.persistence_stats["failed_persists"] += 1
+                self.persistence_stats["cache_misses"] += 1
                 logger.warning(
                     f"Image not found in memory cache (likely evicted): {img_hash[:8]}... "
                     f"Cannot persist to disk."
@@ -317,11 +343,13 @@ class ImageManager:
 
             # Update metadata
             self._image_metadata[img_hash] = (datetime.now(), True)
+            self.persistence_stats["successful_persists"] += 1
 
             logger.debug(f"Persisted image to disk: {img_hash[:8]}...")
             return True
 
         except Exception as e:
+            self.persistence_stats["failed_persists"] += 1
             logger.error(f"Failed to persist image {img_hash[:8]}: {e}")
             return False
 
@@ -557,6 +585,14 @@ class ImageManager:
                 else:
                     memory_only_count += 1
 
+            # Calculate persistence success rate
+            total_attempts = self.persistence_stats["total_persist_attempts"]
+            success_rate = (
+                self.persistence_stats["successful_persists"] / total_attempts
+                if total_attempts > 0
+                else 1.0
+            )
+
             return {
                 "memory_cache_count": memory_count,
                 "memory_cache_limit": self.memory_cache_size,
@@ -572,6 +608,9 @@ class ImageManager:
                 "memory_ttl_seconds": self.memory_ttl,
                 "memory_only_images": memory_only_count,
                 "persisted_images_in_cache": persisted_count,
+                # Persistence stats
+                "persistence_success_rate": round(success_rate, 4),
+                "persistence_stats": self.persistence_stats,
             }
 
         except Exception as e:
@@ -659,7 +698,7 @@ def get_image_manager() -> ImageManager:
     """Get image manager singleton"""
     global _image_manager
     if _image_manager is None:
-        _image_manager = ImageManager()
+        _image_manager = init_image_manager()
     return _image_manager
 
 
@@ -674,15 +713,25 @@ def init_image_manager(**kwargs) -> ImageManager:
 
             config = get_config().load()
 
-            enable_memory_first = config.get("image.enable_memory_first", True)
-            processing_interval = config.get("monitoring.processing_interval", 30)
-            multiplier = config.get("image.memory_ttl_multiplier", 2.5)
-            ttl_min = config.get("image.memory_ttl_min", 60)
-            ttl_max = config.get("image.memory_ttl_max", 120)
+            # Access nested config values correctly
+            image_config = config.get("image", {})
+            monitoring_config = config.get("monitoring", {})
+
+            enable_memory_first = image_config.get("enable_memory_first", True)
+            processing_interval = monitoring_config.get("processing_interval", 30)
+            multiplier = image_config.get("memory_ttl_multiplier", 2.5)
+            ttl_min = image_config.get("memory_ttl_min", 60)
+            ttl_max = image_config.get("memory_ttl_max", 300)
 
             # Calculate dynamic TTL
             calculated_ttl = int(processing_interval * multiplier)
             memory_ttl = max(ttl_min, min(ttl_max, calculated_ttl))
+
+            logger.debug(
+                f"ImageManager config: processing_interval={processing_interval}, "
+                f"multiplier={multiplier}, ttl_min={ttl_min}, ttl_max={ttl_max}, "
+                f"calculated_ttl={calculated_ttl}, final_memory_ttl={memory_ttl}"
+            )
 
             if "enable_memory_first" not in kwargs:
                 kwargs["enable_memory_first"] = enable_memory_first
@@ -691,10 +740,10 @@ def init_image_manager(**kwargs) -> ImageManager:
 
             logger.info(
                 f"ImageManager: memory_first={enable_memory_first}, "
-                f"TTL={memory_ttl}s (processing_interval={processing_interval}s)"
+                f"TTL={memory_ttl}s (processing_interval={processing_interval}s * multiplier={multiplier})"
             )
         except Exception as e:
-            logger.warning(f"Failed to calculate memory TTL from config: {e}")
+            logger.warning(f"Failed to calculate memory TTL from config: {e}", exc_info=True)
 
     _image_manager = ImageManager(**kwargs)
     return _image_manager

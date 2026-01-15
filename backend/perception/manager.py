@@ -6,6 +6,7 @@ Uses factory pattern to create platform-specific monitors
 """
 
 import asyncio
+import time
 from datetime import datetime
 from typing import Any, Callable, Dict, Optional
 
@@ -53,8 +54,7 @@ class PerceptionManager:
         self.on_system_wake_callback = on_system_wake
 
         # Initialize active monitor tracker for smart screenshot capture
-        # inactive_timeout will be loaded from settings during start()
-        self.monitor_tracker = ActiveMonitorTracker(inactive_timeout=30.0)
+        self.monitor_tracker = ActiveMonitorTracker()
 
         # Create active window capture first (needed by screenshot capture for context enrichment)
         # No callback needed as window info is embedded in screenshot records
@@ -89,6 +89,15 @@ class PerceptionManager:
         self.keyboard_enabled = True
         self.mouse_enabled = True
 
+        # Pomodoro mode state
+        self.pomodoro_session_id: Optional[str] = None
+
+        # ImageConsumer for Pomodoro buffering (initialized when Pomodoro starts)
+        self.image_consumer: Optional[Any] = None
+
+        # Event loop reference (set when start() is called)
+        self._event_loop: Optional[asyncio.AbstractEventLoop] = None
+
     def _on_screen_lock(self) -> None:
         """Screen lock/system sleep callback"""
         if not self.is_running:
@@ -114,6 +123,16 @@ class PerceptionManager:
             logger.debug("All capturers paused")
         except Exception as e:
             logger.error(f"Failed to pause capturers: {e}")
+
+    def _notify_record_available(self) -> None:
+        """Notify coordinator that a new record is available (event-driven triggering)"""
+        try:
+            from core.coordinator import get_coordinator
+            coordinator = get_coordinator()
+            if coordinator:
+                coordinator.notify_records_available(count=1)
+        except Exception as e:
+            logger.error(f"Failed to notify coordinator: {e}")
 
     def _on_screen_unlock(self) -> None:
         """Screen unlock/system wake callback"""
@@ -148,12 +167,24 @@ class PerceptionManager:
             return
 
         try:
-            # Record all keyboard events for subsequent processing to preserve usage context
+            # Tag with Pomodoro session ID if active (for future use)
+            if self.pomodoro_session_id:
+                record.data['pomodoro_session_id'] = self.pomodoro_session_id
+
+            # Always add to memory for real-time viewing and processing
             self.storage.add_record(record)
             self.event_buffer.add(record)
 
             if self.on_data_captured:
                 self.on_data_captured(record)
+
+            # Notify coordinator that a new record is available
+            self._notify_record_available()
+
+            # Update monitor tracker with keyboard activity
+            # This keeps smart capture aware of user activity even when mouse is hidden
+            if self.monitor_tracker:
+                self.monitor_tracker.update_from_keyboard()
 
             logger.debug(
                 f"Keyboard event recorded: {record.data.get('key', 'unknown')}"
@@ -170,11 +201,19 @@ class PerceptionManager:
         try:
             # Only record important mouse events
             if self.mouse_capture.is_important_event(record.data):
+                # Tag with Pomodoro session ID if active (for future use)
+                if self.pomodoro_session_id:
+                    record.data['pomodoro_session_id'] = self.pomodoro_session_id
+
+                # Always add to memory for real-time viewing and processing
                 self.storage.add_record(record)
                 self.event_buffer.add(record)
 
                 if self.on_data_captured:
                     self.on_data_captured(record)
+
+                # Notify coordinator that a new record is available
+                self._notify_record_available()
 
                 logger.debug(
                     f"Mouse event recorded: {record.data.get('action', 'unknown')}"
@@ -201,17 +240,58 @@ class PerceptionManager:
 
         try:
             if record:  # Screenshot may be None (duplicate screenshots)
-                self.storage.add_record(record)
-                self.event_buffer.add(record)
+                # NEW: In Pomodoro mode with buffering, check timeout and route to ImageConsumer
+                if self.pomodoro_session_id and self.image_consumer:
+                    # Periodic timeout check (performance: ~1ms per check)
+                    self.image_consumer.check_processing_timeout()
 
-                if self.on_data_captured:
-                    self.on_data_captured(record)
+                    # Send to ImageConsumer for buffering
+                    self.image_consumer.consume_screenshot(
+                        img_hash=record.data.get("hash", ""),
+                        timestamp=record.timestamp,
+                        monitor_index=record.data.get("monitor_index", 0),
+                        monitor_info=record.data.get("monitor", {}),
+                        active_window=record.data.get("active_window"),
+                        screenshot_path=record.screenshot_path or "",
+                        width=record.data.get("width", 0),
+                        height=record.data.get("height", 0),
+                    )
+                    # Don't process immediately - ImageConsumer will batch
+                    logger.debug(f"Screenshot buffered for Pomodoro session: {record.data.get('hash', '')[:8]}")
+                    return
 
-                logger.debug(
-                    f"Screenshot recorded: {record.data.get('width', 0)}x{record.data.get('height', 0)}"
-                )
+                # Normal flow (non-Pomodoro or buffering disabled)
+                self._on_screenshot_captured(record)
+
         except Exception as e:
             logger.error(f"Failed to process screenshot event: {e}")
+
+    def _on_screenshot_captured(self, record: RawRecord) -> None:
+        """Process captured screenshot (common path for buffered and normal flow)
+
+        Args:
+            record: RawRecord containing screenshot data
+        """
+        try:
+            # Tag with Pomodoro session ID if active
+            if self.pomodoro_session_id:
+                record.data['pomodoro_session_id'] = self.pomodoro_session_id
+
+            # Always add to memory for real-time viewing and processing
+            self.storage.add_record(record)
+            self.event_buffer.add(record)
+
+            if self.on_data_captured:
+                self.on_data_captured(record)
+
+            # Notify coordinator that a new record is available
+            self._notify_record_available()
+
+            logger.debug(
+                f"Screenshot recorded: {record.data.get('width', 0)}x{record.data.get('height', 0)}"
+            )
+        except Exception as e:
+            logger.error(f"Failed to record screenshot: {e}")
 
     async def start(self) -> None:
         """Start perception manager"""
@@ -226,6 +306,9 @@ class PerceptionManager:
             self.is_running = True
             self.is_paused = False
 
+            # Store event loop reference for sync callbacks
+            self._event_loop = asyncio.get_running_loop()
+
             # Load perception settings
             from core.settings import get_settings
 
@@ -233,9 +316,8 @@ class PerceptionManager:
             self.keyboard_enabled = settings.get("perception.keyboard_enabled", True)
             self.mouse_enabled = settings.get("perception.mouse_enabled", True)
 
-            # Load smart capture settings
-            inactive_timeout = settings.get("screenshot.inactive_timeout", 30.0)
-            self.monitor_tracker._inactive_timeout = float(inactive_timeout)
+            # Note: inactive_timeout setting is no longer used
+            # Smart capture now always uses last known mouse position
 
             # Start screen state monitor
             start_time = datetime.now()
@@ -309,6 +391,9 @@ class PerceptionManager:
             self.is_running = False
             self.is_paused = False
 
+            # Clear event loop reference
+            self._event_loop = None
+
             # Stop screen state monitor
             self.screen_state_monitor.stop()
 
@@ -345,19 +430,29 @@ class PerceptionManager:
     async def _screenshot_loop(self) -> None:
         """Screenshot loop task"""
         try:
-            loop = asyncio.get_event_loop()
+            iteration = 0
+
             while self.is_running:
-                # Execute synchronous screenshot operation in thread pool to avoid blocking event loop
-                await loop.run_in_executor(
-                    None,
-                    self.screenshot_capture.capture_with_interval,
-                    self.capture_interval,
-                )
-                await asyncio.sleep(0.1)  # Brief sleep to avoid excessive CPU usage
+                iteration += 1
+                loop_start = time.time()
+
+                # Directly call capture() without interval checking
+                # The loop itself controls the timing
+                try:
+                    self.screenshot_capture.capture()
+                except Exception as e:
+                    logger.error(f"Screenshot capture failed: {e}", exc_info=True)
+
+                elapsed = time.time() - loop_start
+
+                # Sleep for the interval, accounting for capture time
+                sleep_time = max(0.1, self.capture_interval - elapsed)
+                await asyncio.sleep(sleep_time)
+
         except asyncio.CancelledError:
             logger.debug("Screenshot loop task cancelled")
         except Exception as e:
-            logger.error(f"Screenshot loop task failed: {e}")
+            logger.error(f"Screenshot loop task failed: {e}", exc_info=True)
 
     async def _cleanup_loop(self) -> None:
         """Cleanup loop task"""
@@ -408,6 +503,18 @@ class PerceptionManager:
         """Get records within specified time range"""
         return self.storage.get_records_in_timeframe(start_time, end_time)
 
+    def get_expiring_records(self, expiration_threshold: Optional[int] = None) -> list:
+        """
+        Get records that are about to expire (for pre-processing before cleanup)
+
+        Args:
+            expiration_threshold: Time in seconds before expiration to consider
+
+        Returns:
+            List of records that are about to expire
+        """
+        return self.storage.get_expiring_records(expiration_threshold)
+
     def get_records_in_last_n_seconds(self, seconds: int) -> list:
         """Get records from last N seconds"""
         from datetime import datetime, timedelta
@@ -450,6 +557,19 @@ class PerceptionManager:
 
         except Exception as e:
             logger.error(f"Failed to update monitor info: {e}")
+
+    def handle_monitors_changed(self) -> None:
+        """Handle monitor configuration changes (rotation, resolution, etc.)
+
+        This should be called when the 'monitors-changed' event is detected
+        to update monitor bounds in the active monitor tracker.
+        """
+        if not self.is_running:
+            logger.debug("Perception not running, skipping monitor update")
+            return
+
+        logger.info("Monitor configuration changed, updating monitor tracker")
+        self._update_monitor_info()
 
     def get_stats(self) -> Dict[str, Any]:
         """Get manager statistics"""
@@ -523,3 +643,123 @@ class PerceptionManager:
         logger.debug(
             f"Perception settings updated: keyboard={self.keyboard_enabled}, mouse={self.mouse_enabled}"
         )
+
+    def set_pomodoro_session(self, session_id: str) -> None:
+        """
+        Set Pomodoro session ID for tagging captured records
+
+        Args:
+            session_id: Pomodoro session identifier
+        """
+        self.pomodoro_session_id = session_id
+
+        # Initialize ImageConsumer for this session
+        from core.settings import get_settings
+
+        config = get_settings().get_pomodoro_buffering_config()
+
+        if config["enabled"]:
+            from perception.image_consumer import ImageConsumer
+            from perception.image_manager import get_image_manager
+
+            self.image_consumer = ImageConsumer(
+                count_threshold=config["count_threshold"],
+                time_threshold=config["time_threshold"],
+                max_buffer_size=config["max_buffer_size"],
+                processing_timeout=config["processing_timeout"],
+                on_batch_ready=self._on_batch_ready,
+                image_manager=get_image_manager(),
+            )
+            logger.info(
+                f"✓ ImageConsumer initialized for Pomodoro session {session_id}: "
+                f"count_threshold={config['count_threshold']}, "
+                f"time_threshold={config['time_threshold']}s"
+            )
+        else:
+            logger.debug("Screenshot buffering disabled, using normal flow")
+
+        logger.debug(f"✓ Pomodoro session set: {session_id}")
+
+    def clear_pomodoro_session(self) -> None:
+        """Clear Pomodoro session ID (exit Pomodoro mode)"""
+        session_id = self.pomodoro_session_id
+
+        # Flush remaining screenshots before clearing
+        if self.image_consumer:
+            remaining = self.image_consumer.flush()
+            if remaining:
+                logger.info(f"Flushing {len(remaining)} buffered screenshots")
+                for record in remaining:
+                    # Tag with session ID and process normally
+                    record.data['pomodoro_session_id'] = session_id
+                    self._on_screenshot_captured(record)
+
+            # Get stats before cleanup
+            stats = self.image_consumer.get_stats()
+            logger.info(
+                f"ImageConsumer stats: batches={stats['batches_generated']}, "
+                f"records={stats['total_records_generated']}, "
+                f"cache_misses={stats['cache_misses']}, "
+                f"timeouts={stats['timeout_resets']}"
+            )
+
+            self.image_consumer = None
+
+        self.pomodoro_session_id = None
+        logger.debug(f"✓ Pomodoro session cleared: {session_id}")
+
+    def _on_batch_ready(
+        self,
+        raw_records: list,
+        on_completed: Callable[[bool], None],
+    ) -> None:
+        """
+        Batch ready callback from ImageConsumer
+
+        Args:
+            raw_records: List of RawRecord objects from batch
+            on_completed: Callback to invoke when batch processing completes
+                         Signature: (success: bool) -> None
+        """
+        logger.debug(f"Processing batch of {len(raw_records)} RawRecords")
+
+        try:
+            for record in raw_records:
+                # Tag with session ID (should already be set but ensure consistency)
+                if self.pomodoro_session_id:
+                    record.data['pomodoro_session_id'] = self.pomodoro_session_id
+
+                # Process through normal screenshot captured path
+                self._on_screenshot_captured(record)
+
+            # Batch processed successfully
+            on_completed(True)
+            logger.debug(f"✓ Batch of {len(raw_records)} records processed successfully")
+
+            # Note: _on_screenshot_captured already calls _notify_record_available() for each record
+            # No need to notify again here
+
+        except Exception as e:
+            logger.error(f"Failed to process batch: {e}", exc_info=True)
+            on_completed(False)
+
+    async def _persist_raw_record(self, record: RawRecord) -> None:
+        """
+        Persist raw record to database (Pomodoro mode)
+
+        Args:
+            record: RawRecord to persist
+        """
+        try:
+            import json
+            from core.db import get_db
+
+            db = get_db()
+            await db.raw_records.save(
+                timestamp=record.timestamp.isoformat(),
+                record_type=record.type.value,  # Convert enum to string
+                data=json.dumps(record.data),
+                pomodoro_session_id=record.data.get('pomodoro_session_id'),
+            )
+        except Exception as e:
+            logger.error(f"Failed to persist raw record: {e}", exc_info=True)

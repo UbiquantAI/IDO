@@ -92,6 +92,36 @@ class ActionAgent:
         try:
             logger.debug(f"ActionAgent: Processing {len(records)} records")
 
+            # Pre-persist all screenshots to prevent cache eviction during LLM processing
+            screenshot_records = [
+                r for r in records if r.type == RecordType.SCREENSHOT_RECORD
+            ]
+            screenshot_hashes = [
+                r.data.get("hash")
+                for r in screenshot_records
+                if r.data and r.data.get("hash")
+            ]
+
+            if screenshot_hashes:
+                logger.debug(
+                    f"ActionAgent: Pre-persisting {len(screenshot_hashes)} screenshots "
+                    f"before LLM call to prevent cache eviction"
+                )
+                persist_results = self.image_manager.persist_images_batch(screenshot_hashes)
+
+                # Log pre-persistence results
+                success_count = sum(1 for success in persist_results.values() if success)
+                if success_count < len(screenshot_hashes):
+                    logger.warning(
+                        f"ActionAgent: Pre-persistence incomplete: "
+                        f"{success_count}/{len(screenshot_hashes)} images persisted. "
+                        f"Some images may already be evicted from cache."
+                    )
+                else:
+                    logger.debug(
+                        f"ActionAgent: Successfully pre-persisted all {len(screenshot_hashes)} screenshots"
+                    )
+
             # Step 1: Extract actions using LLM
             actions = await self._extract_actions(
                 records, input_usage_hint, keyboard_records, mouse_records, enable_supervisor
@@ -102,10 +132,7 @@ class ActionAgent:
                 return 0
 
             # Step 2: Validate and resolve screenshot hashes
-            screenshot_records = [
-                r for r in records if r.type == RecordType.SCREENSHOT_RECORD
-            ]
-
+            # (screenshot_records already created above for pre-persistence)
             resolved_actions: List[Dict[str, Any]] = []
             for action_data in actions:
                 action_hashes = self._resolve_action_screenshot_hashes(
@@ -349,6 +376,7 @@ class ActionAgent:
         keyboard_records: Optional[List[RawRecord]] = None,
         mouse_records: Optional[List[RawRecord]] = None,
         enable_supervisor: bool = False,
+        behavior_analysis: Optional[Dict[str, Any]] = None,
     ) -> int:
         """
         Extract and save actions from pre-processed scene descriptions (memory-only, text-based)
@@ -358,6 +386,7 @@ class ActionAgent:
             keyboard_records: Keyboard event records for context
             mouse_records: Mouse event records for context
             enable_supervisor: Whether to enable supervisor validation (default False)
+            behavior_analysis: Behavior classification result from BehaviorAnalyzer
 
         Returns:
             Number of actions saved
@@ -370,7 +399,7 @@ class ActionAgent:
 
             # Step 1: Extract actions from scenes using LLM (text-only, no images)
             actions = await self._extract_actions_from_scenes(
-                scenes, keyboard_records, mouse_records, enable_supervisor
+                scenes, keyboard_records, mouse_records, enable_supervisor, behavior_analysis
             )
 
             if not actions:
@@ -455,12 +484,24 @@ class ActionAgent:
 
             results = self.image_manager.persist_images_batch(screenshot_hashes)
 
-            # Log warnings for failed persists
+            # Enhanced logging for failed persists
             failed = [h for h, success in results.items() if not success]
             if failed:
-                logger.warning(
-                    f"Failed to persist {len(failed)} screenshots (likely evicted from memory): "
-                    f"{[h[:8] for h in failed]}"
+                logger.error(
+                    f"ActionAgent: Image persistence FAILURE: {len(failed)}/{len(screenshot_hashes)} images lost. "
+                    f"Action will be saved with broken image references. "
+                    f"\nFailed hashes: {[h[:8] + '...' for h in failed[:5]]}"
+                    f"{' (and ' + str(len(failed) - 5) + ' more)' if len(failed) > 5 else ''}"
+                    f"\nRoot cause: Images evicted from memory cache before persistence."
+                    f"\nRecommendations:"
+                    f"\n  1. Increase memory_ttl in config.toml (current: {self.image_manager.memory_ttl}s, recommended: ≥180s)"
+                    f"\n  2. Run GET /image/persistence-health to check system health"
+                    f"\n  3. Run POST /image/cleanup-broken-actions to fix existing issues"
+                    f"\n  4. Consider increasing memory_cache_size (current: {self.image_manager.memory_cache_size}, recommended: ≥1000)"
+                )
+            else:
+                logger.debug(
+                    f"ActionAgent: Successfully persisted all {len(screenshot_hashes)} screenshots"
                 )
 
         except Exception as e:
@@ -542,6 +583,7 @@ class ActionAgent:
         keyboard_records: Optional[List[RawRecord]] = None,
         mouse_records: Optional[List[RawRecord]] = None,
         enable_supervisor: bool = False,
+        behavior_analysis: Optional[Dict[str, Any]] = None,
     ) -> List[Dict[str, Any]]:
         """
         Extract actions from scene descriptions using LLM (text-only, no images)
@@ -551,6 +593,7 @@ class ActionAgent:
             keyboard_records: Keyboard event records for context
             mouse_records: Mouse event records for context
             enable_supervisor: Whether to enable supervisor validation
+            behavior_analysis: Behavior classification result from BehaviorAnalyzer
 
         Returns:
             List of action dictionaries
@@ -564,9 +607,19 @@ class ActionAgent:
             # Build input usage hint from keyboard/mouse records
             input_usage_hint = self._build_input_usage_hint(keyboard_records, mouse_records)
 
+            # NEW: Format behavior context for prompt
+            behavior_context = ""
+            if behavior_analysis:
+                language = self._get_language()
+                from processing.behavior_analyzer import BehaviorAnalyzer
+                analyzer = BehaviorAnalyzer()
+                behavior_context = analyzer.format_behavior_context(
+                    behavior_analysis, language
+                )
+
             # Build messages (text-only, no images)
             messages = self._build_action_from_scenes_messages(
-                scenes, input_usage_hint
+                scenes, input_usage_hint, behavior_context
             )
 
             # Get configuration parameters
@@ -820,6 +873,7 @@ class ActionAgent:
         self,
         scenes: List[Dict[str, Any]],
         input_usage_hint: str,
+        behavior_context: str = "",
     ) -> List[Dict[str, Any]]:
         """
         Build action extraction messages from scenes (text-only, no images)
@@ -827,6 +881,7 @@ class ActionAgent:
         Args:
             scenes: List of scene description dictionaries
             input_usage_hint: Keyboard/mouse activity hint
+            behavior_context: Formatted behavior classification context
 
         Returns:
             Message list
@@ -866,6 +921,7 @@ class ActionAgent:
             "user_prompt_template",
             scenes_text=scenes_text,
             input_usage_hint=input_usage_hint,
+            behavior_context=behavior_context,
         )
 
         # Build complete messages (text-only, no images)

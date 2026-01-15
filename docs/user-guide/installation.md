@@ -7,12 +7,12 @@ This guide will help you download and install iDO on your computer.
 ### Supported Platforms
 
 - **macOS**: 13 (Ventura) or later
-- **Windows**: 10 or later (Coming soon)
-- **Linux**: Ubuntu 20.04+ or equivalent (Coming soon)
+- **Windows**: 10 or later
+- **Linux**: Ubuntu 20.04+ or equivalent
 
 ### Minimum Hardware
 
-- **CPU**: 64-bit processor
+- **CPU**: 64-bit processor (Apple Silicon or Intel)
 - **RAM**: 4 GB minimum, 8 GB recommended
 - **Disk Space**: 500 MB for application, plus space for activity data
 - **Display**: 1280x720 minimum resolution
@@ -29,14 +29,14 @@ Download the latest version from GitHub:
 
 #### macOS
 
-- Download `iDO_x.x.x_aarch64.dmg` (Apple Silicon - M1/M2/M3)
+- Download `iDO_x.x.x_aarch64.dmg` (Apple Silicon - M1/M2/M3/M4)
 - Download `iDO_x.x.x_x64.dmg` (Intel Mac)
 
-#### Windows (Coming Soon)
+#### Windows
 
 - `iDO_x.x.x_x64_en-US.msi` - Windows installer
 
-#### Linux (Coming Soon)
+#### Linux
 
 - `ido_x.x.x_amd64.deb` - Debian/Ubuntu
 - `ido-x.x.x-1.x86_64.rpm` - Fedora/RHEL
@@ -60,23 +60,21 @@ Download the latest version from GitHub:
 3. Click **Open Anyway**
 4. Confirm by clicking **Open**
 
-**Unsigned build workaround**: If the downloaded build remains blocked after approving it in Privacy & Security, clear the quarantine flag and add an ad-hoc signature:
+**Unsigned build workaround**: If the downloaded build remains blocked after approving it in Privacy & Security, clear the quarantine flag:
 
 ```bash
 xattr -cr /Applications/iDO.app
 codesign -s - -f /Applications/iDO.app
 ```
 
-Then launch iDO again from Applications.
-
-### Windows (Coming Soon)
+### Windows
 
 1. **Download** the `.msi` installer
 2. **Double-click** the installer
 3. **Follow** the installation wizard
 4. **Launch** iDO from the Start Menu
 
-### Linux (Coming Soon)
+### Linux
 
 #### Debian/Ubuntu (.deb)
 
@@ -100,9 +98,43 @@ chmod +x ido_x.x.x_amd64.AppImage
 
 ## First Run Setup
 
-When you first launch iDO, you'll need to complete some setup steps:
+When you first launch iDO, you'll go through an initial setup wizard with 6 steps:
 
-### 1. Grant System Permissions
+### 1. Welcome
+
+Get started with iDO and learn about key features.
+
+### 2. Screen Selection
+
+Choose which monitors to capture:
+
+- View all detected displays
+- Enable/disable specific monitors
+- By default, only the primary monitor is enabled
+
+**Default Settings**:
+- **Capture interval**: 0.2 seconds (5 screenshots per second per monitor)
+- **Image quality**: 85%
+- **Smart deduplication**: Enabled
+
+### 3. LLM Provider Configuration
+
+iDO uses an LLM (Large Language Model) to analyze your activities:
+
+1. Enter your API endpoint and key
+2. Select a model (default: gpt-4o-mini)
+3. Test the connection
+
+**Supported Providers**:
+
+- OpenAI (GPT-4, GPT-3.5-Turbo)
+- Anthropic (Claude)
+- Local models (Ollama, LM Studio, etc.)
+- Any OpenAI-compatible API
+
+**Privacy Note**: Your API key is stored locally and used only to make LLM requests on your behalf. iDO does not send data to any iDO servers.
+
+### 4. Grant System Permissions
 
 #### macOS Permissions
 
@@ -120,51 +152,15 @@ iDO requires the following permissions:
 - Go to **System Settings** → **Privacy & Security** → **Screen Recording**
 - Enable iDO in the list
 
-iDO will guide you through granting these permissions on first run.
+The app will guide you through granting these permissions.
 
-### 2. Configure LLM Provider
+### 5. Set Goals (Optional)
 
-iDO uses an LLM (Large Language Model) to analyze your activities:
+Define your focus goals and preferences for AI-generated tasks.
 
-1. **Open Settings** → **LLM Configuration**
-2. **Choose Provider**: OpenAI (recommended) or compatible API
-3. **Enter API Key**: Your OpenAI API key
-   - Get one at https://platform.openai.com/api-keys
-4. **Select Model**:
-   - `gpt-4` - Most capable (recommended)
-   - `gpt-3.5-turbo` - Faster and cheaper
-5. **Test Connection**: Click to verify it works
+### 6. Complete
 
-**Privacy Note**: Your API key is stored locally and used only to make LLM requests on your behalf. iDO does not send data to any iDO servers.
-
-### 3. Configure Screen Capture (Optional)
-
-Choose which monitors to capture:
-
-1. **Open Settings** → **Screen Capture**
-2. **View Monitors**: See all detected displays
-3. **Toggle On/Off**: Enable/disable specific monitors
-4. **Save**: Apply your preferences
-
-By default, only the primary monitor is enabled.
-
-### 4. Adjust Preferences (Optional)
-
-Fine-tune iDO to your liking:
-
-- **Capture Interval**: How often to take screenshots (default: 1 second)
-- **Image Quality**: Balance quality vs disk space (default: 85%)
-- **Language**: English or 中文 (Chinese)
-- **Theme**: Light or Dark mode
-
-## Verify Installation
-
-To verify iDO is working correctly:
-
-1. **Check Dashboard**: You should see system status as "Running"
-2. **Use Your Computer**: Browse, type, etc. for 1-2 minutes
-3. **View Timeline**: Navigate to Activity Timeline
-4. **See Activities**: You should see captured activities with screenshots
+You're ready to start using iDO!
 
 ## Data Storage
 
@@ -188,13 +184,13 @@ This directory contains:
 2. **Drag** iDO from Applications to Trash
 3. **Remove data** (optional): Delete `~/.config/ido/`
 
-### Windows (Coming Soon)
+### Windows
 
 1. **Control Panel** → **Programs** → **Uninstall a program**
 2. Select iDO and click **Uninstall**
 3. **Remove data** (optional): Delete `%APPDATA%\ido\`
 
-### Linux (Coming Soon)
+### Linux
 
 ```bash
 # Debian/Ubuntu
@@ -206,6 +202,17 @@ sudo rpm -e ido
 # Remove data (optional)
 rm -rf ~/.config/ido/
 ```
+
+## Verify Installation
+
+To verify iDO is working correctly:
+
+1. **Complete the setup wizard**
+2. **Grant permissions** when prompted
+3. **Configure your LLM** model
+4. **Start using your computer** for a few minutes
+5. **Navigate to Insights** → **Knowledge** or **Todos**
+6. **Check for AI-generated content** from your activities
 
 ## Troubleshooting
 
@@ -227,13 +234,14 @@ rm -rf ~/.config/ido/
 
 ### LLM Connection Failed
 
-**Issue**: Test connection fails
+**Issue**: Model test connection fails
 
 **Solutions**:
 
 1. Verify your API key is correct
 2. Check your internet connection
-3. Try a different model (e.g., switch from gpt-4 to gpt-3.5-turbo)
+3. Verify the model endpoint is accessible
+4. Try a different model
 
 ### High CPU/Memory Usage
 
@@ -241,9 +249,10 @@ rm -rf ~/.config/ido/
 
 **Solutions**:
 
-1. Increase capture interval (Settings → 2-3 seconds instead of 1)
+1. Increase capture interval (Settings → 2-5 seconds instead of 0.2)
 2. Lower image quality (Settings → 70% instead of 85%)
 3. Disable unused monitors
+4. Reduce number of monitors
 
 For more troubleshooting help, see the [Troubleshooting Guide](./troubleshooting.md).
 
