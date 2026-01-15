@@ -26,7 +26,7 @@ export function FloatingPomodoroTrigger() {
     <button
       onClick={togglePomodoroFloatingPanel}
       className={cn(
-        'border-border bg-background fixed top-1/2 right-0 z-40 flex h-[140px] w-10 -translate-y-1/2 flex-col items-center justify-center gap-2 rounded-l-lg border-y border-l shadow-lg transition-all duration-300 hover:w-11 hover:shadow-xl',
+        'border-border bg-background fixed top-1/2 right-0 z-40 flex size-12 -translate-y-1/2 items-center justify-center rounded-l-lg border-y border-l shadow-lg transition-all duration-300 hover:w-14 hover:shadow-xl',
         isActive && 'border-primary bg-primary/5 animate-pulse'
       )}
       aria-label={t('pomodoro.floating.open')}
@@ -34,33 +34,17 @@ export function FloatingPomodoroTrigger() {
       {/* Icon */}
       <Timer
         className={cn(
-          'text-muted-foreground size-5 transition-colors',
+          'text-muted-foreground size-6 transition-colors',
           isActive && 'text-primary',
           isBreak && 'text-chart-2'
         )}
       />
 
-      {/* Vertical text */}
-      <div className="flex flex-col items-center">
-        <span
-          className={cn(
-            'text-muted-foreground text-xs font-medium transition-colors',
-            isActive && 'text-primary',
-            isBreak && 'text-chart-2'
-          )}
-          style={{
-            writingMode: 'vertical-rl',
-            textOrientation: 'mixed'
-          }}>
-          {t('pomodoro.floating.trigger')}
-        </span>
-      </div>
-
       {/* Active state indicator - small badge showing remaining time */}
       {isActive && session?.remainingPhaseSeconds && (
         <div
           className={cn(
-            'absolute top-4 -left-1 flex size-4 items-center justify-center rounded-full text-[8px] font-bold text-white',
+            'absolute -top-1 -left-1 flex size-4 items-center justify-center rounded-full text-[8px] font-bold text-white',
             isBreak ? 'bg-chart-2' : 'bg-primary'
           )}
           title={t('pomodoro.floating.remainingTime', {

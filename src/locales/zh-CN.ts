@@ -815,6 +815,10 @@ export const zhCN = {
   pomodoro: {
     title: '番茄钟',
     description: '专注模式：开启番茄钟会话以捕获并分析您的专注工作。',
+    tabs: {
+      stats: '概览',
+      history: '历史'
+    },
     floating: {
       trigger: '番茄钟',
       open: '打开番茄钟计时器',

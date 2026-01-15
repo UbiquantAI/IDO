@@ -43,6 +43,8 @@ class ProcessingPipeline:
         screenshot_hash_cache_size: int = 10,
         screenshot_hash_algorithms: Optional[List[str]] = None,
         enable_adaptive_threshold: bool = True,
+        max_accumulation_time: int = 180,
+        min_sample_interval: float = 30.0,
     ):
         """
         Initialize processing pipeline
@@ -57,11 +59,15 @@ class ProcessingPipeline:
             screenshot_hash_cache_size: Number of hashes to cache for comparison
             screenshot_hash_algorithms: List of hash algorithms to use
             enable_adaptive_threshold: Whether to enable scene-adaptive thresholds
+            max_accumulation_time: Maximum time (seconds) before forcing extraction even if threshold not reached
+            min_sample_interval: Minimum interval (seconds) between kept samples in static scenes
         """
         self.screenshot_threshold = screenshot_threshold
         self.max_screenshots_per_extraction = max_screenshots_per_extraction
         self.activity_summary_interval = activity_summary_interval
         self.language = language
+        self.max_accumulation_time = max_accumulation_time
+        self.last_extraction_time: Optional[datetime] = None
 
         # Initialize image preprocessing components
         # ImageFilter: handles deduplication, content analysis, and compression
@@ -73,6 +79,7 @@ class ProcessingPipeline:
             enable_adaptive_threshold=enable_adaptive_threshold,
             enable_content_analysis=True,  # Always enable content analysis
             enable_compression=True,  # Always enable compression
+            min_sample_interval=min_sample_interval,  # Periodic sampling for static scenes
         )
 
         # ImageSampler: handles sampling when sending to LLM
@@ -152,6 +159,7 @@ class ProcessingPipeline:
             return
 
         self.is_running = True
+        self.last_extraction_time = datetime.now()  # Initialize time-based trigger
 
         # Note: Event aggregation DISABLED - using action-based aggregation only
         # Note: Todo merge and knowledge merge are handled by TodoAgent and KnowledgeAgent (started by coordinator)
@@ -261,6 +269,22 @@ class ProcessingPipeline:
                 )
                 should_process = True
 
+            # Time-based forced processing: ensure activity is captured in static scenes
+            # (e.g., reading, watching videos) even when screenshot count is low
+            if (
+                not should_process
+                and len(self.screenshot_accumulator) > 0
+                and self.last_extraction_time is not None
+            ):
+                time_since_last = (datetime.now() - self.last_extraction_time).total_seconds()
+                if time_since_last >= self.max_accumulation_time:
+                    logger.info(
+                        f"Time-based forced processing: {time_since_last:.0f}s elapsed "
+                        f"(threshold: {self.max_accumulation_time}s), "
+                        f"processing {len(self.screenshot_accumulator)} accumulated screenshots"
+                    )
+                    should_process = True
+
             if should_process:
                 # Step 6: Sample screenshots before sending to LLM
                 # This enforces time interval and max count limits
@@ -279,9 +303,10 @@ class ProcessingPipeline:
                     mouse_records,
                 )
 
-                # Clear accumulator
+                # Clear accumulator and update extraction time
                 processed_count = len(self.screenshot_accumulator)
                 self.screenshot_accumulator = []
+                self.last_extraction_time = datetime.now()
 
                 return {
                     "processed": processed_count,

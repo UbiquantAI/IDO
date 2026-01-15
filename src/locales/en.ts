@@ -821,6 +821,10 @@ export const en = {
   pomodoro: {
     title: 'Pomodoro Timer',
     description: 'Focus Mode: Start a Pomodoro session to capture and analyze your focused work.',
+    tabs: {
+      stats: 'Overview',
+      history: 'History'
+    },
     floating: {
       trigger: 'Pomodoro',
       open: 'Open Pomodoro Timer',

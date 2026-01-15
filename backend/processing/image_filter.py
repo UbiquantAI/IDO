@@ -10,6 +10,7 @@ Supports coding scene detection for adaptive thresholds:
 import base64
 import io
 from collections import deque
+from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
 from core.logger import get_logger
@@ -55,6 +56,8 @@ class ImageFilter:
         enable_content_analysis: bool = True,
         # Compression settings
         enable_compression: bool = True,
+        # Periodic sampling settings
+        min_sample_interval: float = 30.0,
     ):
         """
         Initialize unified image filter
@@ -67,6 +70,7 @@ class ImageFilter:
             enable_adaptive_threshold: Enable scene-adaptive thresholds
             enable_content_analysis: Enable content analysis (skip static screens)
             enable_compression: Enable image compression
+            min_sample_interval: Minimum seconds between kept samples in static scenes (default 30)
         """
         self.enable_deduplication = enable_deduplication and IMAGEHASH_AVAILABLE
         self.similarity_threshold = similarity_threshold
@@ -74,6 +78,8 @@ class ImageFilter:
         self.enable_adaptive_threshold = enable_adaptive_threshold
         self.enable_content_analysis = enable_content_analysis
         self.enable_compression = enable_compression
+        self.min_sample_interval = min_sample_interval
+        self.last_kept_timestamp: Optional[datetime] = None
 
         # Initialize hash algorithms with weights
         if hash_algorithms is None:
@@ -304,6 +310,18 @@ class ImageFilter:
             return False, 0.0
 
         try:
+            # Periodic sampling: force keep at least one sample every min_sample_interval
+            # This ensures time coverage even in static scenes (reading, watching)
+            force_keep = False
+            if self.last_kept_timestamp is not None:
+                elapsed = (record.timestamp - self.last_kept_timestamp).total_seconds()
+                if elapsed >= self.min_sample_interval:
+                    force_keep = True
+                    logger.debug(
+                        f"Periodic sampling: keeping screenshot after {elapsed:.1f}s "
+                        f"(interval: {self.min_sample_interval}s)"
+                    )
+
             # Load PIL Image
             img = Image.open(io.BytesIO(img_bytes))
 
@@ -327,12 +345,13 @@ class ImageFilter:
                 scene_type = self._detect_scene_type(max_similarity, record)
                 adaptive_threshold = self._get_adaptive_threshold(scene_type)
 
-                # Check if duplicate
-                if max_similarity >= adaptive_threshold:
+                # Check if duplicate (but respect periodic sampling)
+                if max_similarity >= adaptive_threshold and not force_keep:
                     return True, max_similarity
 
-            # Not duplicate, add to cache
+            # Not duplicate (or force kept), add to cache and update timestamp
             self.hash_cache.append((record.timestamp, multi_hash))
+            self.last_kept_timestamp = record.timestamp
             return False, max_similarity
 
         except Exception as e:
@@ -446,8 +465,9 @@ class ImageFilter:
         return self.stats.copy()
 
     def reset_state(self):
-        """Reset deduplication state (clears hash cache)"""
+        """Reset deduplication state (clears hash cache and periodic sampling)"""
         self.hash_cache.clear()
+        self.last_kept_timestamp = None
         self.stats = {
             "total_processed": 0,
             "duplicates_skipped": 0,

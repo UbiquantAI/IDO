@@ -213,6 +213,24 @@ screenshot_hash_algorithms = ["phash", "dhash", "average_hash"]
 # - false: Disable - always use fixed threshold
 enable_adaptive_threshold = true
 
+# ========== Static Scene Optimization ==========
+# Time-based forced processing (seconds)
+# Description: Maximum time to wait before forcing action extraction, even if screenshot threshold not reached
+# This ensures activity is captured in static scenes (reading, watching videos, thinking)
+# - 120: Aggressive (2 minutes, more LLM calls but better coverage)
+# - 180: Balanced (3 minutes, recommended) ⭐
+# - 300: Conservative (5 minutes, fewer LLM calls)
+max_accumulation_time = 180
+
+# Periodic sampling interval (seconds)
+# Description: Minimum interval between kept samples during deduplication
+# Even if screenshots are identical (static scene), at least one sample is kept every N seconds
+# This ensures time coverage in the accumulated screenshots
+# - 20: Aggressive (more samples, higher LLM cost)
+# - 30: Balanced (recommended) ⭐
+# - 45: Conservative (fewer samples)
+min_sample_interval = 30
+
 # Action extraction configuration (RawAgent → ActionAgent flow)
 # OPTIMIZED: Balanced threshold for better data generation in Pomodoro sessions
 #

@@ -227,25 +227,23 @@ export function SessionDetailDialog({ sessionId, open, onOpenChange, onDeleted }
                     </CardContent>
                   </Card>
                 ) : (
-                  <Card className="border-orange-200 bg-orange-50 dark:border-orange-800 dark:bg-orange-950/20">
-                    <CardContent className="py-8">
-                      <div className="flex flex-col items-center gap-4 text-center">
-                        <AlertCircle className="h-12 w-12 text-orange-600 dark:text-orange-400" />
-                        <div>
-                          <h3 className="mb-2 text-lg font-semibold text-orange-900 dark:text-orange-100">
-                            {t('pomodoro.review.noActivitiesGenerated.title')}
-                          </h3>
-                          <p className="text-muted-foreground text-sm">
-                            {t('pomodoro.review.noActivitiesGenerated.description')}
-                          </p>
-                        </div>
+                  <div className="flex items-center justify-center rounded-lg border border-dashed p-6 text-center">
+                    <div className="flex flex-col items-center gap-3">
+                      <AlertCircle className="text-muted-foreground h-8 w-8" />
+                      <div>
+                        <p className="text-muted-foreground mb-1 text-sm font-medium">
+                          {t('pomodoro.review.noActivitiesGenerated.title')}
+                        </p>
+                        <p className="text-muted-foreground/70 text-xs">
+                          {t('pomodoro.review.noActivitiesGenerated.description')}
+                        </p>
                       </div>
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </div>
                 )}
 
-                {/* AI Analysis Panel */}
-                {detailData.llmFocusEvaluation ? (
+                {/* AI Analysis Panel - Only show if there are activities */}
+                {(detailData.focusMetrics as any)?.activityCount > 0 && detailData.llmFocusEvaluation ? (
                   <Card>
                     <CardHeader>
                       <div className="flex items-center justify-between">
@@ -395,58 +393,50 @@ export function SessionDetailDialog({ sessionId, open, onOpenChange, onDeleted }
                 ) : (
                   /* No LLM evaluation yet - check if it's initial generation or failed */ (() => {
                     const hasAttempted = (detailData.session as any).llm_evaluation_computed_at
-                    const hasActivities = (detailData.focusMetrics as any)?.activityCount > 0
 
-                    if (!hasAttempted && hasActivities) {
+                    if (!hasAttempted) {
                       // Initial generation in progress - don't show retry button
                       return (
-                        <Card className="border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/20">
-                          <CardContent className="py-8">
-                            <div className="flex flex-col items-center gap-4 text-center">
-                              <Loader2 className="h-12 w-12 animate-spin text-blue-600 dark:text-blue-400" />
-                              <div>
-                                <h3 className="mb-2 text-lg font-semibold text-blue-900 dark:text-blue-100">
-                                  {t('pomodoro.review.aiAnalysis.generating')}
-                                </h3>
-                                <p className="text-muted-foreground text-sm">
-                                  {t('pomodoro.review.aiAnalysis.generatingDescription')}
-                                </p>
-                              </div>
+                        <div className="flex items-center justify-center rounded-lg border border-dashed p-6 text-center">
+                          <div className="flex flex-col items-center gap-3">
+                            <Loader2 className="text-muted-foreground h-6 w-6 animate-spin" />
+                            <div>
+                              <p className="text-muted-foreground mb-1 text-sm font-medium">
+                                {t('pomodoro.review.aiAnalysis.generating')}
+                              </p>
+                              <p className="text-muted-foreground/70 text-xs">
+                                {t('pomodoro.review.aiAnalysis.generatingDescription')}
+                              </p>
                             </div>
-                          </CardContent>
-                        </Card>
+                          </div>
+                        </div>
                       )
-                    } else if (hasAttempted && hasActivities) {
+                    } else {
                       // Generation attempted but failed - show retry button
                       return (
-                        <Card className="border-orange-200 bg-orange-50 dark:border-orange-800 dark:bg-orange-950/20">
-                          <CardHeader>
-                            <div className="flex items-center justify-between">
-                              <CardTitle className="flex items-center gap-2 text-base text-orange-900 dark:text-orange-100">
-                                <AlertCircle className="h-4 w-4" />
+                        <div className="flex items-center justify-between rounded-lg border border-dashed p-4">
+                          <div className="flex items-center gap-3">
+                            <AlertCircle className="text-muted-foreground h-5 w-5" />
+                            <div>
+                              <p className="text-muted-foreground text-sm font-medium">
                                 {t('pomodoro.review.aiAnalysis.generationFailed')}
-                              </CardTitle>
-
-                              <Button size="sm" variant="outline" onClick={handleRetryLLM} disabled={retryingLLM}>
-                                {retryingLLM ? (
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                  <RefreshCw className="h-4 w-4" />
-                                )}
-                                <span className="ml-1">{t('pomodoro.review.llmRetry')}</span>
-                              </Button>
+                              </p>
+                              <p className="text-muted-foreground/70 text-xs">
+                                {t('pomodoro.review.aiAnalysis.failedDescription')}
+                              </p>
                             </div>
-                          </CardHeader>
-                          <CardContent>
-                            <p className="text-muted-foreground text-sm">
-                              {t('pomodoro.review.aiAnalysis.failedDescription')}
-                            </p>
-                          </CardContent>
-                        </Card>
+                          </div>
+                          <Button size="sm" variant="outline" onClick={handleRetryLLM} disabled={retryingLLM}>
+                            {retryingLLM ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <RefreshCw className="h-4 w-4" />
+                            )}
+                            <span className="ml-1">{t('pomodoro.review.llmRetry')}</span>
+                          </Button>
+                        </div>
                       )
                     }
-                    // If no activities, don't show AI analysis section at all
-                    return null
                   })()
                 )}
 

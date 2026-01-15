@@ -250,6 +250,12 @@ class PipelineCoordinator:
                 enable_adaptive_threshold=processing_config.get(
                     "enable_adaptive_threshold", True
                 ),
+                max_accumulation_time=processing_config.get(
+                    "max_accumulation_time", 180
+                ),
+                min_sample_interval=processing_config.get(
+                    "min_sample_interval", 30.0
+                ),
             )
 
         if self.action_agent is None:

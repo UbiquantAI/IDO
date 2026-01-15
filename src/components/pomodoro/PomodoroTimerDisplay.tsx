@@ -16,6 +16,25 @@ export function PomodoroTimerDisplay() {
   const { session, config, status, setConfig } = usePomodoroStore()
   const [currentTime, setCurrentTime] = useState(Date.now())
 
+  // Get CSS variable colors for SVG gradients (oklch format)
+  const colors = useMemo(() => {
+    if (typeof window === 'undefined') {
+      return {
+        chart1: 'oklch(0.8100 0.1000 252)',
+        chart2: 'oklch(0.6200 0.1900 260)',
+        chart3: 'oklch(0.5500 0.2200 263)',
+        mutedForeground: 'oklch(0.5560 0 0)'
+      }
+    }
+    const computedStyle = getComputedStyle(document.documentElement)
+    return {
+      chart1: computedStyle.getPropertyValue('--chart-1').trim() || 'oklch(0.8100 0.1000 252)',
+      chart2: computedStyle.getPropertyValue('--chart-2').trim() || 'oklch(0.6200 0.1900 260)',
+      chart3: computedStyle.getPropertyValue('--chart-3').trim() || 'oklch(0.5500 0.2200 263)',
+      mutedForeground: computedStyle.getPropertyValue('--muted-foreground').trim() || 'oklch(0.5560 0 0)'
+    }
+  }, [])
+
   // Update current time every second for real-time calculation
   useEffect(() => {
     const interval = setInterval(() => {
@@ -105,7 +124,7 @@ export function PomodoroTimerDisplay() {
 
   // Circular progress dimensions - compact for better layout
   const size = 180
-  const strokeWidth = 6
+  const strokeWidth = 8
   const radius = (size - strokeWidth * 2) / 2 // Account for stroke width on both sides
   const circumference = radius * 2 * Math.PI
   const offset = circumference - (progress / 100) * circumference
@@ -120,8 +139,14 @@ export function PomodoroTimerDisplay() {
           <svg width={size} height={size} className="-rotate-90">
             <defs>
               <linearGradient id="idle-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" className="[stop-color:hsl(var(--muted))]" stopOpacity="0.5" />
-                <stop offset="100%" className="[stop-color:hsl(var(--muted))]" stopOpacity="0.3" />
+                <stop
+                  offset="0%"
+                  style={{ stopColor: colors?.mutedForeground || 'oklch(0.5560 0 0)', stopOpacity: 0.4 }}
+                />
+                <stop
+                  offset="100%"
+                  style={{ stopColor: colors?.mutedForeground || 'oklch(0.5560 0 0)', stopOpacity: 0.25 }}
+                />
               </linearGradient>
             </defs>
             <circle
@@ -248,19 +273,25 @@ export function PomodoroTimerDisplay() {
       <div className="relative inline-flex items-center justify-center">
         <svg width={size} height={size} className="-rotate-90">
           <defs>
-            {/* Work phase gradient */}
+            {/* Work phase gradient - using chart-1 for better visibility in dark mode */}
             <linearGradient id="work-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" className="[stop-color:hsl(var(--primary))]" stopOpacity="1" />
-              <stop offset="100%" className="[stop-color:hsl(var(--primary))]" stopOpacity="0.7" />
+              <stop offset="0%" style={{ stopColor: colors?.chart1 || 'oklch(0.8100 0.1000 252)', stopOpacity: 1 }} />
+              <stop
+                offset="100%"
+                style={{ stopColor: colors?.chart2 || 'oklch(0.6200 0.1900 260)', stopOpacity: 0.95 }}
+              />
             </linearGradient>
             {/* Break phase gradient */}
             <linearGradient id="break-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" className="[stop-color:hsl(var(--chart-2))]" stopOpacity="1" />
-              <stop offset="100%" className="[stop-color:hsl(var(--chart-3))]" stopOpacity="0.8" />
+              <stop offset="0%" style={{ stopColor: colors?.chart2 || 'oklch(0.6200 0.1900 260)', stopOpacity: 1 }} />
+              <stop
+                offset="100%"
+                style={{ stopColor: colors?.chart3 || 'oklch(0.5500 0.2200 263)', stopOpacity: 0.95 }}
+              />
             </linearGradient>
             {/* Glow filter */}
             <filter id="glow">
-              <feGaussianBlur stdDeviation="1.5" result="coloredBlur" />
+              <feGaussianBlur stdDeviation="3" result="coloredBlur" />
               <feMerge>
                 <feMergeNode in="coloredBlur" />
                 <feMergeNode in="SourceGraphic" />
@@ -273,9 +304,8 @@ export function PomodoroTimerDisplay() {
             cy={size / 2}
             r={radius}
             fill="none"
-            className="stroke-muted"
+            className="stroke-muted/40 dark:stroke-muted-foreground/35"
             strokeWidth={strokeWidth}
-            opacity={0.15}
           />
           {/* Progress circle with gradient and glow */}
           <circle
@@ -299,7 +329,7 @@ export function PomodoroTimerDisplay() {
           <div
             className={cn(
               'mb-2 flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-semibold ring-1 backdrop-blur-sm transition-all duration-300',
-              isWorkPhase ? 'bg-primary/15 text-primary ring-primary/20' : 'bg-chart-2/15 text-chart-2 ring-chart-2/20'
+              isWorkPhase ? 'bg-chart-1/15 text-chart-1 ring-chart-1/25' : 'bg-chart-2/15 text-chart-2 ring-chart-2/20'
             )}>
             {isWorkPhase ? (
               <Clock className="h-3.5 w-3.5 animate-pulse" />
@@ -333,7 +363,7 @@ export function PomodoroTimerDisplay() {
 
       {/* Phase duration info */}
       <div className="text-muted-foreground flex items-center gap-1.5 text-center text-sm font-medium">
-        <div className={cn('h-1.5 w-1.5 rounded-full', isWorkPhase ? 'bg-primary' : 'bg-chart-2')} />
+        <div className={cn('h-1.5 w-1.5 rounded-full', isWorkPhase ? 'bg-chart-1' : 'bg-chart-2')} />
         <span>
           {isWorkPhase
             ? `${session?.workDurationMinutes || config.workDurationMinutes} ${t('pomodoro.config.minutes')} ${t('pomodoro.phase.work').toLowerCase()}`

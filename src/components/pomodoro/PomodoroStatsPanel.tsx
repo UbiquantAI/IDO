@@ -43,20 +43,18 @@ export function PomodoroStatsPanel() {
   const periodStats = periodStatsData?.data
 
   return (
-    <div className="flex h-[700px] flex-col">
+    <Card className="border-border/40 ring-border/5 flex h-full flex-col py-6 shadow-none ring-1 backdrop-blur-sm">
       {/* Header with period selector */}
-      <Card className="flex-shrink-0 shadow-none">
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-          <div>
-            <CardTitle className="text-base">{t('pomodoro.review.statisticsPanel')}</CardTitle>
-            <p className="text-muted-foreground mt-1 text-sm">{t('pomodoro.review.trackYourProgress')}</p>
-          </div>
-          <TimePeriodSelector value={selectedPeriod} onChange={setSelectedPeriod} />
-        </CardHeader>
-      </Card>
+      <CardHeader className="flex shrink-0 flex-row items-center justify-between space-y-0 pt-0 pb-4">
+        <div>
+          <CardTitle className="text-base">{t('pomodoro.review.statisticsPanel')}</CardTitle>
+          <p className="text-muted-foreground mt-1 text-sm">{t('pomodoro.review.trackYourProgress')}</p>
+        </div>
+        <TimePeriodSelector value={selectedPeriod} onChange={setSelectedPeriod} />
+      </CardHeader>
 
       {/* Stats content - scrollable */}
-      <div className="mt-4 flex-1 space-y-4 overflow-y-auto">
+      <CardContent className="min-h-0 flex-1 space-y-4 overflow-y-auto">
         {isLoading ? (
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
@@ -70,54 +68,40 @@ export function PomodoroStatsPanel() {
           <>
             {/* Statistics Overview Cards */}
             <div className="grid grid-cols-2 gap-4">
-              <Card className="shadow-none">
-                <CardContent className="pt-4">
-                  <div className="flex flex-col gap-1">
-                    <span className="text-muted-foreground text-xs">{t('pomodoro.review.overview.weeklyTotal')}</span>
-                    <div className="flex items-baseline gap-1">
-                      <span className="text-3xl font-bold tabular-nums">{periodStats.weeklyTotal}</span>
-                      <span className="text-muted-foreground text-sm">{t('pomodoro.review.sessions')}</span>
+              {[
+                {
+                  label: t('pomodoro.review.overview.weeklyTotal'),
+                  value: periodStats.weeklyTotal,
+                  unit: t('pomodoro.review.sessions')
+                },
+                {
+                  label: t('pomodoro.review.overview.focusHours'),
+                  value: periodStats.focusHours.toFixed(1),
+                  unit: 'h'
+                },
+                {
+                  label: t('pomodoro.review.overview.dailyAverage'),
+                  value: periodStats.dailyAverage,
+                  unit: t('pomodoro.review.sessions')
+                },
+                {
+                  label: t('pomodoro.review.overview.completionRate'),
+                  value: `${periodStats.completionRate}%`,
+                  unit: ''
+                }
+              ].map((stat, index) => (
+                <Card key={index} className="shadow-none">
+                  <CardContent className="px-5">
+                    <div className="flex flex-col gap-1">
+                      <span className="text-muted-foreground text-xs">{stat.label}</span>
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-3xl font-bold tabular-nums">{stat.value}</span>
+                        {stat.unit && <span className="text-muted-foreground text-sm">{stat.unit}</span>}
+                      </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="shadow-none">
-                <CardContent className="pt-4">
-                  <div className="flex flex-col gap-1">
-                    <span className="text-muted-foreground text-xs">{t('pomodoro.review.overview.focusHours')}</span>
-                    <div className="flex items-baseline gap-1">
-                      <span className="text-3xl font-bold tabular-nums">{periodStats.focusHours.toFixed(1)}</span>
-                      <span className="text-muted-foreground text-sm">h</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="shadow-none">
-                <CardContent className="pt-4">
-                  <div className="flex flex-col gap-1">
-                    <span className="text-muted-foreground text-xs">{t('pomodoro.review.overview.dailyAverage')}</span>
-                    <div className="flex items-baseline gap-1">
-                      <span className="text-3xl font-bold tabular-nums">{periodStats.dailyAverage}</span>
-                      <span className="text-muted-foreground text-sm">{t('pomodoro.review.sessions')}</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="shadow-none">
-                <CardContent className="pt-4">
-                  <div className="flex flex-col gap-1">
-                    <span className="text-muted-foreground text-xs">
-                      {t('pomodoro.review.overview.completionRate')}
-                    </span>
-                    <div className="flex items-baseline gap-1">
-                      <span className="text-3xl font-bold tabular-nums">{periodStats.completionRate}%</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
+              ))}
             </div>
 
             {/* Weekly Focus Chart - Only show for week period */}
@@ -130,7 +114,7 @@ export function PomodoroStatsPanel() {
             </CardContent>
           </Card>
         )}
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   )
 }

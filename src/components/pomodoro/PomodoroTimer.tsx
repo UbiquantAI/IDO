@@ -7,6 +7,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { toast } from 'sonner'
 import { startPomodoro, endPomodoro, getPomodoroStatus } from '@/lib/client/apiClient'
 import { usePomodoroStore } from '@/lib/stores/pomodoro'
+import { useInsightsStore } from '@/lib/stores/insights'
 import { usePomodoroPhaseSwitched } from '@/hooks/useTauriEvents'
 import { TodoAssociationSelector } from './TodoAssociationSelector'
 import { PomodoroTimerDisplay } from './PomodoroTimerDisplay'
@@ -29,6 +30,7 @@ export function PomodoroTimer({
 }: PomodoroTimerProps) {
   const { t } = useTranslation()
   const { status, session, error, config, setStatus, setSession, setError, reset, setConfig } = usePomodoroStore()
+  const { todos } = useInsightsStore()
 
   // Listen for phase switches (work -> break or break -> work)
   usePomodoroPhaseSwitched((payload) => {
@@ -126,7 +128,7 @@ export function PomodoroTimer({
   }, [status, setSession, reset, onClearTask])
 
   const handleStart = useCallback(async () => {
-    if (!userIntent.trim()) {
+    if (!userIntent.trim() && !selectedTodoId) {
       toast.error(t('pomodoro.error.noIntent'))
       return
     }
@@ -135,11 +137,18 @@ export function PomodoroTimer({
     setError(null)
 
     try {
+      // Use userIntent if provided, otherwise use the selected todo's title
+      let intentToUse = userIntent.trim()
+      if (!intentToUse && selectedTodoId) {
+        const selectedTodo = todos.find((todo) => todo.id === selectedTodoId)
+        intentToUse = selectedTodo?.title || ''
+      }
+
       const totalDuration =
         (config.workDurationMinutes + config.breakDurationMinutes) * config.totalRounds - config.breakDurationMinutes
 
       const result = await startPomodoro({
-        userIntent: userIntent.trim(),
+        userIntent: intentToUse,
         durationMinutes: totalDuration,
         workDurationMinutes: config.workDurationMinutes,
         breakDurationMinutes: config.breakDurationMinutes,
@@ -159,7 +168,7 @@ export function PomodoroTimer({
       toast.error(t('pomodoro.error.startFailed', { error: err.message || String(err) }))
       setStatus('idle')
     }
-  }, [userIntent, config, selectedTodoId, setStatus, setSession, setError, t])
+  }, [userIntent, config, selectedTodoId, todos, setStatus, setSession, setError, t])
 
   const handleEnd = useCallback(async () => {
     if (!session) return
@@ -213,7 +222,7 @@ export function PomodoroTimer({
   return (
     <div className="flex w-full flex-col">
       {/* Main Card - Unified Vertical Layout */}
-      <Card className="border-border/40 from-background via-background to-muted/10 ring-border/5 flex h-[700px] flex-col bg-linear-to-br ring-1 backdrop-blur-sm">
+      <Card className="border-border/40 from-background via-background to-muted/10 ring-border/5 flex h-full flex-col bg-linear-to-br ring-1 backdrop-blur-sm">
         <CardContent className="flex-1 overflow-y-auto">
           <div className="flex flex-col gap-8">
             {/* Top Section - Task Selection */}
@@ -260,7 +269,7 @@ export function PomodoroTimer({
                   <>
                     <Button
                       onClick={handleStart}
-                      disabled={!userIntent.trim()}
+                      disabled={!userIntent.trim() && !selectedTodoId}
                       className="gap-2 font-semibold shadow-sm transition-all hover:shadow-md disabled:hover:shadow-sm">
                       <Play className="h-4 w-4" />
                       {t('pomodoro.start')}

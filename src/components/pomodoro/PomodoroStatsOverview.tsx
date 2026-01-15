@@ -81,25 +81,25 @@ export function PomodoroStatsOverview({
   ]
 
   return (
-    <div className="grid grid-cols-4 gap-4">
+    <div className="grid grid-cols-2 gap-4">
       {stats.map((stat, index) => {
         const Icon = stat.icon
         return (
           <Card key={index} className="shadow-none">
-            <CardContent>
-              <div className="flex items-center justify-between">
-                <div className="flex flex-col gap-1">
+            <CardContent className="py-4">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex flex-col gap-0.5">
                   <span className="text-muted-foreground text-xs">{stat.label}</span>
                   <div className="flex items-baseline gap-1">
-                    <span className="text-3xl font-bold tabular-nums">{stat.value}</span>
+                    <span className="text-2xl font-bold tabular-nums">{stat.value}</span>
                     {stat.unit && <span className="text-muted-foreground text-sm">{stat.unit}</span>}
                   </div>
                   {'subtitle' in stat && stat.subtitle && (
                     <span className="text-muted-foreground text-xs">{stat.subtitle}</span>
                   )}
                 </div>
-                <div className="bg-primary/10 text-primary rounded-full p-3">
-                  <Icon className="h-5 w-5" />
+                <div className="bg-primary/10 text-primary shrink-0 rounded-full p-2.5">
+                  <Icon className="h-4 w-4" />
                 </div>
               </div>
             </CardContent>

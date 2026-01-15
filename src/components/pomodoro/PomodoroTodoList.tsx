@@ -37,7 +37,7 @@ export function PomodoroTodoList({ selectedTodoId, onTodoSelect, disabled = fals
   }, [todos, getScheduledTodos])
 
   return (
-    <Card className="border-border/40 ring-border/5 flex h-[700px] flex-col py-6 ring-1 backdrop-blur-sm">
+    <Card className="border-border/40 ring-border/5 flex h-full flex-col py-6 shadow-none ring-1 backdrop-blur-sm">
       {/* Pomodoro Statistics - Horizontal Layout */}
 
       <div className="border-border/40 border-b px-4 pb-6">
@@ -56,7 +56,7 @@ export function PomodoroTodoList({ selectedTodoId, onTodoSelect, disabled = fals
         </CardTitle>
       </CardHeader>
 
-      <CardContent className="overflow-hidden p-0">
+      <CardContent className="min-h-0 flex-1 overflow-hidden p-0">
         {loadingTodos ? (
           <div className="flex items-center justify-center p-6">
             <div className="text-center">
@@ -79,7 +79,7 @@ export function PomodoroTodoList({ selectedTodoId, onTodoSelect, disabled = fals
             </div>
           </div>
         ) : (
-          <ScrollArea className="h-[700px]">
+          <ScrollArea className="h-full">
             <div className="space-y-2 p-4">
               {pendingTodos.map((todo) => {
                 const isSelected = selectedTodoId === todo.id
