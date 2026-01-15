@@ -830,11 +830,30 @@ class PomodoroManager:
                 logger.warning(f"Session {session_id} not found, skipping LLM evaluation wait")
                 return
 
+            # Check if session is still active/pending (not already ended)
+            session_status = session.get("processing_status", "pending")
+            if session_status not in ("pending", "processing"):
+                logger.info(
+                    f"Session {session_id} status is '{session_status}', skipping LLM evaluation wait"
+                )
+                return
+
             total_rounds = session.get("total_rounds", 4)
             waited_time = 0
 
             # Wait for all phases to reach terminal state (completed or failed)
             while waited_time < MAX_WAIT_TIME:
+                # Re-check session status in case it was ended during wait
+                session = await self.db.pomodoro_sessions.get_by_id(session_id)
+                if session:
+                    current_status = session.get("processing_status", "pending")
+                    if current_status not in ("pending", "processing"):
+                        logger.info(
+                            f"Session {session_id} status changed to '{current_status}', "
+                            f"stopping LLM evaluation wait"
+                        )
+                        return
+
                 phases = await self.db.work_phases.get_by_session(session_id)
 
                 # Check if all expected work phases exist and have terminal status
