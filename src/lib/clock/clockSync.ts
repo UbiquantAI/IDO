@@ -10,7 +10,6 @@ import {
   ensureClockWindow,
   closeClockWindow,
   updateClockState,
-  hideClockWindow,
   showClockWindow,
   setClockPosition,
   setOnPositionChange
@@ -169,11 +168,24 @@ export function useClockSync() {
         })
       }
 
-      // Hide window when session completes
+      // Reset to normal clock mode when session completes
       if (payload.new_phase === 'completed') {
         setTimeout(async () => {
-          await hideClockWindow()
-        }, 3000) // Show completion for 3 seconds
+          // Clear session state to switch back to normal clock mode
+          await updateClockState({
+            sessionId: null,
+            phase: null,
+            remainingSeconds: 0,
+            totalSeconds: 0,
+            currentRound: 0,
+            totalRounds: 0,
+            completedRounds: 0,
+            userIntent: '',
+            phaseStartTime: null,
+            workDurationMinutes: 25,
+            breakDurationMinutes: 5
+          })
+        }, 3000) // Show completion for 3 seconds, then switch to normal clock
       }
     }
   })

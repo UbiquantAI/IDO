@@ -410,6 +410,19 @@ class PomodoroManager:
                     current_phase="completed",
                 )
 
+                # Emit completion event to frontend (so desktop clock can switch to normal mode)
+                from core.events import emit_pomodoro_phase_switched
+
+                emit_pomodoro_phase_switched(
+                    session_id=session_id,
+                    new_phase="completed",
+                    current_round=session.get("current_round", 0),
+                    total_rounds=session.get("total_rounds", 4),
+                    completed_rounds=completed_rounds,
+                )
+
+                logger.info(f"Emitted completion event for session {session_id}")
+
             # Cleanup
             self.is_active = False
             self.current_session = None

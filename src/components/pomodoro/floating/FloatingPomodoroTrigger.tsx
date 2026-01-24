@@ -18,10 +18,6 @@ export function FloatingPomodoroTrigger() {
   const isActive = status === 'active'
   const isBreak = session?.currentPhase === 'break'
 
-  // Calculate remaining time for badge
-  const remainingMinutes = session?.remainingPhaseSeconds ? Math.floor(session.remainingPhaseSeconds / 60) : 0
-  const remainingSeconds = session?.remainingPhaseSeconds ? session.remainingPhaseSeconds % 60 : 0
-
   return (
     <button
       onClick={togglePomodoroFloatingPanel}
@@ -39,21 +35,6 @@ export function FloatingPomodoroTrigger() {
           isBreak && 'text-chart-2'
         )}
       />
-
-      {/* Active state indicator - small badge showing remaining time */}
-      {isActive && session?.remainingPhaseSeconds && (
-        <div
-          className={cn(
-            'absolute -top-1 -left-1 flex size-4 items-center justify-center rounded-full text-[8px] font-bold text-white',
-            isBreak ? 'bg-chart-2' : 'bg-primary'
-          )}
-          title={t('pomodoro.floating.remainingTime', {
-            minutes: remainingMinutes,
-            seconds: remainingSeconds
-          })}>
-          {remainingMinutes}
-        </div>
-      )}
     </button>
   )
 }

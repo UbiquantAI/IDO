@@ -29,6 +29,7 @@ import { syncLanguageWithBackend } from '@/lib/i18n'
 import { getSettingsInfo } from '@/lib/client/apiClient'
 import { useSettingsStore } from '@/lib/stores/settings'
 import { FloatingPomodoroPanel, FloatingPomodoroTrigger } from '@/components/pomodoro/floating'
+import { usePomodoroStateSync } from '@/hooks/usePomodoroStateSync'
 
 // Create a client for React Query
 const queryClient = new QueryClient({
@@ -72,6 +73,9 @@ function App() {
 
   // Initialize clock sync (independent of Pomodoro page)
   useClockSync()
+
+  // Initialize global pomodoro state sync (keeps FloatingPomodoroTrigger in sync)
+  usePomodoroStateSync()
 
   // Initialize system tray
   useTray()

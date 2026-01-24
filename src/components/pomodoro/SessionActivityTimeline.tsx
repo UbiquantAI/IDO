@@ -313,28 +313,11 @@ export function SessionActivityTimeline({
             {/* Activities for this phase */}
             <div className="space-y-3">
               {phaseActivities.length === 0 ? (
-                <div className="space-y-3 rounded-lg border border-dashed p-4">
-                  <p className="text-muted-foreground text-sm italic">
+                // Compact empty state - just a single line with muted text
+                <div className="py-2">
+                  <p className="text-muted-foreground/60 text-xs italic">
                     {t('pomodoro.review.activityTimeline.noActivitiesInPhase')}
                   </p>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleRetryWorkPhase(phase)}
-                    disabled={retryingPhase === phase}
-                    className="w-full">
-                    {retryingPhase === phase ? (
-                      <>
-                        <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                        {t('pomodoro.review.retrying')}
-                      </>
-                    ) : (
-                      <>
-                        <RefreshCw className="mr-2 h-4 w-4" />
-                        {t('pomodoro.review.retryAggregation')}
-                      </>
-                    )}
-                  </Button>
                 </div>
               ) : (
                 phaseActivities.map((activity) => (
