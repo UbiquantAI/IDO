@@ -207,8 +207,10 @@ async def end_pomodoro(body: EndPomodoroRequest) -> EndPomodoroResponse:
             message="Pomodoro session ended successfully",
             data=EndPomodoroData(
                 session_id=result["session_id"],
-                processing_job_id=result.get("processing_job_id"),
-                raw_records_count=result["raw_records_count"],
+                status=result["status"],  # ✅ Use new field
+                actual_work_minutes=result["actual_work_minutes"],  # ✅ Use new field
+                raw_records_count=result.get("raw_records_count", 0),  # ✅ Safe access
+                processing_job_id=None,  # ✅ Deprecated, always None now
                 message=result.get("message", ""),
             ),
             timestamp=datetime.now().isoformat(),
@@ -396,6 +398,8 @@ async def retry_work_phase_aggregation(
             message=f"Work phase {body.work_phase} aggregation triggered successfully",
             data=EndPomodoroData(
                 session_id=body.session_id,
+                status="processing",  # Work phase being retried
+                actual_work_minutes=0,  # Not applicable for retry
                 processing_job_id=None,  # Background task, no job ID
                 raw_records_count=0,
                 message=f"Aggregation triggered for work phase {body.work_phase}",

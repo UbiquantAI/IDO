@@ -356,8 +356,10 @@ export type Success26 = boolean
 export type Message23 = string
 export type Error25 = string
 export type Sessionid1 = string
-export type Processingjobid = (string | null)
+export type Status2 = string
+export type Actualworkminutes = number
 export type Rawrecordscount = number
+export type Processingjobid = (string | null)
 export type Message24 = string
 export type Timestamp16 = string
 export type Success27 = boolean
@@ -373,7 +375,7 @@ export type Error27 = string
 export type Data7 = (WorkPhaseInfo[] | null)
 export type Phaseid = string
 export type Phasenumber = number
-export type Status2 = string
+export type Status3 = string
 export type Processingerror = (string | null)
 export type Retrycount = number
 export type Phasestarttime1 = string
@@ -2372,8 +2374,10 @@ timestamp?: Timestamp16
  */
 export interface EndPomodoroData {
 sessionId: Sessionid1
-processingJobId?: Processingjobid
+status: Status2
+actualWorkMinutes: Actualworkminutes
 rawRecordsCount?: Rawrecordscount
+processingJobId?: Processingjobid
 message?: Message24
 }
 /**
@@ -2415,7 +2419,7 @@ timestamp?: Timestamp18
 export interface WorkPhaseInfo {
 phaseId: Phaseid
 phaseNumber: Phasenumber
-status: Status2
+status: Status3
 processingError?: Processingerror
 retryCount: Retrycount
 phaseStartTime: Phasestarttime1

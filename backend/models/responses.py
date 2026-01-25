@@ -413,9 +413,11 @@ class EndPomodoroData(BaseModel):
     """End Pomodoro session result data"""
 
     session_id: str
-    processing_job_id: Optional[str] = None
-    raw_records_count: int = 0
-    message: str = ""
+    status: str  # Session status (completed, abandoned, etc.)
+    actual_work_minutes: int  # Actual work duration in minutes
+    raw_records_count: int = 0  # Number of raw records captured
+    processing_job_id: Optional[str] = None  # Deprecated, always None now
+    message: str = ""  # Optional message for user
 
 
 class EndPomodoroResponse(TimedOperationResponse):
@@ -685,5 +687,3 @@ class CleanupSoftDeletedResponse(TimedOperationResponse):
     """Response for cleanup_soft_deleted endpoint"""
 
     data: Optional[Dict[str, int]] = None
-
-

@@ -9,16 +9,47 @@ Responsibilities:
 """
 
 import asyncio
-import json
 import uuid
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 from core.db import get_db
+from core.events import (
+    emit_pomodoro_phase_switched,
+    emit_pomodoro_processing_complete,
+    emit_pomodoro_processing_failed,
+    emit_pomodoro_processing_progress,
+    emit_pomodoro_work_phase_completed,
+    emit_pomodoro_work_phase_failed,
+)
 from core.logger import get_logger
-from core.models import RawRecord, RecordType
+
+if TYPE_CHECKING:
+    from llm.focus_evaluator import FocusEvaluator
 
 logger = get_logger(__name__)
+
+
+class _Constants:
+    """Pomodoro manager constants to eliminate magic numbers"""
+
+    # Session timing
+    PROCESSING_STUCK_THRESHOLD_MINUTES = 15
+    MIN_SESSION_DURATION_MINUTES = 2
+
+    # Processing timeouts
+    MAX_PHASE_WAIT_SECONDS = 300  # 5 minutes
+    TOTAL_PROCESSING_TIMEOUT_SECONDS = 600  # 10 minutes
+    POLL_INTERVAL_SECONDS = 3
+
+    # Retry configuration
+    MAX_RETRIES = 1
+    RETRY_DELAY_SECONDS = 10
+
+    # Default Pomodoro settings
+    DEFAULT_WORK_DURATION_MINUTES = 25
+    DEFAULT_BREAK_DURATION_MINUTES = 5
+    DEFAULT_TOTAL_ROUNDS = 4
 
 
 class PomodoroSession:
@@ -53,9 +84,217 @@ class PomodoroManager:
         """
         self.coordinator = coordinator
         self.db = get_db()
-        self.current_session: Optional[PomodoroSession] = None
+        self.current_session: PomodoroSession | None = None
         self.is_active = False
-        self._processing_tasks: Dict[str, asyncio.Task] = {}
+        self._processing_tasks: dict[str, asyncio.Task] = {}
+
+    # ============================================================
+    # Helper Methods - Session State Management
+    # ============================================================
+
+    def _clear_session_state(self) -> None:
+        """Clear current session state (unified cleanup)"""
+        self.is_active = False
+        self.current_session = None
+
+    def _cancel_phase_timer(self, session_id: str) -> None:
+        """Cancel phase timer for a session if running"""
+        if session_id in self._processing_tasks:
+            self._processing_tasks[session_id].cancel()
+            del self._processing_tasks[session_id]
+            logger.debug(f"Cancelled phase timer for session {session_id}")
+
+    def _get_session_defaults(self, session: dict[str, Any]) -> tuple[int, int, int]:
+        """
+        Get session configuration with defaults
+
+        Returns:
+            Tuple of (work_duration, break_duration, total_rounds)
+        """
+        return (
+            session.get("work_duration_minutes", _Constants.DEFAULT_WORK_DURATION_MINUTES),
+            session.get("break_duration_minutes", _Constants.DEFAULT_BREAK_DURATION_MINUTES),
+            session.get("total_rounds", _Constants.DEFAULT_TOTAL_ROUNDS),
+        )
+
+    # ============================================================
+    # Helper Methods - Time Calculations
+    # ============================================================
+
+    def _calculate_elapsed_minutes(self, end_time: datetime) -> float:
+        """Calculate elapsed minutes from session start"""
+        if not self.current_session:
+            return 0.0
+        return (end_time - self.current_session.start_time).total_seconds() / 60
+
+    async def _calculate_actual_work_minutes(
+        self,
+        session: dict[str, Any],
+        end_time: datetime,
+    ) -> int:
+        """
+        Calculate actual work duration in minutes
+
+        For completed rounds: use full work_duration
+        For current incomplete work phase: use actual elapsed time
+
+        Args:
+            session: Session record from database
+            end_time: Session end time
+
+        Returns:
+            Actual work minutes (integer)
+        """
+        completed_rounds = session.get("completed_rounds", 0)
+        work_duration, _, _ = self._get_session_defaults(session)
+        current_phase = session.get("current_phase", "work")
+
+        # Calculate time for completed rounds
+        actual_work_minutes = completed_rounds * work_duration
+
+        # If ending during work phase, add actual time worked in current phase
+        if current_phase == "work":
+            phase_start_time_str = session.get("phase_start_time")
+            if phase_start_time_str:
+                phase_start_time = datetime.fromisoformat(phase_start_time_str)
+                current_phase_minutes = (end_time - phase_start_time).total_seconds() / 60
+                actual_work_minutes += int(current_phase_minutes)
+                logger.debug(
+                    f"Adding {int(current_phase_minutes)}min from current work phase"
+                )
+            else:
+                # Fallback: use full work_duration for current phase
+                actual_work_minutes += work_duration
+                logger.warning("No phase_start_time found, using full work_duration")
+
+        return actual_work_minutes
+
+    # ============================================================
+    # Helper Methods - Event Emission
+    # ============================================================
+
+    def _emit_phase_completion_event(
+        self,
+        session_id: str,
+        session: dict[str, Any] | None = None,
+        phase: str = "completed",
+    ) -> None:
+        """
+        Emit phase switched event (unified helper)
+
+        Args:
+            session_id: Session ID
+            session: Optional session dict for round info
+            phase: Phase name (default: "completed")
+        """
+        current_round = 1
+        total_rounds = _Constants.DEFAULT_TOTAL_ROUNDS
+        completed_rounds = 0
+
+        if session:
+            current_round = session.get("current_round", 1)
+            total_rounds = session.get("total_rounds", _Constants.DEFAULT_TOTAL_ROUNDS)
+            completed_rounds = session.get("completed_rounds", 0)
+
+        emit_pomodoro_phase_switched(
+            session_id=session_id,
+            new_phase=phase,
+            current_round=current_round,
+            total_rounds=total_rounds,
+            completed_rounds=completed_rounds,
+        )
+        logger.debug(f"Emitted phase event: session={session_id}, phase={phase}")
+
+    def _emit_progress_event(
+        self, session_id: str, job_id: str, processed: int
+    ) -> None:
+        """Emit progress event for frontend"""
+        try:
+            emit_pomodoro_processing_progress(session_id, job_id, processed)
+        except Exception as e:
+            logger.debug(f"Failed to emit progress event: {e}")
+
+    def _emit_completion_event(
+        self, session_id: str, job_id: str, total_processed: int
+    ) -> None:
+        """Emit completion event for frontend"""
+        try:
+            emit_pomodoro_processing_complete(session_id, job_id, total_processed)
+        except Exception as e:
+            logger.debug(f"Failed to emit completion event: {e}")
+
+    def _emit_failure_event(
+        self, session_id: str, job_id: str, error: str
+    ) -> None:
+        """Emit failure event for frontend"""
+        try:
+            emit_pomodoro_processing_failed(session_id, job_id, error)
+        except Exception as e:
+            logger.debug(f"Failed to emit failure event: {e}")
+
+    # ============================================================
+    # Helper Methods - Processing Status Checks
+    # ============================================================
+
+    async def _check_and_handle_stuck_processing(self) -> None:
+        """
+        Check for orphaned ACTIVE sessions only (not processing status)
+
+        Processing status is now independent and should NOT block new sessions.
+        Only check for truly orphaned active sessions from app crashes.
+
+        Background processing runs independently and doesn't prevent new sessions.
+        """
+        # ✅ NEW: Only check status="active" (orphaned sessions from crashes)
+        # Processing status is independent and doesn't block new sessions
+        active_sessions = await self.db.pomodoro_sessions.get_by_status("active")
+        if not active_sessions:
+            return
+
+        # Orphaned active session found - clean it up
+        for session in active_sessions:
+            session_id = session["id"]
+            logger.warning(
+                f"Found orphaned active session {session_id}, "
+                f"marking as abandoned (app restart detected)"
+            )
+
+            # Force end the orphaned session
+            # This code path only triggers on app restart after crash
+            await self.db.pomodoro_sessions.update(
+                session_id=session_id,
+                status="abandoned",
+                processing_status="failed",
+                processing_error="Session orphaned (app restart detected)",
+            )
+
+    def _classify_aggregation_error(self, error: Exception) -> str:
+        """
+        Classify aggregation errors for better user feedback.
+
+        Returns:
+            - 'no_actions_found': No user activity during phase
+            - 'llm_clustering_failed': LLM API call failed
+            - 'supervisor_validation_failed': Activity validation failed
+            - 'database_save_failed': Database operation failed
+            - 'unknown_error': Unclassified error
+        """
+        error_str = str(error).lower()
+
+        if "no actions found" in error_str or "no action" in error_str:
+            return "no_actions_found"
+        elif "clustering" in error_str or "llm" in error_str or "api" in error_str:
+            return "llm_clustering_failed"
+        elif "supervisor" in error_str or "validation" in error_str:
+            return "supervisor_validation_failed"
+        elif "database" in error_str or "sql" in error_str:
+            return "database_save_failed"
+        else:
+            return "unknown_error"
+
+    # ============================================================
+    # Main Public Methods
+    # ============================================================
 
     async def start_pomodoro(
         self,
@@ -93,48 +332,8 @@ class PomodoroManager:
         if self.is_active:
             raise ValueError("A Pomodoro session is already active")
 
-        # Check if previous session is still processing
-        # Allow starting if processing has been running for more than 15 minutes (likely stuck)
-        processing_sessions = await self.db.pomodoro_sessions.get_by_processing_status(
-            "processing", limit=1
-        )
-        if processing_sessions:
-            session = processing_sessions[0]
-            processing_started_at = session.get("processing_started_at")
-
-            if processing_started_at:
-                try:
-                    started_time = datetime.fromisoformat(processing_started_at)
-                    elapsed_minutes = (datetime.now() - started_time).total_seconds() / 60
-
-                    if elapsed_minutes < 15:
-                        # Still within reasonable time, block new session
-                        raise ValueError(
-                            "Previous Pomodoro session is still being analyzed. "
-                            "Please wait for completion before starting a new session."
-                        )
-                    else:
-                        # Processing stuck for > 15 minutes, force complete it
-                        logger.warning(
-                            f"Force completing stuck session {session['id']} "
-                            f"(processing for {elapsed_minutes:.1f} minutes)"
-                        )
-                        await self.db.pomodoro_sessions.update(
-                            session_id=session["id"],
-                            processing_status="failed",
-                            processing_error="Processing timeout - forced completion",
-                        )
-                except Exception as e:
-                    logger.error(f"Error checking processing session timestamp: {e}")
-                    # If we can't parse timestamp, allow starting new session
-            else:
-                # No timestamp, likely stuck - force complete it
-                logger.warning(f"Force completing session {session['id']} (no timestamp)")
-                await self.db.pomodoro_sessions.update(
-                    session_id=session["id"],
-                    processing_status="failed",
-                    processing_error="No processing timestamp - forced completion",
-                )
+        # Check for stuck processing sessions
+        await self._check_and_handle_stuck_processing()
 
         session_id = str(uuid.uuid4())
         start_time = datetime.now()
@@ -172,8 +371,6 @@ class PomodoroManager:
             self._start_phase_timer(session_id, work_duration_minutes)
 
             # Emit phase switch event to notify frontend that work phase started
-            from core.events import emit_pomodoro_phase_switched
-
             emit_pomodoro_phase_switched(
                 session_id=session_id,
                 new_phase="work",
@@ -253,9 +450,7 @@ class PomodoroManager:
 
             current_phase = session.get("current_phase", "work")
             current_round = session.get("current_round", 1)
-            total_rounds = session.get("total_rounds", 4)
-            work_duration = session.get("work_duration_minutes", 25)
-            break_duration = session.get("break_duration_minutes", 5)
+            work_duration, break_duration, total_rounds = self._get_session_defaults(session)
 
             logger.info(
                 f"Auto-switching phase for session {session_id}: "
@@ -357,8 +552,6 @@ class PomodoroManager:
             self._start_phase_timer(session_id, next_duration)
 
             # Emit phase switch event to frontend
-            from core.events import emit_pomodoro_phase_switched
-
             emit_pomodoro_phase_switched(
                 session_id=session_id,
                 new_phase=new_phase,
@@ -411,26 +604,12 @@ class PomodoroManager:
                 )
 
                 # Emit completion event to frontend (so desktop clock can switch to normal mode)
-                from core.events import emit_pomodoro_phase_switched
-
-                emit_pomodoro_phase_switched(
-                    session_id=session_id,
-                    new_phase="completed",
-                    current_round=session.get("current_round", 0),
-                    total_rounds=session.get("total_rounds", 4),
-                    completed_rounds=completed_rounds,
-                )
-
+                self._emit_phase_completion_event(session_id, session, "completed")
                 logger.info(f"Emitted completion event for session {session_id}")
 
             # Cleanup
-            self.is_active = False
-            self.current_session = None
-
-            # Cancel phase timer
-            if session_id in self._processing_tasks:
-                self._processing_tasks[session_id].cancel()
-                del self._processing_tasks[session_id]
+            self._clear_session_state()
+            self._cancel_phase_timer(session_id)
 
             # Exit pomodoro mode
             await self.coordinator.exit_pomodoro_mode()
@@ -443,16 +622,264 @@ class PomodoroManager:
         except Exception as e:
             logger.error(f"Failed to complete session {session_id}: {e}", exc_info=True)
 
-    async def end_pomodoro(self, status: str = "completed") -> Dict[str, Any]:
+    # ============================================================
+    # Helper Methods - End Pomodoro Workflow
+    # ============================================================
+
+    async def _handle_too_short_session(
+        self,
+        session_id: str,
+        end_time: datetime,
+        elapsed_minutes: float,
+    ) -> dict[str, Any]:
+        """
+        Handle sessions that are too short (< 2 minutes) - immediate return
+
+        Args:
+            session_id: Session ID
+            end_time: Session end time
+            elapsed_minutes: Elapsed duration in minutes
+
+        Returns:
+            Response dict for too-short session
+        """
+        logger.warning(
+            f"Pomodoro session {session_id} too short ({elapsed_minutes:.1f}min), marking as abandoned"
+        )
+
+        # Update database (fast)
+        await self.db.pomodoro_sessions.update(
+            session_id=session_id,
+            end_time=end_time.isoformat(),
+            actual_duration_minutes=int(elapsed_minutes),
+            status="abandoned",
+            processing_status="failed",
+        )
+
+        # Emit completion event IMMEDIATELY for frontend/clock to reset state
+        self._emit_phase_completion_event(session_id)
+        logger.info(f"Emitted completion event for abandoned session {session_id}")
+
+        # Exit pomodoro mode and cleanup
+        await self.coordinator.exit_pomodoro_mode()
+        self._clear_session_state()
+
+        return {
+            "session_id": session_id,
+            "status": "abandoned",
+            "actual_work_minutes": 0,
+            "raw_records_count": 0,  # ✅ Added back for compatibility
+            "message": "Session too short, marked as abandoned",
+        }
+
+    async def _process_incomplete_phases(
+        self,
+        session_id: str,
+        session: dict[str, Any],
+        end_time: datetime,
+    ) -> None:
+        """
+        Process all work phases that occurred during session (parallel processing)
+
+        CRITICAL: This is a background task that must not crash.
+        All errors are isolated and logged.
+
+        Args:
+            session_id: Session ID
+            session: Session record from database
+            end_time: Session end time
+        """
+        try:
+            current_phase = session.get("current_phase", "work")
+            current_round = session.get("current_round", 1)
+            completed_rounds = session.get("completed_rounds", 0)
+
+            # Identify all work phases to process
+            work_phases_to_process = list(range(1, completed_rounds + 1))
+
+            # Include current work phase if session ended during work
+            if current_phase == "work" and current_round not in work_phases_to_process:
+                work_phases_to_process.append(current_round)
+                # Increment completed_rounds to reflect this work phase
+                await self.db.pomodoro_sessions.update(
+                    session_id=session_id,
+                    completed_rounds=completed_rounds + 1,
+                )
+
+            logger.info(
+                f"Session termination: processing {len(work_phases_to_process)} work phases "
+                f"in parallel: {work_phases_to_process}"
+            )
+
+            # Create phase records and trigger parallel aggregation
+            aggregation_tasks = []
+            for phase_num in work_phases_to_process:
+                # Use unified time window calculation
+                phase_start, phase_end = await self._get_phase_time_window(session, phase_num)
+
+                # Use actual end time for last phase (if ending during work)
+                if phase_num == max(work_phases_to_process) and current_phase == "work":
+                    phase_end = min(phase_end, end_time)
+
+                # Check if phase record already exists
+                existing_phase = await self.db.work_phases.get_by_session_and_phase(
+                    session_id, phase_num
+                )
+
+                # Skip if already completed or processing
+                if existing_phase and existing_phase["status"] in ("completed", "processing"):
+                    logger.info(
+                        f"Phase {phase_num} already {existing_phase['status']}, skipping"
+                    )
+                    continue
+
+                # Create or get phase record
+                if existing_phase:
+                    phase_id = existing_phase["id"]
+                else:
+                    phase_id = await self.db.work_phases.create(
+                        session_id=session_id,
+                        phase_number=phase_num,
+                        phase_start_time=phase_start.isoformat(),
+                        phase_end_time=phase_end.isoformat(),
+                        status="pending",
+                    )
+
+                # Create parallel task (don't await)
+                task = asyncio.create_task(
+                    self._aggregate_work_phase_activities(
+                        session_id=session_id,
+                        work_phase=phase_num,
+                        phase_start_time=phase_start,
+                        phase_end_time=phase_end,
+                        phase_id=phase_id,
+                    )
+                )
+                aggregation_tasks.append(task)
+
+            logger.info(
+                f"Triggered parallel aggregation for {len(aggregation_tasks)} work phases"
+            )
+
+        except Exception as e:
+            # ✅ Isolate all errors to prevent crash
+            logger.error(
+                f"Error processing incomplete phases for session {session_id}: {e}",
+                exc_info=True,
+            )
+            # Don't re-raise - this is a background task
+
+    async def _update_session_metadata(
+        self,
+        session_id: str,
+        end_time: datetime,
+        actual_work_minutes: int,
+        status: str,
+    ) -> None:
+        """
+        Update session metadata in database (fast, non-blocking)
+
+        Args:
+            session_id: Session ID
+            end_time: Session end time
+            actual_work_minutes: Actual work duration in minutes
+            status: Session status
+        """
+        await self.db.pomodoro_sessions.update(
+            session_id=session_id,
+            end_time=end_time.isoformat(),
+            actual_duration_minutes=actual_work_minutes,
+            status=status,
+            processing_status="pending",
+        )
+
+    async def _background_finalize_session(
+        self,
+        session_id: str,
+    ) -> None:
+        """
+        Background task: force settlement, cleanup, trigger processing
+
+        CRITICAL: This task MUST NEVER crash or block new sessions.
+        All errors are logged but do not propagate.
+
+        This runs asynchronously after user-facing state has been updated.
+
+        Args:
+            session_id: Session ID
+        """
+        try:
+            logger.info(f"Starting background finalization for session {session_id}")
+
+            # Force settlement: process all pending records
+            # ✅ Isolate settlement errors to prevent crash
+            try:
+                logger.info("Force settling all pending records for session end")
+                settlement_result = await self.force_settlement(session_id)
+                if settlement_result.get("success"):
+                    logger.info(
+                        f"✓ Force settlement successful: "
+                        f"{settlement_result['records_processed']['total']} records processed, "
+                        f"{settlement_result['events_generated']} events, "
+                        f"{settlement_result['activities_generated']} activities"
+                    )
+                else:
+                    logger.warning(
+                        f"Force settlement had issues but continuing: "
+                        f"{settlement_result.get('error', 'Unknown error')}"
+                    )
+            except Exception as e:
+                # ✅ Isolate settlement errors
+                logger.error(f"Force settlement failed: {e}", exc_info=True)
+
+            # Trigger batch processing
+            # ✅ Isolate batch processing errors to prevent crash
+            try:
+                await self._trigger_batch_processing(session_id)
+            except Exception as e:
+                # ✅ Isolate batch processing errors
+                logger.error(f"Batch processing failed: {e}", exc_info=True)
+
+            logger.info(f"✓ Background finalization completed for session {session_id}")
+
+        except Exception as e:
+            # ✅ Catch-all for any unexpected errors
+            logger.error(
+                f"Unexpected error in background finalization: {e}",
+                exc_info=True,
+            )
+            # Mark processing as failed so it doesn't appear stuck
+            try:
+                await self.db.pomodoro_sessions.update(
+                    session_id=session_id,
+                    processing_status="failed",
+                    processing_error=f"Background finalization error: {str(e)}",
+                )
+            except:
+                # Even DB update failure shouldn't crash
+                pass
+
+    # ============================================================
+    # Public Methods - Session Control
+    # ============================================================
+
+    async def end_pomodoro(self, status: str = "completed") -> dict[str, Any]:
         """
         End current Pomodoro session (manual termination)
 
-        Actions:
-        1. Cancel phase timer
-        2. Update pomodoro_sessions record
-        3. Signal coordinator to exit "pomodoro mode"
-        4. Trigger deferred batch processing
-        5. Return processing job ID
+        IMPORTANT: This method returns IMMEDIATELY after updating user-facing state.
+        All heavy processing (settlement, aggregation) happens in background.
+
+        Workflow:
+        1. ✅ Validate session (fast)
+        2. ✅ Cancel phase timer (fast)
+        3. ✅ Update database metadata (fast)
+        4. ✅ Flush perception buffers (fast)
+        5. ✅ Emit completion event (fast)
+        6. ✅ Exit pomodoro mode (fast)
+        7. ✅ Clear local state (fast)
+        8. ✅ Return immediately to user
+        9. 🔄 Start background processing (async, non-blocking)
 
         Args:
             status: Session status ('completed', 'abandoned', 'interrupted')
@@ -460,8 +887,8 @@ class PomodoroManager:
         Returns:
             {
                 "session_id": str,
-                "processing_job_id": str,
-                "raw_records_count": int
+                "status": str,
+                "actual_work_minutes": int
             }
 
         Raises:
@@ -472,249 +899,88 @@ class PomodoroManager:
 
         session_id = self.current_session.id
         end_time = datetime.now()
-        elapsed_duration = (end_time - self.current_session.start_time).total_seconds() / 60
+        elapsed_duration = self._calculate_elapsed_minutes(end_time)
 
         # Cancel phase timer if running
-        if session_id in self._processing_tasks:
-            self._processing_tasks[session_id].cancel()
-            del self._processing_tasks[session_id]
-            logger.debug(f"Cancelled phase timer for manual end of session {session_id}")
+        self._cancel_phase_timer(session_id)
 
         try:
             # Check if session is too short (< 2 minutes)
-            # SIMPLIFIED: Treat too-short sessions as 'abandoned'
-            if elapsed_duration < 2:
-                logger.warning(
-                    f"Pomodoro session {session_id} too short ({elapsed_duration:.1f}min), marking as abandoned"
-                )
-                await self.db.pomodoro_sessions.update(
-                    session_id=session_id,
-                    end_time=end_time.isoformat(),
-                    actual_duration_minutes=int(elapsed_duration),
-                    status="abandoned",
-                    processing_status="failed",  # No analysis for too-short sessions
+            if elapsed_duration < _Constants.MIN_SESSION_DURATION_MINUTES:
+                return await self._handle_too_short_session(
+                    session_id, end_time, elapsed_duration
                 )
 
-                # Emit completion event for frontend/clock to reset state
-                from core.events import emit_pomodoro_phase_switched
-
-                emit_pomodoro_phase_switched(
-                    session_id=session_id,
-                    new_phase="completed",
-                    current_round=1,
-                    total_rounds=4,
-                    completed_rounds=0,
-                )
-                logger.info(f"Emitted completion event for abandoned session {session_id}")
-
-                # Exit pomodoro mode
-                await self.coordinator.exit_pomodoro_mode()
-
-                self.is_active = False
-                self.current_session = None
-
-                return {
-                    "session_id": session_id,
-                    "processing_job_id": None,
-                    "raw_records_count": 0,
-                    "message": "Session too short, marked as abandoned",
-                }
+            # ========== FAST PATH: Immediate user-facing updates ==========
 
             # Get session data
             session = await self.db.pomodoro_sessions.get_by_id(session_id)
 
-            # ★ Calculate actual work duration FIRST (before modifying completed_rounds) ★
-            # For completed rounds: use full work_duration
-            # For current incomplete work phase: use actual elapsed time from phase_start_time to end_time
-            if session:
-                completed_rounds = session.get("completed_rounds", 0)
-                work_duration = session.get("work_duration_minutes", 25)
-                current_phase = session.get("current_phase", "work")
-
-                # Calculate time for completed rounds
-                actual_work_minutes = completed_rounds * work_duration
-
-                # If ending during work phase, add actual time worked in current phase
-                current_phase_minutes = 0
-                if current_phase == "work":
-                    phase_start_time_str = session.get("phase_start_time")
-                    if phase_start_time_str:
-                        phase_start_time = datetime.fromisoformat(phase_start_time_str)
-                        # Calculate actual time worked in current phase (in minutes)
-                        current_phase_minutes = (end_time - phase_start_time).total_seconds() / 60
-                        actual_work_minutes += int(current_phase_minutes)
-
-                        logger.info(
-                            f"Session duration: elapsed={elapsed_duration:.1f}min, "
-                            f"actual_work={actual_work_minutes}min "
-                            f"({completed_rounds} completed rounds × {work_duration}min + "
-                            f"{int(current_phase_minutes)}min in current phase)"
-                        )
-                    else:
-                        # Fallback: if no phase_start_time, use full work_duration for current phase
-                        current_phase_minutes = work_duration
-                        actual_work_minutes += work_duration
-                        logger.warning(
-                            f"No phase_start_time found for current work phase, "
-                            f"using full work_duration ({work_duration}min)"
-                        )
-                else:
-                    logger.info(
-                        f"Session duration: elapsed={elapsed_duration:.1f}min, "
-                        f"actual_work={actual_work_minutes}min (based on {completed_rounds} completed rounds)"
-                    )
-
-                # ========== PARALLEL PHASE PROCESSING ==========
-                # Identify all work phases that occurred during session
-                current_round = session.get("current_round", 1)
-
-                work_phases_to_process = list(range(1, completed_rounds + 1))
-
-                # Include current work phase if session ended during work
-                if current_phase == "work" and current_round not in work_phases_to_process:
-                    work_phases_to_process.append(current_round)
-                    # Increment completed_rounds to reflect this work phase
-                    await self.db.pomodoro_sessions.update(
-                        session_id=session_id,
-                        completed_rounds=completed_rounds + 1,
-                    )
-
-                logger.info(
-                    f"Session termination: processing {len(work_phases_to_process)} work phases "
-                    f"in parallel: {work_phases_to_process}"
-                )
-
-                # Create phase records and trigger parallel aggregation
-                aggregation_tasks = []
-                for phase_num in work_phases_to_process:
-                    # Use unified time window calculation
-                    phase_start, phase_end = await self._get_phase_time_window(session, phase_num)
-
-                    # Use actual end time for last phase (if ending during work)
-                    if phase_num == max(work_phases_to_process) and current_phase == "work":
-                        phase_end = min(phase_end, end_time)
-
-                    # Check if phase record already exists
-                    existing_phase = await self.db.work_phases.get_by_session_and_phase(
-                        session_id, phase_num
-                    )
-
-                    # Skip if already completed or processing
-                    if existing_phase and existing_phase["status"] in ("completed", "processing"):
-                        logger.info(
-                            f"Phase {phase_num} already {existing_phase['status']}, skipping"
-                        )
-                        continue
-
-                    # Create or get phase record
-                    if existing_phase:
-                        phase_id = existing_phase["id"]
-                    else:
-                        phase_id = await self.db.work_phases.create(
-                            session_id=session_id,
-                            phase_number=phase_num,
-                            phase_start_time=phase_start.isoformat(),
-                            phase_end_time=phase_end.isoformat(),
-                            status="pending",
-                        )
-
-                    # Create parallel task (don't await)
-                    task = asyncio.create_task(
-                        self._aggregate_work_phase_activities(
-                            session_id=session_id,
-                            work_phase=phase_num,
-                            phase_start_time=phase_start,
-                            phase_end_time=phase_end,
-                            phase_id=phase_id,
-                        )
-                    )
-                    aggregation_tasks.append(task)
-
-                logger.info(
-                    f"Triggered parallel aggregation for {len(aggregation_tasks)} work phases"
-                )
-                # Don't await tasks - let them run in background
-                # ========== END PARALLEL PHASE PROCESSING ==========
-            else:
-                # Fallback: use elapsed time if we can't get session data
-                actual_work_minutes = int(elapsed_duration)
-
-            # Update database
-            await self.db.pomodoro_sessions.update(
-                session_id=session_id,
-                end_time=end_time.isoformat(),
-                actual_duration_minutes=actual_work_minutes,
-                status=status,
-                processing_status="pending",
+            # Calculate actual work duration
+            actual_work_minutes = (
+                await self._calculate_actual_work_minutes(session, end_time)
+                if session
+                else int(elapsed_duration)
             )
 
-            # ★ FORCE SETTLEMENT: Process all pending records before session ends ★
-            # This ensures no actions are lost during session termination
-            logger.info(f"Force settling all pending records for session end")
-            settlement_result = await self.force_settlement(session_id)
-            if settlement_result.get("success"):
-                logger.info(
-                    f"✓ Force settlement successful: "
-                    f"{settlement_result['records_processed']['total']} records processed, "
-                    f"{settlement_result['events_generated']} events, "
-                    f"{settlement_result['activities_generated']} activities"
-                )
-            else:
-                logger.warning(
-                    f"Force settlement had issues but continuing: "
-                    f"{settlement_result.get('error', 'Unknown error')}"
-                )
+            # Update database metadata (fast, no heavy processing)
+            await self._update_session_metadata(
+                session_id, end_time, actual_work_minutes, status
+            )
 
-            # IMPORTANT: Flush ImageConsumer BEFORE exiting Pomodoro mode
-            # This ensures all buffered screenshots are processed
+            # Flush ImageConsumer buffer (fast)
             perception_manager = self.coordinator.perception_manager
             if perception_manager and perception_manager.image_consumer:
                 remaining = perception_manager.image_consumer.flush()
-                logger.info(
-                    f"Flushed {len(remaining)} buffered screenshots on session end "
-                    f"(session_id={session_id})"
-                )
+                logger.debug(f"Flushed {len(remaining)} buffered screenshots")
 
-            # Emit completion event for frontend/clock to reset state
-            # This must happen BEFORE exit_pomodoro_mode() so event reaches frontend
-            # while context is still valid, and AFTER database update for consistency
-            from core.events import emit_pomodoro_phase_switched
+            # Emit completion event IMMEDIATELY for frontend/clock
+            self._emit_phase_completion_event(session_id, session, "completed")
+            logger.info(f"Emitted completion event for session {session_id}")
 
-            emit_pomodoro_phase_switched(
-                session_id=session_id,
-                new_phase="completed",
-                current_round=session.get("current_round", 1) if session else 1,
-                total_rounds=session.get("total_rounds", 4) if session else 4,
-                completed_rounds=session.get("completed_rounds", 0) if session else 0,
-            )
-            logger.info(f"Emitted completion event for manually ended session {session_id}")
-
-            # Exit pomodoro mode (this will also flush in PerceptionManager.clear_pomodoro_session)
+            # Exit pomodoro mode (stops perception)
             await self.coordinator.exit_pomodoro_mode()
 
-            # Count raw records for this session
-            raw_count = await self.db.raw_records.count_by_session(session_id)
+            # Clear local state
+            self._clear_session_state()
 
             logger.info(
-                f"✓ Pomodoro session ended: {session_id}, "
+                f"✓ Pomodoro session ended (immediate response): {session_id}, "
                 f"status={status}, elapsed={elapsed_duration:.1f}min, "
-                f"actual_work={actual_work_minutes}min, records={raw_count}"
+                f"actual_work={actual_work_minutes}min"
             )
 
-            # Trigger batch processing in background
-            job_id = await self._trigger_batch_processing(session_id)
+            # ========== BACKGROUND PATH: Heavy processing (non-blocking) ==========
 
-            self.is_active = False
-            self.current_session = None
+            # Trigger background tasks asynchronously
+            if session:
+                # Process incomplete work phases (parallel, background)
+                asyncio.create_task(
+                    self._process_incomplete_phases(session_id, session, end_time)
+                )
+
+            # Trigger background finalization (settlement + batch processing)
+            asyncio.create_task(self._background_finalize_session(session_id))
+
+            logger.debug(f"Background processing started for session {session_id}")
+
+            # ========== IMMEDIATE RETURN ==========
+
+            # Count raw records for compatibility with frontend/handler
+            raw_count = await self.db.raw_records.count_by_session(session_id)
 
             return {
                 "session_id": session_id,
-                "processing_job_id": job_id,
-                "raw_records_count": raw_count,
+                "status": status,
+                "actual_work_minutes": actual_work_minutes,
+                "raw_records_count": raw_count,  # ✅ Added back for compatibility
+                "message": "Session ended successfully. Background processing started.",
             }
 
         except Exception as e:
             logger.error(f"Failed to end Pomodoro session: {e}", exc_info=True)
+            # Ensure state is cleaned up even on error
+            self._clear_session_state()
             raise
 
     async def _trigger_batch_processing(self, session_id: str) -> str:
@@ -777,7 +1043,7 @@ class PomodoroManager:
             try:
                 await asyncio.wait_for(
                     self._wait_and_trigger_llm_evaluation(session_id),
-                    timeout=600  # 10 minutes: 5 min wait + ~5 min LLM evaluation
+                    timeout=_Constants.TOTAL_PROCESSING_TIMEOUT_SECONDS
                 )
             except asyncio.TimeoutError:
                 logger.error(
@@ -824,38 +1090,7 @@ class PomodoroManager:
             # Cleanup task reference
             self._processing_tasks.pop(job_id, None)
 
-    def _emit_progress_event(
-        self, session_id: str, job_id: str, processed: int
-    ) -> None:
-        """Emit progress event for frontend"""
-        try:
-            from core.events import emit_pomodoro_processing_progress
 
-            emit_pomodoro_processing_progress(session_id, job_id, processed)
-        except Exception as e:
-            logger.debug(f"Failed to emit progress event: {e}")
-
-    def _emit_completion_event(
-        self, session_id: str, job_id: str, total_processed: int
-    ) -> None:
-        """Emit completion event for frontend"""
-        try:
-            from core.events import emit_pomodoro_processing_complete
-
-            emit_pomodoro_processing_complete(session_id, job_id, total_processed)
-        except Exception as e:
-            logger.debug(f"Failed to emit completion event: {e}")
-
-    def _emit_failure_event(
-        self, session_id: str, job_id: str, error: str
-    ) -> None:
-        """Emit failure event for frontend"""
-        try:
-            from core.events import emit_pomodoro_processing_failed
-
-            emit_pomodoro_processing_failed(session_id, job_id, error)
-        except Exception as e:
-            logger.debug(f"Failed to emit failure event: {e}")
 
     async def _wait_and_trigger_llm_evaluation(self, session_id: str) -> None:
         """
@@ -868,9 +1103,6 @@ class PomodoroManager:
         Args:
             session_id: Pomodoro session ID
         """
-        MAX_WAIT_TIME = 300  # 5 minutes max wait
-        POLL_INTERVAL = 3  # Check every 3 seconds
-
         try:
             logger.info(f"Waiting for all work phases to complete for session {session_id}")
 
@@ -904,7 +1136,7 @@ class PomodoroManager:
             waited_time = 0
 
             # Wait for all completed phases to reach terminal state (completed or failed)
-            while waited_time < MAX_WAIT_TIME:
+            while waited_time < _Constants.MAX_PHASE_WAIT_SECONDS:
                 # Re-check session status in case it was ended during wait
                 session = await self.db.pomodoro_sessions.get_by_id(session_id)
                 if session:
@@ -937,12 +1169,12 @@ class PomodoroManager:
                     f"waited {waited_time}s"
                 )
 
-                await asyncio.sleep(POLL_INTERVAL)
-                waited_time += POLL_INTERVAL
+                await asyncio.sleep(_Constants.POLL_INTERVAL_SECONDS)
+                waited_time += _Constants.POLL_INTERVAL_SECONDS
 
-            if waited_time >= MAX_WAIT_TIME:
+            if waited_time >= _Constants.MAX_PHASE_WAIT_SECONDS:
                 logger.warning(
-                    f"Timeout waiting for work phases to complete ({MAX_WAIT_TIME}s), "
+                    f"Timeout waiting for work phases to complete ({_Constants.MAX_PHASE_WAIT_SECONDS}s), "
                     f"proceeding with LLM evaluation anyway"
                 )
 
@@ -1024,9 +1256,9 @@ class PomodoroManager:
     async def _update_activity_focus_scores(
         self,
         session_id: str,
-        activities: List[Dict[str, Any]],
-        session: Dict[str, Any],
-        focus_evaluator: Any,
+        activities: list[dict[str, Any]],
+        session: dict[str, Any],
+        focus_evaluator: "FocusEvaluator",
     ) -> None:
         """
         Update focus scores for individual activities
@@ -1178,7 +1410,7 @@ class PomodoroManager:
             logger.error(f"Failed to check orphaned sessions: {e}", exc_info=True)
             return 0
 
-    async def get_current_session_info(self) -> Optional[Dict[str, Any]]:
+    async def get_current_session_info(self) -> dict[str, Any] | None:
         """
         Get current session information with rounds and phase data
 
@@ -1288,9 +1520,9 @@ class PomodoroManager:
 
     async def _get_phase_time_window(
         self,
-        session: Dict[str, Any],
+        session: dict[str, Any],
         phase_number: int
-    ) -> Tuple[datetime, datetime]:
+    ) -> tuple[datetime, datetime]:
         """
         Unified phase time window calculation logic
 
@@ -1358,7 +1590,7 @@ class PomodoroManager:
         work_phase: int,
         phase_start_time: datetime,
         phase_end_time: datetime,
-        phase_id: Optional[str] = None,
+        phase_id: str | None = None,
     ) -> None:
         """
         Aggregate actions into activities for a work phase WITH SIMPLIFIED RETRY.
@@ -1375,9 +1607,6 @@ class PomodoroManager:
             phase_end_time: Phase end time
             phase_id: Existing phase record ID (optional)
         """
-        MAX_RETRIES = 1  # Simplified: only 1 retry
-        RETRY_DELAY = 10  # seconds
-
         try:
             # Get or create phase record
             if not phase_id:
@@ -1396,7 +1625,7 @@ class PomodoroManager:
                     )
 
             # SIMPLIFIED RETRY LOOP: Only 1 retry
-            for attempt in range(MAX_RETRIES + 1):
+            for attempt in range(_Constants.MAX_RETRIES + 1):
                 try:
                     # Update status to processing
                     await self.db.work_phases.update_status(
@@ -1405,7 +1634,7 @@ class PomodoroManager:
 
                     logger.info(
                         f"Processing work phase: session={session_id}, "
-                        f"phase={work_phase}, attempt={attempt + 1}/{MAX_RETRIES + 1}"
+                        f"phase={work_phase}, attempt={attempt + 1}/{_Constants.MAX_RETRIES + 1}"
                     )
 
                     # Get SessionAgent from coordinator
@@ -1435,8 +1664,6 @@ class PomodoroManager:
                     )
 
                     # Emit success event
-                    from core.events import emit_pomodoro_work_phase_completed
-
                     emit_pomodoro_work_phase_completed(session_id, work_phase, len(activities))
 
                     return  # Exit retry loop on success
@@ -1451,7 +1678,7 @@ class PomodoroManager:
                         f"{error_message}"
                     )
 
-                    if attempt < MAX_RETRIES:
+                    if attempt < _Constants.MAX_RETRIES:
                         # Schedule retry after 10 seconds
                         new_retry_count = await self.db.work_phases.increment_retry_count(
                             phase_id
@@ -1462,25 +1689,24 @@ class PomodoroManager:
                         )
 
                         logger.info(
-                            f"Retrying work phase in {RETRY_DELAY}s "
-                            f"(retry {new_retry_count}/{MAX_RETRIES})"
+                            f"Retrying work phase in {_Constants.RETRY_DELAY_SECONDS}s "
+                            f"(retry {new_retry_count}/{_Constants.MAX_RETRIES})"
                         )
 
-                        await asyncio.sleep(RETRY_DELAY)
+                        await asyncio.sleep(_Constants.RETRY_DELAY_SECONDS)
                     else:
                         # All retries exhausted - mark as failed
                         # User can manually retry via API
                         await self.db.work_phases.update_status(
-                            phase_id, "failed", error_message, MAX_RETRIES
+                            phase_id, "failed", error_message, _Constants.MAX_RETRIES
                         )
 
                         logger.error(
-                            f"✗ Work phase aggregation failed after {MAX_RETRIES + 1} attempts: "
+                            f"✗ Work phase aggregation failed after {_Constants.MAX_RETRIES + 1} attempts: "
                             f"session={session_id}, phase={work_phase}, error={error_message}"
                         )
 
                         # Emit failure event
-                        from core.events import emit_pomodoro_work_phase_failed
                         emit_pomodoro_work_phase_failed(session_id, work_phase, error_message)
 
                         return  # Don't raise - allow other phases to continue
@@ -1491,7 +1717,7 @@ class PomodoroManager:
                 f"Unexpected error in work phase aggregation: {e}", exc_info=True
             )
 
-    def get_current_session_id(self) -> Optional[str]:
+    def get_current_session_id(self) -> str | None:
         """
         Get current active Pomodoro session ID
 
@@ -1502,7 +1728,7 @@ class PomodoroManager:
             return self.current_session.id
         return None
 
-    async def force_settlement(self, session_id: str) -> Dict[str, Any]:
+    async def force_settlement(self, session_id: str) -> dict[str, Any]:
         """
         Force settlement of all pending records for phase completion
 
