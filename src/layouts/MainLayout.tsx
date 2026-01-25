@@ -9,6 +9,7 @@ import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar'
 export function MainLayout() {
   const navigate = useNavigate()
   const location = useLocation()
+
   // Subscribe to individual fields to avoid selector churn
   const activeMenuItem = useUIStore((state) => state.activeMenuItem)
   const setActiveMenuItem = useUIStore((state) => state.setActiveMenuItem)
@@ -53,7 +54,9 @@ export function MainLayout() {
         {/* Right content area */}
         <SidebarInset className="flex flex-col">
           <main className="mb-1 flex-1 overflow-y-auto">
-            <Outlet />
+            <div className="animate-page-enter h-full">
+              <Outlet />
+            </div>
           </main>
         </SidebarInset>
       </div>

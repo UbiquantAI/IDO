@@ -14,7 +14,6 @@ import {
   SidebarMenuItem,
   SidebarTrigger
 } from '@/components/ui/sidebar'
-import { SystemStatusIndicator } from '@/components/system/SystemStatusIndicator'
 
 interface AppSidebarProps {
   mainItems: MenuItem[]
@@ -93,11 +92,6 @@ export function AppSidebar({ mainItems, bottomItems, activeItemId, onMenuClick }
 
       <SidebarFooter>
         <SidebarMenu>
-          {/* System Status Indicator */}
-          <SidebarMenuItem>
-            <SystemStatusIndicator showMenu />
-          </SidebarMenuItem>
-
           {bottomItems.map((item) => {
             const isActive = activeItemId === item.id
             const Icon = item.icon

@@ -113,12 +113,51 @@ class SlidingWindowStorage:
             current_time = datetime.now()
             cutoff_time = current_time - timedelta(seconds=self.window_size)
 
-            # Remove expired records from left side
+            # Count how many records will be removed
+            removed_count = 0
             while self.records and self.records[0].timestamp < cutoff_time:
                 self.records.popleft()
+                removed_count += 1
+
+            if removed_count > 0:
+                logger.debug(f"Cleaned up {removed_count} expired records (older than {self.window_size}s)")
 
         except Exception as e:
             logger.error(f"Failed to clean up expired records: {e}")
+
+    def get_expiring_records(self, expiration_threshold: Optional[int] = None) -> List[RawRecord]:
+        """
+        Get records that are about to expire (for pre-processing before cleanup)
+
+        Args:
+            expiration_threshold: Time in seconds before expiration to consider (default: 90% of window_size)
+
+        Returns:
+            List of records that are about to expire
+        """
+        try:
+            with self.lock:
+                if expiration_threshold is None:
+                    # Default: records older than 90% of window size (e.g., 54s for 60s window)
+                    expiration_threshold = int(self.window_size * 0.9)
+
+                current_time = datetime.now()
+                expiration_cutoff = current_time - timedelta(seconds=expiration_threshold)
+
+                # Find records that are old but not yet expired
+                expiring_records = []
+                for record in self.records:
+                    if record.timestamp < expiration_cutoff:
+                        expiring_records.append(record)
+                    else:
+                        # Records are sorted by time, so we can stop here
+                        break
+
+                return expiring_records
+
+        except Exception as e:
+            logger.error(f"Failed to get expiring records: {e}")
+            return []
 
     def clear(self) -> None:
         """Clear all records"""

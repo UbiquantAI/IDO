@@ -304,3 +304,57 @@ export interface TodoDeletedPayload {
 export function useTodoDeleted(onDeleted: (payload: TodoDeletedPayload) => void) {
   useTauriEvent<TodoDeletedPayload>('todo-deleted', onDeleted)
 }
+
+/**
+ * Pomodoro processing progress hook (fires during batch processing)
+ */
+export interface PomodoroProcessingProgressPayload {
+  session_id: string
+  job_id: string
+  processed: number
+}
+
+export function usePomodoroProcessingProgress(onProgress: (payload: PomodoroProcessingProgressPayload) => void) {
+  useTauriEvent<PomodoroProcessingProgressPayload>('pomodoro-processing-progress', onProgress)
+}
+
+/**
+ * Pomodoro processing complete hook (fires after batch processing finishes)
+ */
+export interface PomodoroProcessingCompletePayload {
+  session_id: string
+  job_id: string
+  total_processed: number
+}
+
+export function usePomodoroProcessingComplete(onComplete: (payload: PomodoroProcessingCompletePayload) => void) {
+  useTauriEvent<PomodoroProcessingCompletePayload>('pomodoro-processing-complete', onComplete)
+}
+
+/**
+ * Pomodoro processing failed hook (fires if batch processing fails)
+ */
+export interface PomodoroProcessingFailedPayload {
+  session_id: string
+  job_id: string
+  error: string
+}
+
+export function usePomodoroProcessingFailed(onFailed: (payload: PomodoroProcessingFailedPayload) => void) {
+  useTauriEvent<PomodoroProcessingFailedPayload>('pomodoro-processing-failed', onFailed)
+}
+
+/**
+ * Pomodoro phase switched hook (fires when switching between work/break phases)
+ */
+export interface PomodoroPhaseSwitchedPayload {
+  session_id: string
+  new_phase: string
+  current_round: number
+  total_rounds: number
+  completed_rounds: number
+}
+
+export function usePomodoroPhaseSwitched(onSwitch: (payload: PomodoroPhaseSwitchedPayload) => void) {
+  useTauriEvent<PomodoroPhaseSwitchedPayload>('pomodoro-phase-switched', onSwitch)
+}

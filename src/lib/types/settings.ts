@@ -42,10 +42,36 @@ export interface FriendlyChatSettings {
   enableLive2dDisplay: boolean
 }
 
+export interface VoiceSettings {
+  enabled: boolean
+  volume: number
+  soundTheme: '8bit' | '16bit' | 'custom'
+  customSounds?: {
+    workComplete?: string
+    breakComplete?: string
+    sessionComplete?: string
+  }
+}
+
+export interface ClockSettings {
+  enabled: boolean
+  position: 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left'
+  size: 'small' | 'medium' | 'large'
+  // Custom position (absolute screen coordinates)
+  customX?: number
+  customY?: number
+  customWidth?: number
+  customHeight?: number
+  useCustomPosition?: boolean
+}
+
 export interface AppSettings {
   database?: DatabaseSettings
   screenshot?: ScreenshotSettings
   theme: 'light' | 'dark' | 'system'
   language: 'zh-CN' | 'en-US'
+  fontSize: 'small' | 'default' | 'large' | 'extra-large'
   friendlyChat?: FriendlyChatSettings
+  voice?: VoiceSettings
+  clock?: ClockSettings
 }

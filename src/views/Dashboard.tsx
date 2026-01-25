@@ -13,6 +13,7 @@ import { PageHeader } from '@/components/layout/PageHeader'
 
 export default function DashboardView() {
   const { t } = useTranslation()
+
   // Subscribe to individual fields to avoid selector churn
   const metrics = useDashboardStore((state) => state.metrics)
   const llmStats = useDashboardStore((state) => state.metrics.llmStats)

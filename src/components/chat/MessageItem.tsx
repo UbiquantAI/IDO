@@ -27,36 +27,54 @@ export function MessageItem({ message, isStreaming, isThinking, onRetry }: Messa
   const deferredContent = useDeferredValue(message.content)
   const assistantContent = isStreaming ? deferredContent : message.content
 
+  // Get error type from metadata
+  const errorType = message.metadata?.error_type
+
+  // Determine error title based on error type
+  const errorTitle =
+    errorType === 'network'
+      ? t('chat.networkError', 'Network error')
+      : errorType === 'llm'
+        ? t('chat.llmServiceError', 'LLM service error')
+        : t('chat.generationFailed', 'AI Generation Failed')
+
   if (isSystem) {
     return <div className="text-muted-foreground mx-4 my-2 rounded-lg px-4 py-2 text-sm">{message.content}</div>
   }
 
   return (
-    <div className={cn('max-w-full space-y-2 px-4 pb-6', isStreaming && 'animate-pulse')}>
+    <div
+      className={cn(
+        'max-w-full space-y-3 px-4 pb-8',
+        isUser ? 'slide-in-right' : 'slide-in-left',
+        isStreaming && 'animate-pulse'
+      )}>
       {/* Avatar and username (horizontal layout) */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-3">
         <div
           className={cn(
-            'flex h-8 w-8 shrink-0 items-center justify-center rounded-full',
-            isUser ? 'bg-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground'
+            'flex h-9 w-9 shrink-0 items-center justify-center rounded-md',
+            isUser ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground'
           )}>
-          {isUser ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
+          {isUser ? <User className="h-4.5 w-4.5" /> : <Bot className="h-4.5 w-4.5" />}
         </div>
-        <p className="text-sm leading-none font-medium">
+        <p className="text-sm leading-none font-semibold">
           {isUser ? t('chat.you') : t('chat.aiAssistant')}
-          {isThinking && <span className="text-muted-foreground ml-2 text-xs">{t('chat.thinking')}</span>}
-          {isStreaming && !isThinking && <span className="text-muted-foreground ml-2 text-xs">{t('chat.typing')}</span>}
+          {isThinking && <span className="text-muted-foreground ml-2 text-xs font-normal">{t('chat.thinking')}</span>}
+          {isStreaming && !isThinking && (
+            <span className="text-muted-foreground ml-2 text-xs font-normal">{t('chat.typing')}</span>
+          )}
         </p>
       </div>
 
       {/* Content area */}
-      <div className="space-y-2 overflow-hidden">
+      <div className="space-y-3 overflow-hidden">
         {/* Thinking animation */}
         {isThinking && (
-          <div className="ml-10 flex h-8 items-center gap-1.5 py-2">
-            <div className="bg-foreground/40 h-2 w-2 animate-bounce rounded-full [animation-delay:-0.3s]"></div>
-            <div className="bg-foreground/40 h-2 w-2 animate-bounce rounded-full [animation-delay:-0.15s]"></div>
-            <div className="bg-foreground/40 h-2 w-2 animate-bounce rounded-full"></div>
+          <div className="flex h-8 items-center gap-1.5 py-2">
+            <div className="bg-foreground/30 h-2.5 w-2.5 animate-bounce rounded-full [animation-delay:-0.3s]"></div>
+            <div className="bg-foreground/30 h-2.5 w-2.5 animate-bounce rounded-full [animation-delay:-0.15s]"></div>
+            <div className="bg-foreground/30 h-2.5 w-2.5 animate-bounce rounded-full"></div>
           </div>
         )}
 
@@ -74,8 +92,8 @@ export function MessageItem({ message, isStreaming, isThinking, onRetry }: Messa
           </div>
         )}
 
-        {/* Render text content */}
-        {message.content && !isThinking && (
+        {/* Render text content - hide for error messages (error details shown in error section) */}
+        {message.content && !isThinking && !hasError && (
           <div className="text-foreground prose dark:prose-invert max-w-none text-sm select-text [&_.code-block-container]:m-0! [&_p:has(>.code-block-container)]:m-0! [&_p:has(>.code-block-container)]:p-0!">
             {isUser ? (
               // Keep user messages as-is
@@ -112,7 +130,7 @@ export function MessageItem({ message, isStreaming, isThinking, onRetry }: Messa
                 </svg>
               </div>
               <div className="flex-1">
-                <p className="text-destructive text-sm font-medium">{t('chat.requestFailed', 'Request failed')}</p>
+                <p className="text-destructive text-sm font-medium">{errorTitle}</p>
                 <p className="text-muted-foreground mt-1 text-xs whitespace-pre-wrap">{message.error}</p>
               </div>
             </div>
@@ -131,7 +149,7 @@ export function MessageItem({ message, isStreaming, isThinking, onRetry }: Messa
               disabled={isRetrying}
               className="hover:bg-primary/10 flex items-center gap-1.5">
               <RotateCw className={cn('h-3.5 w-3.5', isRetrying && 'animate-spin')} />
-              {isRetrying ? t('chat.retrying', '重试中...') : t('chat.retry', '重试')}
+              {isRetrying ? t('chat.retrying') : t('chat.retry')}
             </Button>
           </div>
         )}

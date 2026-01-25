@@ -5,7 +5,7 @@ Responsible for coordinating the complete lifecycle of PerceptionManager and Pro
 
 import asyncio
 from datetime import datetime, timedelta
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from config.loader import get_config
 from core.db import get_db
@@ -28,21 +28,37 @@ class PipelineCoordinator:
             config: Configuration dictionary
         """
         self.config = config
-        self.processing_interval = config.get("monitoring.processing_interval", 30)
-        self.window_size = config.get("monitoring.window_size", 60)
-        self.capture_interval = config.get("monitoring.capture_interval", 1.0)
+
+        # Access nested config correctly
+        monitoring_config = config.get("monitoring", {})
+        self.processing_interval = monitoring_config.get("processing_interval", 30)
+        self.window_size = monitoring_config.get("window_size", 60)
+        self.capture_interval = monitoring_config.get("capture_interval", 1.0)
+
+        # Event-driven processing configuration
+        self.enable_event_driven = True  # Enable event-driven processing
+        self.processing_threshold = 20  # Trigger processing when 20+ records accumulated
+        self.fallback_check_interval = 300  # Fallback check every 5 minutes (when no events)
+        self._pending_records_count = 0  # Track pending records
+        self._process_trigger = asyncio.Event()  # Event to trigger processing
 
         # Initialize managers (lazy import to avoid circular dependencies)
         self.perception_manager = None
         self.processing_pipeline = None
         self.action_agent = None
         self.raw_agent = None
-        self.event_agent = None
+        # DISABLED: EventAgent removed - using action-based aggregation only
+        # self.event_agent = None
         self.session_agent = None
         self.todo_agent = None
         self.knowledge_agent = None
         self.diary_agent = None
         self.cleanup_agent = None
+        self.pomodoro_manager = None
+
+        # Pomodoro mode state
+        self.pomodoro_mode = False
+        self.current_pomodoro_session_id: Optional[str] = None
 
         # Running state
         self.is_running = False
@@ -159,8 +175,9 @@ class PipelineCoordinator:
 
         # Pause all agents
         try:
-            if self.event_agent:
-                self.event_agent.pause()
+            # DISABLED: EventAgent removed - using action-based aggregation only
+            # if self.event_agent:
+            #     self.event_agent.pause()
             if self.session_agent:
                 self.session_agent.pause()
             if self.cleanup_agent:
@@ -179,8 +196,9 @@ class PipelineCoordinator:
 
         # Resume all agents
         try:
-            if self.event_agent:
-                self.event_agent.resume()
+            # DISABLED: EventAgent removed - using action-based aggregation only
+            # if self.event_agent:
+            #     self.event_agent.resume()
             if self.session_agent:
                 self.session_agent.resume()
             if self.cleanup_agent:
@@ -232,6 +250,12 @@ class PipelineCoordinator:
                 enable_adaptive_threshold=processing_config.get(
                     "enable_adaptive_threshold", True
                 ),
+                max_accumulation_time=processing_config.get(
+                    "max_accumulation_time", 180
+                ),
+                min_sample_interval=processing_config.get(
+                    "min_sample_interval", 30.0
+                ),
             )
 
         if self.action_agent is None:
@@ -249,16 +273,18 @@ class PipelineCoordinator:
                 )
             )
 
-        if self.event_agent is None:
-            from agents.event_agent import EventAgent
-
-            processing_config = self.config.get("processing", {})
-            self.event_agent = EventAgent(
-                aggregation_interval=processing_config.get(
-                    "event_aggregation_interval", 600
-                ),
-                time_window_hours=processing_config.get("event_time_window_hours", 1),
-            )
+        # DISABLED: EventAgent removed - using action-based aggregation only
+        # if self.event_agent is None:
+        #     from agents.event_agent import EventAgent
+        #
+        #     processing_config = self.config.get("processing", {})
+        #     self.event_agent = EventAgent(
+        #         coordinator=self,
+        #         aggregation_interval=processing_config.get(
+        #             "event_aggregation_interval", 600
+        #         ),
+        #         time_window_hours=processing_config.get("event_time_window_hours", 1),
+        #     )
 
         if self.session_agent is None:
             from agents.session_agent import SessionAgent
@@ -314,6 +340,11 @@ class PipelineCoordinator:
                     "image_cleanup_safety_window_minutes", 30
                 ),
             )
+
+        if self.pomodoro_manager is None:
+            from core.pomodoro_manager import PomodoroManager
+
+            self.pomodoro_manager = PomodoroManager(self)
 
         # Link agents
         if self.processing_pipeline:
@@ -376,9 +407,10 @@ class PipelineCoordinator:
                 logger.error("Action agent initialization failed")
                 raise Exception("Action agent initialization failed")
 
-            if not self.event_agent:
-                logger.error("Event agent initialization failed")
-                raise Exception("Event agent initialization failed")
+            # DISABLED: EventAgent removed - using action-based aggregation only
+            # if not self.event_agent:
+            #     logger.error("Event agent initialization failed")
+            #     raise Exception("Event agent initialization failed")
 
             if not self.session_agent:
                 logger.error("Session agent initialization failed")
@@ -401,15 +433,18 @@ class PipelineCoordinator:
                 raise Exception("Cleanup agent initialization failed")
 
             # Start all components in parallel (they are independent)
+            # NOTE: Perception manager is NOT started by default - it will be started
+            # when a Pomodoro session begins (Active mode strategy)
             logger.debug(
-                "Starting perception manager, processing pipeline, agents in parallel..."
+                "Starting processing pipeline and agents (perception will start with Pomodoro)..."
             )
             start_time = datetime.now()
 
             await asyncio.gather(
-                self.perception_manager.start(),
+                # self.perception_manager.start(),  # Disabled: starts with Pomodoro
                 self.processing_pipeline.start(),
-                self.event_agent.start(),
+                # DISABLED: EventAgent removed - using action-based aggregation only
+                # self.event_agent.start(),
                 self.session_agent.start(),
                 self.diary_agent.start(),
                 self.cleanup_agent.start(),
@@ -419,6 +454,12 @@ class PipelineCoordinator:
             logger.debug(
                 f"All components started (took {elapsed:.2f}s)"
             )
+
+            # Check for orphaned Pomodoro sessions from previous run
+            if self.pomodoro_manager:
+                orphaned_count = await self.pomodoro_manager.check_orphaned_sessions()
+                if orphaned_count > 0:
+                    logger.info(f"✓ Recovered {orphaned_count} orphaned Pomodoro session(s)")
 
             # Start scheduled processing loop
             self.is_running = True
@@ -473,9 +514,10 @@ class PipelineCoordinator:
                 await self.session_agent.stop()
                 log("Session agent stopped")
 
-            if self.event_agent:
-                await self.event_agent.stop()
-                log("Event agent stopped")
+            # DISABLED: EventAgent removed - using action-based aggregation only
+            # if self.event_agent:
+            #     await self.event_agent.stop()
+            #     log("Event agent stopped")
 
             # Note: ActionAgent has no start/stop methods (it's stateless)
 
@@ -501,92 +543,174 @@ class PipelineCoordinator:
             self._last_processed_timestamp = None
 
     async def _processing_loop(self) -> None:
-        """Scheduled processing loop"""
+        """Event-driven processing loop with fallback polling"""
         try:
-            # First iteration has shorter delay, then use normal interval
-            first_iteration = True
             last_ttl_cleanup = datetime.now()  # Track last TTL cleanup time
+            last_fallback_check = datetime.now()  # Track last fallback check
+
+            logger.info(
+                f"Processing loop started: event_driven={'enabled' if self.enable_event_driven else 'disabled'}, "
+                f"threshold={self.processing_threshold} records, "
+                f"fallback_interval={self.fallback_check_interval}s"
+            )
 
             while self.is_running:
-                # First iteration starts quickly (100ms), then use configured interval
-                wait_time = 0.1 if first_iteration else self.processing_interval
-                await asyncio.sleep(wait_time)
+                try:
+                    if self.enable_event_driven:
+                        # Wait for event trigger OR fallback timeout
+                        try:
+                            await asyncio.wait_for(
+                                self._process_trigger.wait(),
+                                timeout=self.fallback_check_interval
+                            )
+                            self._process_trigger.clear()
+                            logger.debug("Processing triggered by event")
+                        except asyncio.TimeoutError:
+                            # Fallback check after timeout
+                            now = datetime.now()
+                            if (now - last_fallback_check).total_seconds() >= self.fallback_check_interval:
+                                logger.debug(f"Fallback check after {self.fallback_check_interval}s timeout")
+                                last_fallback_check = now
+                            else:
+                                continue
+                    else:
+                        # Legacy polling mode
+                        await asyncio.sleep(self.processing_interval)
 
-                if not self.is_running:
-                    break
+                    if not self.is_running:
+                        break
 
-                first_iteration = False
+                    # Skip processing if paused (system sleep)
+                    if self.is_paused:
+                        logger.debug("Coordinator paused, skipping processing cycle")
+                        continue
 
-                # Skip processing if paused (system sleep)
-                if self.is_paused:
-                    logger.debug("Coordinator paused, skipping processing cycle")
-                    continue
+                    # Periodic TTL cleanup for memory-only images
+                    now = datetime.now()
+                    if (now - last_ttl_cleanup).total_seconds() >= self.processing_interval:
+                        try:
+                            if self.processing_pipeline and self.processing_pipeline.image_manager:
+                                evicted = self.processing_pipeline.image_manager.cleanup_expired_memory_images()
+                                if evicted > 0:
+                                    logger.debug(f"TTL cleanup: evicted {evicted} expired memory-only images")
+                            last_ttl_cleanup = now
+                        except Exception as e:
+                            logger.error(f"TTL cleanup failed: {e}")
 
-                # Periodic TTL cleanup for memory-only images
-                now = datetime.now()
-                if (now - last_ttl_cleanup).total_seconds() >= self.processing_interval:
-                    try:
-                        if self.processing_pipeline and self.processing_pipeline.image_manager:
-                            evicted = self.processing_pipeline.image_manager.cleanup_expired_memory_images()
-                            if evicted > 0:
-                                logger.debug(f"TTL cleanup: evicted {evicted} expired memory-only images")
-                        last_ttl_cleanup = now
-                    except Exception as e:
-                        logger.error(f"TTL cleanup failed: {e}")
+                    if not self.perception_manager:
+                        logger.error("Perception manager not initialized")
+                        raise Exception("Perception manager not initialized")
 
-                if not self.perception_manager:
-                    logger.error("Perception manager not initialized")
-                    raise Exception("Perception manager not initialized")
+                    if not self.processing_pipeline:
+                        logger.error("Processing pipeline not initialized")
+                        raise Exception("Processing pipeline not initialized")
 
-                if not self.processing_pipeline:
-                    logger.error("Processing pipeline not initialized")
-                    raise Exception("Processing pipeline not initialized")
+                    # CRITICAL FIX: Check for expiring records BEFORE normal processing
+                    # This prevents records from being auto-cleaned before they can be processed into actions
+                    # Particularly important during Pomodoro mode when user may be idle (reading, thinking)
+                    expiring_records = self.perception_manager.get_expiring_records()
+                    if expiring_records and self._last_processed_timestamp:
+                        # Filter out already processed records
+                        expiring_records = [
+                            record
+                            for record in expiring_records
+                            if record.timestamp > self._last_processed_timestamp
+                        ]
 
-                # Fetch records newer than the last processed timestamp to avoid duplicates
-                end_time = datetime.now()
-                if self._last_processed_timestamp is None:
-                    start_time = end_time - timedelta(seconds=self.processing_interval)
-                else:
-                    start_time = self._last_processed_timestamp
+                    if expiring_records:
+                        logger.warning(
+                            f"Found {len(expiring_records)} records about to expire, "
+                            f"forcing processing to prevent data loss"
+                        )
+                        # Force process expiring records immediately
+                        result = await self.processing_pipeline.process_raw_records(expiring_records)
 
-                records = self.perception_manager.get_records_in_timeframe(
-                    start_time, end_time
-                )
+                        # Update last processed timestamp
+                        latest_record_time = max(
+                            (record.timestamp for record in expiring_records), default=None
+                        )
+                        if latest_record_time:
+                            self._last_processed_timestamp = latest_record_time
 
-                if self._last_processed_timestamp is not None:
-                    records = [
-                        record
-                        for record in records
-                        if record.timestamp > self._last_processed_timestamp
-                    ]
+                        # Update statistics
+                        self.stats["total_processing_cycles"] += 1
+                        self.stats["last_processing_time"] = datetime.now()
+                        self._pending_records_count = 0
 
-                if records:
-                    logger.debug(f"Starting to process {len(records)} records")
+                        logger.info(f"Processed {len(expiring_records)} expiring records to prevent loss")
 
-                    # Process records
-                    result = await self.processing_pipeline.process_raw_records(records)
+                    # Fetch records newer than the last processed timestamp to avoid duplicates
+                    end_time = datetime.now()
+                    if self._last_processed_timestamp is None:
+                        start_time = end_time - timedelta(seconds=self.processing_interval)
+                    else:
+                        start_time = self._last_processed_timestamp
 
-                    # Update last processed timestamp so future cycles skip these records
-                    latest_record_time = max(
-                        (record.timestamp for record in records), default=None
+                    records = self.perception_manager.get_records_in_timeframe(
+                        start_time, end_time
                     )
-                    if latest_record_time:
-                        self._last_processed_timestamp = latest_record_time
 
-                    # Update statistics
-                    self.stats["total_processing_cycles"] += 1
-                    self.stats["last_processing_time"] = datetime.now()
+                    if self._last_processed_timestamp is not None:
+                        records = [
+                            record
+                            for record in records
+                            if record.timestamp > self._last_processed_timestamp
+                        ]
 
-                    logger.debug(
-                        f"Processing completed: {len(result.get('events', []))} events, {len(result.get('activities', []))} activities"
-                    )
-                else:
-                    logger.debug("No new records to process")
+                    if records:
+                        logger.info(f"Processing {len(records)} records (triggered by: {'event' if self.enable_event_driven else 'polling'})")
+
+                        # Reset pending count
+                        self._pending_records_count = 0
+
+                        # Process records
+                        result = await self.processing_pipeline.process_raw_records(records)
+
+                        # Update last processed timestamp so future cycles skip these records
+                        latest_record_time = max(
+                            (record.timestamp for record in records), default=None
+                        )
+                        if latest_record_time:
+                            self._last_processed_timestamp = latest_record_time
+
+                        # Update statistics
+                        self.stats["total_processing_cycles"] += 1
+                        self.stats["last_processing_time"] = datetime.now()
+
+                        logger.debug(
+                            f"Processing completed: {len(result.get('events', []))} events, {len(result.get('activities', []))} activities"
+                        )
+                    # No "else" logging when no records to reduce noise
+
+                except Exception as loop_error:
+                    logger.error(f"Error in processing loop iteration: {loop_error}", exc_info=True)
+                    # Continue running despite errors
 
         except asyncio.CancelledError:
             logger.debug("Processing loop cancelled")
         except Exception as e:
-            logger.error(f"Processing loop failed: {e}")
+            logger.error(f"Processing loop failed: {e}", exc_info=True)
+
+    def notify_records_available(self, count: int = 1) -> None:
+        """
+        Notify coordinator that new records are available (called by PerceptionManager)
+
+        This enables event-driven processing instead of polling.
+
+        Args:
+            count: Number of new records added
+        """
+        if not self.enable_event_driven:
+            return
+
+        self._pending_records_count += count
+
+        # Trigger processing if threshold reached
+        if self._pending_records_count >= self.processing_threshold:
+            logger.debug(
+                f"Triggering processing: {self._pending_records_count} records >= threshold {self.processing_threshold}"
+            )
+            self._process_trigger.set()
 
     def get_stats(self) -> Dict[str, Any]:
         """Get coordinator statistics"""
@@ -596,7 +720,8 @@ class PipelineCoordinator:
             perception_stats = {}
             processing_stats = {}
             action_agent_stats = {}
-            event_agent_stats = {}
+            # DISABLED: EventAgent removed - using action-based aggregation only
+            # event_agent_stats = {}
             session_agent_stats = {}
             todo_agent_stats = {}
             knowledge_agent_stats = {}
@@ -611,8 +736,9 @@ class PipelineCoordinator:
             if self.action_agent:
                 action_agent_stats = self.action_agent.get_stats()
 
-            if self.event_agent:
-                event_agent_stats = self.event_agent.get_stats()
+            # DISABLED: EventAgent removed - using action-based aggregation only
+            # if self.event_agent:
+            #     event_agent_stats = self.event_agent.get_stats()
 
             if self.session_agent:
                 session_agent_stats = self.session_agent.get_stats()
@@ -649,7 +775,8 @@ class PipelineCoordinator:
                 "perception": perception_stats,
                 "processing": processing_stats,
                 "action_agent": action_agent_stats,
-                "event_agent": event_agent_stats,
+                # DISABLED: EventAgent removed - using action-based aggregation only
+                # "event_agent": event_agent_stats,
                 "session_agent": session_agent_stats,
                 "todo_agent": todo_agent_stats,
                 "knowledge_agent": knowledge_agent_stats,
@@ -660,6 +787,163 @@ class PipelineCoordinator:
 
         except Exception as e:
             logger.error(f"Failed to get statistics: {e}")
+            return {"error": str(e)}
+
+
+    async def enter_pomodoro_mode(self, session_id: str) -> None:
+        """
+        Enter Pomodoro mode - start perception and disable continuous processing
+
+        Changes:
+        1. Start perception manager (if not already running)
+        2. Stop processing_loop (cancel task)
+        3. Set pomodoro_mode = True
+        4. Set current_pomodoro_session_id
+        5. Perception captures and tags records
+        6. Records are saved to DB instead of processed
+
+        Args:
+            session_id: Pomodoro session identifier
+        """
+        logger.info(f"→ Entering Pomodoro mode: {session_id}")
+
+        self.pomodoro_mode = True
+        self.current_pomodoro_session_id = session_id
+
+        # Start perception manager if not already running
+        if self.perception_manager and not self.perception_manager.is_running:
+            try:
+                logger.info("Starting perception manager for Pomodoro mode...")
+                await self.perception_manager.start()
+                logger.info("✓ Perception manager started")
+            except Exception as e:
+                logger.error(f"Failed to start perception manager: {e}", exc_info=True)
+                raise
+        elif not self.perception_manager:
+            logger.error("Perception manager is None, cannot start")
+        else:
+            logger.debug("Perception manager already running")
+
+        # Keep processing loop running - do NOT cancel it
+        # This allows Actions (30s) to continue normally
+
+        # DISABLED: EventAgent removed - using action-based aggregation only
+        # # NEW: Pause EventAgent during Pomodoro mode (action-based aggregation)
+        # # We directly aggregate Actions → Activities, bypassing Events layer
+        # try:
+        #     if self.event_agent:
+        #         self.event_agent.pause()
+        #         logger.debug("✓ EventAgent paused (using action-based aggregation)")
+        # except Exception as e:
+        #     logger.error(f"Failed to pause EventAgent: {e}")
+
+        # Pause SessionAgent (activity generation deferred until phase ends)
+        try:
+            if self.session_agent:
+                self.session_agent.pause()
+                logger.debug("✓ SessionAgent paused (activity generation deferred)")
+        except Exception as e:
+            logger.error(f"Failed to pause SessionAgent: {e}")
+
+        # Notify perception manager of Pomodoro mode (for tagging records)
+        if self.perception_manager:
+            self.perception_manager.set_pomodoro_session(session_id)
+
+        logger.info(
+            "✓ Pomodoro mode active - normal processing continues, "
+            "activity generation paused until session ends"
+        )
+
+    async def exit_pomodoro_mode(self) -> None:
+        """
+        Exit Pomodoro mode - stop perception and trigger activity generation
+
+        When Pomodoro ends:
+        - Stop perception manager
+        - Resume SessionAgent
+        - Trigger immediate activity aggregation for accumulated Events
+        """
+        logger.info("→ Exiting Pomodoro mode")
+
+        self.pomodoro_mode = False
+        session_id = self.current_pomodoro_session_id
+        self.current_pomodoro_session_id = None
+
+        # Stop perception manager
+        if self.perception_manager and self.perception_manager.is_running:
+            try:
+                logger.debug("Stopping perception manager...")
+                await self.perception_manager.stop()
+                logger.debug("✓ Perception manager stopped")
+            except Exception as e:
+                logger.error(f"Failed to stop perception manager: {e}")
+
+        # Processing loop is still running - no need to resume
+
+        # DISABLED: EventAgent removed - using action-based aggregation only
+        # # Resume EventAgent (for Normal Mode event generation)
+        # try:
+        #     if self.event_agent:
+        #         self.event_agent.resume()
+        #         logger.debug("✓ EventAgent resumed (Normal Mode event generation)")
+        # except Exception as e:
+        #     logger.error(f"Failed to resume EventAgent: {e}")
+
+        # Resume SessionAgent (no need to trigger aggregation, already done per work phase)
+        try:
+            if self.session_agent:
+                self.session_agent.resume()
+                logger.debug("✓ SessionAgent resumed (activities already aggregated per work phase)")
+        except Exception as e:
+            logger.error(f"Failed to resume SessionAgent: {e}")
+
+        # Notify perception manager to exit Pomodoro mode
+        if self.perception_manager:
+            self.perception_manager.clear_pomodoro_session()
+
+        logger.info(f"✓ Idle mode resumed - perception stopped (exited session: {session_id})")
+
+    async def force_process_records(self, records: List[Any]) -> Dict[str, Any]:
+        """
+        Force process records immediately (used for phase settlement)
+
+        This method bypasses the normal processing loop and directly processes
+        records through the pipeline. Used to ensure no data loss during phase transitions.
+
+        Args:
+            records: List of RawRecord objects to process
+
+        Returns:
+            Processing result with events and activities count
+        """
+        if not records:
+            logger.debug("No records to force process")
+            return {"processed": 0, "events": [], "activities": []}
+
+        logger.info(f"Force processing {len(records)} records for phase settlement")
+
+        try:
+            if not self.processing_pipeline:
+                logger.error("Processing pipeline not available")
+                return {"error": "Processing pipeline not available"}
+
+            # Directly process through the pipeline
+            result = await self.processing_pipeline.process_raw_records(records)
+
+            # Update last processed timestamp
+            if records:
+                latest_record_time = max(record.timestamp for record in records)
+                self._last_processed_timestamp = latest_record_time
+
+            logger.info(
+                f"✓ Force processing completed: "
+                f"{len(result.get('events', []))} events, {len(result.get('activities', []))} activities"
+            )
+
+            return result
+
+        except Exception as e:
+            logger.error(f"Failed to force process records: {e}", exc_info=True)
             return {"error": str(e)}
 
 

@@ -15,6 +15,10 @@ import { MessageInput } from '@/components/chat/MessageInput'
 import { ActivityContext } from '@/components/chat/ActivityContext'
 import { eventBus } from '@/lib/events/eventBus'
 import * as apiClient from '@/lib/client/apiClient'
+import { PageLayout } from '@/components/layout/PageLayout'
+import { PageHeader } from '@/components/layout/PageHeader'
+import { MessageSquare, Menu, X } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 
 // Stable empty array reference
 const EMPTY_ARRAY: any[] = []
@@ -25,6 +29,7 @@ export default function Chat() {
   const [isCancelling, setIsCancelling] = useState(false)
   const [selectedModelId, setSelectedModelId] = useState<string | null>(null)
   const [isDraggingFiles, setIsDraggingFiles] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   // Store state
   const conversations = useChatStore((state) => state.conversations)
@@ -470,18 +475,53 @@ export default function Chat() {
   }
 
   return (
-    <div className="grid h-full min-h-0 grid-cols-[minmax(200px,260px)_minmax(0,1fr)] items-stretch">
-      {/* Left column: conversation list */}
-      <ConversationList
-        conversations={conversations}
-        currentConversationId={currentConversationId}
-        onSelect={setCurrentConversation}
-        onNew={handleNewConversation}
-        onDelete={handleDeleteConversation}
-      />
+    <div className="relative flex h-full min-h-0 gap-4 p-6">
+      {/* Left sidebar: conversation list - hidden on small screens */}
+      <div className="hidden w-72 shrink-0 lg:block">
+        <ConversationList
+          conversations={conversations}
+          currentConversationId={currentConversationId}
+          onSelect={setCurrentConversation}
+          onNew={handleNewConversation}
+          onDelete={handleDeleteConversation}
+        />
+      </div>
+
+      {/* Mobile sidebar overlay */}
+      {sidebarOpen && (
+        <>
+          {/* Backdrop */}
+          <div className="fixed inset-0 z-40 bg-black/50 lg:hidden" onClick={() => setSidebarOpen(false)} />
+
+          {/* Sidebar */}
+          <div className="bg-background fixed top-0 bottom-0 left-0 z-50 w-80 border-r lg:hidden">
+            <div className="flex h-full flex-col gap-4 p-6 pb-0">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold">{t('chat.conversations')}</h2>
+                <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(false)}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+              <ConversationList
+                conversations={conversations}
+                currentConversationId={currentConversationId}
+                onSelect={(id) => {
+                  setCurrentConversation(id)
+                  setSidebarOpen(false)
+                }}
+                onNew={() => {
+                  handleNewConversation()
+                  setSidebarOpen(false)
+                }}
+                onDelete={handleDeleteConversation}
+              />
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Right column: message area */}
-      <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+      <div className="bg-card relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border py-0">
         {/* Drag-and-drop highlight overlay */}
         {isDraggingFiles && (
           <div className="border-primary bg-primary/5 pointer-events-none absolute inset-0 z-50 flex items-center justify-center rounded-lg border-2 border-dashed backdrop-blur-sm">
@@ -499,80 +539,84 @@ export default function Chat() {
           </div>
         )}
 
-        {currentConversationId ? (
-          <>
-            {/* Header - full width */}
-            <div className="border-border/80 flex items-center justify-between border-b px-4 py-4 sm:px-6">
-              <div>
-                <h1 className="text-lg leading-tight font-semibold">{conversationTitle}</h1>
-                {currentConversation?.metadata?.generatedTitleSource === 'auto' && (
-                  <p className="text-muted-foreground mt-1 text-xs">{t('chat.autoSummary')}</p>
-                )}
-              </div>
-            </div>
+        <PageLayout centered={false} className="h-full">
+          {currentConversationId ? (
+            <>
+              {/* Header */}
+              <PageHeader
+                title={conversationTitle}
+                description={
+                  currentConversation?.metadata?.generatedTitleSource === 'auto' ? t('chat.autoSummary') : undefined
+                }
+                actions={
+                  <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setSidebarOpen(true)}>
+                    <Menu className="h-5 w-5" />
+                  </Button>
+                }
+              />
 
-            {/* Message list - centered with max width */}
-            <div className="flex min-h-0 flex-1 justify-center">
-              <div className="flex w-full max-w-4xl flex-col overflow-hidden px-8">
-                <MessageList
-                  messages={messages}
-                  streamingMessage={streamingMessage}
-                  isStreaming={isStreaming}
-                  loading={loadingMessages}
-                  sending={sending}
-                  onRetry={handleRetry}
-                />
-              </div>
-            </div>
-
-            {/* Activity context - centered with max width */}
-            {pendingActivityId && !loadingMessages && (
-              <div className="flex justify-center border-t">
-                <div className="w-full max-w-4xl px-4 py-3 sm:px-6">
-                  <ActivityContext activityId={pendingActivityId} onDismiss={() => setPendingActivityId(null)} />
+              {/* Message list - centered with max width */}
+              <div className="flex min-h-0 flex-1 justify-center overflow-hidden">
+                <div className="flex w-full max-w-4xl flex-col overflow-hidden px-6">
+                  <MessageList
+                    messages={messages}
+                    streamingMessage={streamingMessage}
+                    isStreaming={isStreaming}
+                    loading={loadingMessages}
+                    sending={sending}
+                    onRetry={handleRetry}
+                  />
                 </div>
               </div>
-            )}
 
-            {/* Input area - centered with max width */}
-            <div className="flex justify-center bg-transparent">
-              <div className="w-full max-w-4xl px-4 pb-3 sm:px-6">
-                <MessageInput
-                  onSend={handleSendMessage}
-                  onCancel={handleCancelStream}
-                  disabled={sending || loadingMessages}
-                  isStreaming={sending || isStreaming}
-                  isCancelling={isCancelling}
-                  placeholder={
-                    loadingMessages
-                      ? t('chat.loadingMessages')
-                      : isStreaming
-                        ? t('chat.aiResponding')
-                        : sending
-                          ? t('chat.thinking')
-                          : t('chat.inputPlaceholder')
-                  }
-                  initialMessage={pendingMessage || undefined}
-                  conversationId={currentConversationId}
-                  selectedModelId={selectedModelId}
-                  onModelChange={handleModelChange}
-                />
+              {/* Activity context - centered with max width */}
+              {pendingActivityId && !loadingMessages && (
+                <div className="flex justify-center border-t">
+                  <div className="w-full max-w-4xl px-6 py-3">
+                    <ActivityContext activityId={pendingActivityId} onDismiss={() => setPendingActivityId(null)} />
+                  </div>
+                </div>
+              )}
+
+              {/* Input area - centered with max width */}
+              <div className="flex justify-center bg-transparent pb-6">
+                <div className="w-full max-w-4xl px-6">
+                  <MessageInput
+                    onSend={handleSendMessage}
+                    onCancel={handleCancelStream}
+                    disabled={sending || loadingMessages}
+                    isStreaming={sending || isStreaming}
+                    isCancelling={isCancelling}
+                    placeholder={
+                      loadingMessages
+                        ? t('chat.loadingMessages')
+                        : isStreaming
+                          ? t('chat.aiResponding')
+                          : sending
+                            ? t('chat.thinking')
+                            : t('chat.inputPlaceholder')
+                    }
+                    initialMessage={pendingMessage || undefined}
+                    conversationId={currentConversationId}
+                    selectedModelId={selectedModelId}
+                    onModelChange={handleModelChange}
+                  />
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="text-muted-foreground flex flex-1 items-center justify-center">
+              <div className="flex flex-col items-center text-center">
+                <MessageSquare className="mb-4 h-16 w-16 opacity-20" />
+                <p className="text-lg font-semibold">{t('chat.selectOrCreate')}</p>
+                <p className="text-muted-foreground/80 mt-2 text-sm">{t('chat.startChatting')}</p>
+                <Button onClick={handleNewConversation} className="mt-6">
+                  {t('chat.newConversation')}
+                </Button>
               </div>
             </div>
-          </>
-        ) : (
-          <div className="text-muted-foreground flex flex-1 items-center justify-center">
-            <div className="text-center">
-              <p className="text-lg font-medium">{t('chat.selectOrCreate')}</p>
-              <p className="mt-2 text-sm">{t('chat.startChatting')}</p>
-              <button
-                onClick={handleNewConversation}
-                className="bg-primary text-primary-foreground hover:bg-primary/90 mt-4 rounded-lg px-4 py-2 text-sm font-medium transition-colors">
-                {t('chat.newConversation')}
-              </button>
-            </div>
-          </div>
-        )}
+          )}
+        </PageLayout>
       </div>
     </div>
   )

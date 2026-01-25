@@ -2,6 +2,7 @@ import { create } from 'zustand'
 
 export type MenuItemId =
   | 'activity'
+  | 'pomodoro'
   | 'recent-events'
   | 'ai-summary'
   | 'ai-summary-knowledge'
@@ -19,6 +20,9 @@ interface UIState {
   // Whether the sidebar is collapsed
   sidebarCollapsed: boolean
 
+  // Whether the floating Pomodoro panel is open
+  pomodoroFloatingPanelOpen: boolean
+
   // Notification badge data
   badges: Record<string, number>
 
@@ -26,6 +30,8 @@ interface UIState {
   setActiveMenuItem: (item: MenuItemId) => void
   toggleSidebar: () => void
   setSidebarCollapsed: (collapsed: boolean) => void
+  setPomodoroFloatingPanelOpen: (open: boolean) => void
+  togglePomodoroFloatingPanel: () => void
   setBadge: (menuId: string, count: number) => void
   clearBadge: (menuId: string) => void
 }
@@ -33,11 +39,14 @@ interface UIState {
 export const useUIStore = create<UIState>()((set) => ({
   activeMenuItem: 'activity',
   sidebarCollapsed: false,
+  pomodoroFloatingPanelOpen: false,
   badges: {},
 
   setActiveMenuItem: (item) => set({ activeMenuItem: item }),
   toggleSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
   setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
+  setPomodoroFloatingPanelOpen: (open) => set({ pomodoroFloatingPanelOpen: open }),
+  togglePomodoroFloatingPanel: () => set((state) => ({ pomodoroFloatingPanelOpen: !state.pomodoroFloatingPanelOpen })),
   setBadge: (menuId, count) =>
     set((state) => ({
       badges: { ...state.badges, [menuId]: count }

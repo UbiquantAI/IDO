@@ -31,6 +31,7 @@ class EventAgent:
 
     def __init__(
         self,
+        coordinator=None,
         aggregation_interval: int = 600,  # 10 minutes
         time_window_hours: int = 1,  # Look back 1 hour for unaggregated actions
     ):
@@ -38,9 +39,11 @@ class EventAgent:
         Initialize EventAgent
 
         Args:
+            coordinator: Reference to PipelineCoordinator (for accessing pomodoro session)
             aggregation_interval: How often to run aggregation (seconds, default 10min)
             time_window_hours: Time window to look back for unaggregated actions (hours)
         """
+        self.coordinator = coordinator
         self.aggregation_interval = aggregation_interval
         self.time_window_hours = time_window_hours
 
@@ -191,6 +194,11 @@ class EventAgent:
                     else str(end_time)
                 )
 
+                # Get current pomodoro session ID if active
+                pomodoro_session_id = None
+                if self.coordinator and hasattr(self.coordinator, 'pomodoro_manager'):
+                    pomodoro_session_id = self.coordinator.pomodoro_manager.get_current_session_id()
+
                 # Save event
                 await self.db.events.save(
                     event_id=event_id,
@@ -199,6 +207,7 @@ class EventAgent:
                     start_time=start_time,
                     end_time=end_time,
                     source_action_ids=[str(aid) for aid in source_action_ids if aid],
+                    pomodoro_session_id=pomodoro_session_id,
                 )
 
                 self.stats["events_created"] += 1

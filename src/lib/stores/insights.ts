@@ -12,8 +12,23 @@ import {
   InsightEvent,
   InsightKnowledge,
   InsightTodo,
+  toggleKnowledgeFavorite,
+  createKnowledge,
+  updateKnowledge,
   type RecurrenceRule
 } from '@/lib/services/insights'
+import { analyzeKnowledgeMerge, executeKnowledgeMerge } from '@/lib/client/apiClient'
+
+export interface MergeSuggestion {
+  groupId: string
+  knowledgeIds: string[]
+  mergedTitle: string
+  mergedDescription: string
+  mergedKeywords: string[]
+  similarityScore: number
+  mergeReason: string
+  estimatedTokens: number
+}
 
 interface InsightsState {
   recentEvents: InsightEvent[]
@@ -28,6 +43,7 @@ interface InsightsState {
   loadingKnowledge: boolean
   loadingTodos: boolean
   loadingDiaries: boolean
+  isAnalyzing: boolean // Track if knowledge analysis is in progress
   lastError?: string
 
   fetchRecentEvents: (limit?: number) => Promise<void>
@@ -38,6 +54,19 @@ interface InsightsState {
   removeKnowledge: (id: string) => Promise<void>
   removeTodo: (id: string) => Promise<void>
   removeDiary: (id: string) => Promise<void>
+
+  // Knowledge favorites
+  toggleKnowledgeFavorite: (id: string) => Promise<void>
+  createKnowledge: (title: string, description: string, keywords: string[]) => Promise<InsightKnowledge>
+  updateKnowledge: (id: string, title: string, description: string, keywords: string[]) => Promise<void>
+
+  // Knowledge merge
+  analyzeMerge: (config: {
+    filterByKeyword?: string | null
+    includeFavorites: boolean
+    similarityThreshold: number
+  }) => Promise<MergeSuggestion[]>
+  executeMerge: (suggestions: MergeSuggestion[]) => Promise<void>
 
   // Todo scheduling
   scheduleTodo: (
@@ -54,6 +83,7 @@ interface InsightsState {
   getScheduledTodos: () => InsightTodo[]
 
   createDiaryForDate: (date: string) => Promise<InsightDiary>
+  checkAnalysisStatus: () => Promise<boolean>
   clearError: () => void
   setRecentEventsLimit: (limit: number) => void
 }
@@ -73,6 +103,7 @@ export const useInsightsStore = create<InsightsState>((set, get) => ({
   loadingKnowledge: false,
   loadingTodos: false,
   loadingDiaries: false,
+  isAnalyzing: false,
   lastError: undefined,
 
   fetchRecentEvents: async (limit) => {
@@ -140,6 +171,90 @@ export const useInsightsStore = create<InsightsState>((set, get) => ({
     set((state) => ({ diaries: state.diaries.filter((item) => item.id !== id) }))
   },
 
+  toggleKnowledgeFavorite: async (id: string) => {
+    try {
+      const updatedKnowledge = await toggleKnowledgeFavorite(id)
+      set((state) => ({
+        knowledge: state.knowledge.map((item) => (item.id === id ? updatedKnowledge : item))
+      }))
+    } catch (error) {
+      console.error('Failed to toggle knowledge favorite:', error)
+      throw error
+    }
+  },
+
+  createKnowledge: async (title: string, description: string, keywords: string[]) => {
+    try {
+      const newKnowledge = await createKnowledge(title, description, keywords)
+      set((state) => ({ knowledge: [newKnowledge, ...state.knowledge] }))
+      return newKnowledge
+    } catch (error) {
+      console.error('Failed to create knowledge:', error)
+      throw error
+    }
+  },
+
+  updateKnowledge: async (id: string, title: string, description: string, keywords: string[]) => {
+    try {
+      const updatedKnowledge = await updateKnowledge(id, title, description, keywords)
+      set((state) => ({
+        knowledge: state.knowledge.map((item) => (item.id === id ? updatedKnowledge : item))
+      }))
+    } catch (error) {
+      console.error('Failed to update knowledge:', error)
+      throw error
+    }
+  },
+
+  // Knowledge merge methods
+  analyzeMerge: async (config) => {
+    set({ isAnalyzing: true })
+    try {
+      const response = await analyzeKnowledgeMerge({
+        filterByKeyword: config.filterByKeyword || undefined,
+        includeFavorites: config.includeFavorites,
+        similarityThreshold: config.similarityThreshold
+      })
+
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to analyze merge')
+      }
+
+      return response.suggestions
+    } catch (error) {
+      console.error('Failed to analyze knowledge merge:', error)
+      throw error
+    } finally {
+      set({ isAnalyzing: false })
+    }
+  },
+
+  executeMerge: async (suggestions) => {
+    try {
+      const mergeGroups = suggestions.map((s) => ({
+        groupId: s.groupId,
+        knowledgeIds: s.knowledgeIds,
+        mergedTitle: s.mergedTitle,
+        mergedDescription: s.mergedDescription,
+        mergedKeywords: s.mergedKeywords,
+        mergeReason: s.mergeReason,
+        keepFavorite: true
+      }))
+
+      const response = await executeKnowledgeMerge({ mergeGroups })
+
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to execute merge')
+      }
+
+      // Refresh knowledge list
+      await get().refreshKnowledge()
+    } catch (error) {
+      console.error('Failed to execute knowledge merge:', error)
+      throw error
+    }
+  },
+
   // Todo scheduling methods
   scheduleTodo: async (id: string, date: string, time?: string, endTime?: string, recurrenceRule?: RecurrenceRule) => {
     console.log('[Store] scheduleTodo called:', {
@@ -170,12 +285,13 @@ export const useInsightsStore = create<InsightsState>((set, get) => ({
 
   completeTodo: async (id: string) => {
     try {
-      // Update todo to mark as completed
+      const { completeTodo: completeAPI } = await import('@/lib/services/insights')
+      // Call API to mark as completed
+      await completeAPI(id)
+      // Update local state to mark as completed
       set((state) => ({
         todos: state.todos.map((todo) => (todo.id === id ? { ...todo, completed: true } : todo))
       }))
-      // Call API to persist (assuming deleteTodo also handles completion)
-      await deleteTodo(id)
     } catch (error) {
       console.error('Failed to complete todo:', error)
       throw error
@@ -211,6 +327,23 @@ export const useInsightsStore = create<InsightsState>((set, get) => ({
     const diary = await generateDiary(date)
     set((state) => ({ diaries: [diary, ...state.diaries.filter((item) => item.id !== diary.id)] }))
     return diary
+  },
+
+  checkAnalysisStatus: async () => {
+    try {
+      const { getAnalysisStatus } = await import('@/lib/client/apiClient')
+      const response = await getAnalysisStatus()
+
+      if (response.success && response.data) {
+        const isAnalyzing = response.data.isAnalyzing
+        set({ isAnalyzing })
+        return isAnalyzing
+      }
+      return false
+    } catch (error) {
+      console.error('Failed to check analysis status:', error)
+      return false
+    }
   },
 
   clearError: () => set({ lastError: undefined }),

@@ -9,7 +9,8 @@ import { ScreenSelectionSettings } from '@/components/settings/ScreenSelectionSe
 import { PerceptionSettings } from '@/components/settings/PerceptionSettings'
 import { AppearanceSettings } from '@/components/settings/AppearanceSettings'
 import { PermissionsSettings } from '@/components/settings/PermissionsSettings'
-import { BatchDeleteSettings } from '@/components/settings/BatchDeleteSettings'
+import { PomodoroSettings } from '@/components/settings/PomodoroSettings'
+import { VoiceClockSettings } from '@/components/settings/VoiceClockSettings'
 import { StorageSettings } from '@/components/settings/StorageSettings'
 import { DeveloperSettings } from '@/components/settings/DeveloperSettings'
 import { PageLayout } from '@/components/layout/PageLayout'
@@ -46,6 +47,12 @@ export default function SettingsView() {
         sections: [<PermissionsSettings key="permissions" />]
       },
       {
+        id: 'pomodoro',
+        title: t('settings.categories.pomodoro.title'),
+        description: t('settings.categories.pomodoro.description'),
+        sections: [<PomodoroSettings key="pomodoro-goals" />, <VoiceClockSettings key="voice-clock" />]
+      },
+      {
         id: 'perception',
         title: t('settings.categories.perception.title'),
         description: t('settings.categories.perception.description'),
@@ -64,8 +71,7 @@ export default function SettingsView() {
         sections: [
           <StorageSettings key="storage" />,
           <DatabaseSettings key="database" />,
-          <ScreenshotSettings key="screenshot" />,
-          <BatchDeleteSettings key="batch-delete" />
+          <ScreenshotSettings key="screenshot" />
         ]
       }
     ]

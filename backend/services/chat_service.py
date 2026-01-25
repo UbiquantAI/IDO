@@ -585,11 +585,16 @@ class ChatService:
 
             # 3. Stream responses from the LLM (with timeout)
             full_response = ""
+            is_error_response = False
             try:
                 # timeout may not exist when python version < 3.11, but we use python 3.14
                 async with asyncio.timeout(TIMEOUT_SECONDS): # type: ignore[attr-defined]
                     async for chunk in self.llm_manager.chat_completion_stream(messages, model_id=model_id):
                         full_response += chunk
+
+                        # Check if chunk contains error pattern (LLM client yields errors as chunks)
+                        if chunk.startswith("[Error]") or chunk.startswith("[错误]"):
+                            is_error_response = True
 
                         # Send chunks to the frontend in real time
                         emit_chat_message_chunk(
@@ -599,7 +604,7 @@ class ChatService:
                 error_msg = "Request timeout, please check network connection"
                 logger.error(f"❌ LLM call timed out ({TIMEOUT_SECONDS}s): {conversation_id}")
 
-                # Emit the timeout error
+                # Emit the timeout error with error=True
                 await self.save_message(
                     conversation_id=conversation_id,
                     role="assistant",
@@ -607,17 +612,34 @@ class ChatService:
                     metadata={"error": True, "error_type": "timeout"},
                 )
                 emit_chat_message_chunk(
-                    conversation_id=conversation_id, chunk="", done=True
+                    conversation_id=conversation_id, chunk=error_msg, done=True, error=True
                 )
                 return
 
-            # 4. Save the assistant response
+            # 4. Handle error responses (LLM client yields errors as chunks instead of raising)
+            if is_error_response:
+                logger.error(f"❌ LLM returned error response: {full_response[:100]}")
+                await self.save_message(
+                    conversation_id=conversation_id,
+                    role="assistant",
+                    content=full_response,
+                    metadata={"error": True, "error_type": "llm"},
+                )
+                emit_chat_message_chunk(
+                    conversation_id=conversation_id,
+                    chunk=full_response,
+                    done=True,
+                    error=True,
+                )
+                return
+
+            # 5. Save the assistant response (normal completion)
             assistant_message = await self.save_message(
                 conversation_id=conversation_id, role="assistant", content=full_response
             )
             self._maybe_update_conversation_title(conversation_id)
 
-            # 5. Emit the completion signal
+            # 6. Emit the completion signal
             emit_chat_message_chunk(
                 conversation_id=conversation_id,
                 chunk="",
@@ -642,10 +664,10 @@ class ChatService:
         except Exception as e:
             logger.error(f"Streaming message failed: {e}", exc_info=True)
 
-            # Emit the error signal
+            # Emit the error signal with error=True
             error_message = f"[错误] {str(e)[:100]}"
             emit_chat_message_chunk(
-                conversation_id=conversation_id, chunk=error_message, done=True
+                conversation_id=conversation_id, chunk=error_message, done=True, error=True
             )
 
             # Persist the error message

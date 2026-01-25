@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import * as apiClient from '@/lib/client/apiClient'
 
-export type SetupStep = 'welcome' | 'screens' | 'model' | 'permissions' | 'complete'
+export type SetupStep = 'welcome' | 'screens' | 'model' | 'permissions' | 'goals' | 'complete'
 
 interface SetupState {
   /**
@@ -21,6 +21,7 @@ interface SetupState {
   markScreensStepDone: () => void
   markModelStepDone: () => void
   markPermissionsStepDone: () => void
+  markGoalsStepDone: () => void
   completeAndAcknowledge: () => Promise<void>
   skipForNow: () => Promise<void>
   reopen: () => void
@@ -32,7 +33,8 @@ const nextStepMap: Record<SetupStep, SetupStep> = {
   welcome: 'screens',
   screens: 'model',
   model: 'permissions',
-  permissions: 'complete',
+  permissions: 'goals',
+  goals: 'complete',
   complete: 'complete'
 }
 
@@ -79,6 +81,15 @@ export const useSetupStore = create<SetupState>()((set, get) => ({
     if (currentStep === 'permissions') {
       set({
         currentStep: nextStepMap.permissions
+      })
+    }
+  },
+
+  markGoalsStepDone: () => {
+    const { currentStep } = get()
+    if (currentStep === 'goals') {
+      set({
+        currentStep: nextStepMap.goals
       })
     }
   },
@@ -146,50 +157,33 @@ export const useSetupStore = create<SetupState>()((set, get) => ({
       const response = await apiClient.checkInitialSetup()
 
       if (response.success && response.data) {
-        const data = response.data as {
-          needs_setup?: boolean
-          has_models?: boolean
-          has_active_model?: boolean
-          has_completed_setup?: boolean
-          model_count?: number
-        }
-
-        const needsSetup = data.needs_setup ?? false
-        const hasModels = data.has_models ?? false
-        const hasCompletedSetup = data.has_completed_setup ?? false
+        // PyTauri automatically converts Python snake_case to TypeScript camelCase
+        const { needsSetup, hasModels, hasCompletedSetup } = response.data
 
         console.log('[SetupStore] Initial setup check:', {
-          needs_setup: needsSetup,
-          has_models: hasModels,
-          has_completed_setup: hasCompletedSetup,
+          needsSetup,
+          hasModels,
+          hasCompletedSetup,
           hasAcknowledged,
           isActive
         })
 
-        // Priority 1: Check persisted setup completion status from backend
-        if (hasCompletedSetup) {
-          // User has completed setup (persisted in backend)
-          console.log('[SetupStore] Setup already completed (from backend), syncing local state')
-          set({
-            hasAcknowledged: true,
-            isActive: false
-          })
-          return
-        }
-
-        // Priority 2: If setup is needed, activate the flow
+        // Priority 1: If setup is needed (no models), always activate the flow
+        // This takes precedence over has_completed_setup to handle cases where
+        // user deleted their configuration
         if (needsSetup) {
-          console.log('[SetupStore] Configuration needed, activating initial setup flow')
+          console.log('[SetupStore] Configuration needed (no models), activating initial setup flow')
           set({
             isActive: true,
             hasAcknowledged: false,
             currentStep: 'welcome'
           })
-        } else if (hasModels) {
-          // User has models but setup not marked as completed
-          // This might happen if they configured via settings page
-          // Mark as acknowledged locally (will be persisted on next completion)
-          console.log('[SetupStore] User has models, marking setup as acknowledged locally')
+          return
+        }
+
+        // Priority 2: If user has models, mark as completed
+        if (hasModels) {
+          console.log('[SetupStore] User has models, marking setup as acknowledged')
           set({
             hasAcknowledged: true,
             isActive: false

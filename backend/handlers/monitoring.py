@@ -247,15 +247,27 @@ async def get_monitors_auto_refresh_status() -> Dict[str, Any]:
 async def get_screen_settings() -> Dict[str, Any]:
     """Get screen capture settings.
 
-    Returns current screen capture settings from config.
+    Returns current screen capture settings from database.
     """
     settings = get_settings()
-    screens = settings.get("screenshot.screen_settings", []) or []
-    return {
-        "success": True,
-        "data": {"screens": screens, "count": len(screens)},
-        "timestamp": datetime.now().isoformat(),
-    }
+
+    try:
+        screens = settings.get_screenshot_screen_settings()
+        logger.debug(f"✓ Loaded {len(screens)} screen settings from database")
+
+        return {
+            "success": True,
+            "data": {"screens": screens, "count": len(screens)},
+            "timestamp": datetime.now().isoformat(),
+        }
+    except Exception as e:
+        logger.error(f"Failed to load screen settings: {e}")
+        return {
+            "success": False,
+            "message": f"Failed to load screen settings: {str(e)}",
+            "data": {"screens": [], "count": 0},
+            "timestamp": datetime.now().isoformat(),
+        }
 
 
 @api_handler()

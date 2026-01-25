@@ -141,14 +141,18 @@ export function TimelineDayItem({ day, isNew: isNewProp = false }: TimelineDayIt
             </div>
             {day.activities.length > 0 ? (
               <div className="space-y-3">
-                {day.activities.map((activity) => (
-                  <ActivityItem
+                {day.activities.map((activity, i) => (
+                  <div
                     key={activity.id}
-                    activity={activity}
-                    selectionMode={selectionMode}
-                    isSelected={selectedActivities.has(activity.id)}
-                    onToggleSelection={toggleActivitySelection}
-                  />
+                    className="animate-in fade-in slide-in-from-bottom-2 duration-200"
+                    style={{ animationDelay: `${i * 50}ms`, animationFillMode: 'backwards' }}>
+                    <ActivityItem
+                      activity={activity}
+                      selectionMode={selectionMode}
+                      isSelected={selectedActivities.has(activity.id)}
+                      onToggleSelection={toggleActivitySelection}
+                    />
+                  </div>
                 ))}
               </div>
             ) : (

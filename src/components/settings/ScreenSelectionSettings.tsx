@@ -51,9 +51,12 @@ export function ScreenSelectionSettings() {
   }, [])
 
   // Initialize defaults if the screen list loads without existing settings
+  // Only initialize if we haven't loaded settings yet and monitors are available
   useEffect(() => {
-    initializeScreenSettings()
-  }, [monitors])
+    if (monitors.length > 0 && screenSettings.length === 0 && !isLoadingScreens) {
+      initializeScreenSettings()
+    }
+  }, [monitors, screenSettings.length, isLoadingScreens])
 
   // Toggle screen selection
   const handleScreenToggle = async (monitorIndex: number, enabled: boolean) => {

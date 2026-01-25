@@ -4,6 +4,7 @@ import {
   deleteKnowledge as deleteKnowledgeCommand,
   getTodoList,
   deleteTodo as deleteTodoCommand,
+  completeTodo as completeTodoCommand,
   generateDiary as generateDiaryCommand,
   deleteDiary as deleteDiaryCommand,
   getPipelineStats,
@@ -11,7 +12,10 @@ import {
   scheduleTodo as scheduleTodoCommand,
   unscheduleTodo as unscheduleTodoCommand,
   getEventCountByDate as getEventCountByDateCommand,
-  getKnowledgeCountByDate as getKnowledgeCountByDateCommand
+  getKnowledgeCountByDate as getKnowledgeCountByDateCommand,
+  toggleKnowledgeFavorite as toggleKnowledgeFavoriteCommand,
+  createKnowledge as createKnowledgeCommand,
+  updateKnowledge as updateKnowledgeCommand
 } from '@/lib/client/apiClient'
 
 export interface InsightEvent {
@@ -33,6 +37,7 @@ export interface InsightKnowledge {
   createdAt?: string
   type?: 'combined' | 'original'
   deleted?: boolean
+  favorite?: boolean
 }
 
 export interface RecurrenceRule {
@@ -143,7 +148,8 @@ export async function fetchKnowledgeList(): Promise<InsightKnowledge[]> {
     mergedFromIds: Array.isArray(item.merged_from_ids) ? item.merged_from_ids : [],
     createdAt: typeof item.created_at === 'string' ? item.created_at : undefined,
     type: item.type === 'combined' ? 'combined' : 'original',
-    deleted: Boolean(item.deleted)
+    deleted: Boolean(item.deleted),
+    favorite: Boolean(item.favorite)
   }))
 }
 
@@ -151,6 +157,63 @@ export async function deleteKnowledge(id: string) {
   const raw = await deleteKnowledgeCommand({ id })
   if (!raw?.success) {
     throw new Error(String(raw?.message ?? 'Failed to delete knowledge'))
+  }
+}
+
+export async function toggleKnowledgeFavorite(id: string): Promise<InsightKnowledge> {
+  const raw = await toggleKnowledgeFavoriteCommand({ id })
+  if (!raw?.success || !raw.data) {
+    throw new Error(String(raw?.message ?? 'Failed to toggle knowledge favorite'))
+  }
+  return {
+    id: String(raw.data.id ?? ''),
+    title: String(raw.data.title ?? ''),
+    description: String(raw.data.description ?? ''),
+    keywords: Array.isArray(raw.data.keywords) ? raw.data.keywords : [],
+    createdAt: typeof raw.data.createdAt === 'string' ? raw.data.createdAt : undefined,
+    favorite: Boolean(raw.data.favorite),
+    deleted: Boolean(raw.data.deleted)
+  }
+}
+
+export async function createKnowledge(
+  title: string,
+  description: string,
+  keywords: string[]
+): Promise<InsightKnowledge> {
+  const raw = await createKnowledgeCommand({ title, description, keywords })
+  if (!raw?.success || !raw.data) {
+    throw new Error(String(raw?.message ?? 'Failed to create knowledge'))
+  }
+  return {
+    id: String(raw.data.id ?? ''),
+    title: String(raw.data.title ?? ''),
+    description: String(raw.data.description ?? ''),
+    keywords: Array.isArray(raw.data.keywords) ? raw.data.keywords : [],
+    createdAt: typeof raw.data.createdAt === 'string' ? raw.data.createdAt : undefined,
+    favorite: Boolean(raw.data.favorite),
+    deleted: Boolean(raw.data.deleted)
+  }
+}
+
+export async function updateKnowledge(
+  id: string,
+  title: string,
+  description: string,
+  keywords: string[]
+): Promise<InsightKnowledge> {
+  const raw = await updateKnowledgeCommand({ id, title, description, keywords })
+  if (!raw?.success || !raw.data) {
+    throw new Error(String(raw?.message ?? 'Failed to update knowledge'))
+  }
+  return {
+    id: String(raw.data.id ?? ''),
+    title: String(raw.data.title ?? ''),
+    description: String(raw.data.description ?? ''),
+    keywords: Array.isArray(raw.data.keywords) ? raw.data.keywords : [],
+    createdAt: typeof raw.data.createdAt === 'string' ? raw.data.createdAt : undefined,
+    favorite: Boolean(raw.data.favorite),
+    deleted: Boolean(raw.data.deleted)
   }
 }
 
@@ -173,6 +236,13 @@ export async function fetchTodoList(includeCompleted = false): Promise<InsightTo
     scheduledEndTime: getScheduledEndTime(todo),
     recurrenceRule: todo.recurrence_rule || undefined
   }))
+}
+
+export async function completeTodo(id: string) {
+  const raw = await completeTodoCommand({ id })
+  if (!raw?.success) {
+    throw new Error(String(raw?.message ?? 'Failed to complete todo'))
+  }
 }
 
 export async function deleteTodo(id: string) {

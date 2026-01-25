@@ -21,11 +21,11 @@ export function useChatStream(conversationId: string | null) {
     // Listen for streaming message events
     const setupListener = async () => {
       unlisten = await listen<ChatMessageChunk>('chat-message-chunk', (event) => {
-        const { conversationId: id, chunk, done, messageId } = event.payload
+        const { conversationId: id, chunk, done, messageId, error } = event.payload
 
         if (done) {
           // Handle stream completion for any conversation
-          setStreamingComplete(id, messageId)
+          setStreamingComplete(id, messageId, error)
         } else {
           // Append streamed message chunks for any conversation
           appendStreamingChunk(id, chunk)

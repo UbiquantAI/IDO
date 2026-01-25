@@ -358,3 +358,77 @@ async def delete_event(body: DeleteEventRequest) -> TimedOperationResponse:
         data={"deleted": True, "eventId": body.event_id},
         timestamp=datetime.now().isoformat(),
     )
+
+
+@api_handler(
+    body=GetActionsByEventRequest,  # Reuse the same request model
+    method="POST",
+    path="/activities/get-actions",
+    tags=["activities"],
+)
+async def get_actions_by_activity(
+    body: GetActionsByEventRequest,
+) -> GetActionsByEventResponse:
+    """
+    Get all actions for a specific activity (action-based aggregation drill-down).
+
+    Args:
+        body: Request containing event_id (but we'll use it as activity_id)
+
+    Returns:
+        Response with list of actions including screenshots
+    """
+    try:
+        db = get_db()
+
+        # Note: Reusing GetActionsByEventRequest, so field is event_id but we treat it as activity_id
+        activity_id = body.event_id
+
+        # Get the activity to find source action IDs
+        activity = await db.activities.get_by_id(activity_id)
+        if not activity:
+            return GetActionsByEventResponse(
+                success=False, actions=[], error="Activity not found"
+            )
+
+        # Get source action IDs (action-based aggregation)
+        source_action_ids = activity.get("source_action_ids", [])
+        if not source_action_ids:
+            # Fallback to event-based if activity is old format
+            source_event_ids = activity.get("source_event_ids", [])
+            if source_event_ids:
+                # Get actions from events (backward compatibility)
+                all_action_ids = []
+                for event_id in source_event_ids:
+                    event = await db.events.get_by_id(event_id)
+                    if event:
+                        all_action_ids.extend(event.get("source_action_ids", []))
+                source_action_ids = all_action_ids
+
+        if not source_action_ids:
+            return GetActionsByEventResponse(success=True, actions=[])
+
+        # Get actions by IDs (this will automatically load screenshots)
+        action_dicts = await db.actions.get_by_ids(source_action_ids)
+
+        # Convert to ActionResponse objects
+        actions = [
+            ActionResponse(
+                id=a["id"],
+                title=a["title"],
+                description=a["description"],
+                keywords=a.get("keywords", []),
+                timestamp=a["timestamp"],
+                screenshots=a.get("screenshots", []),
+                created_at=a["created_at"],
+            )
+            for a in action_dicts
+        ]
+
+        return GetActionsByEventResponse(success=True, actions=actions)
+
+    except Exception as e:
+        logger.error(f"Failed to get actions by activity: {e}", exc_info=True)
+        return GetActionsByEventResponse(
+            success=False, actions=[], error=str(e)
+        )

@@ -1,5 +1,11 @@
 import { create } from 'zustand'
-import type { AppSettings, DatabaseSettings, ScreenshotSettings } from '@/lib/types/settings'
+import type {
+  AppSettings,
+  DatabaseSettings,
+  ScreenshotSettings,
+  VoiceSettings,
+  ClockSettings
+} from '@/lib/types/settings'
 import * as apiClient from '@/lib/client/apiClient'
 
 interface SettingsState {
@@ -13,6 +19,9 @@ interface SettingsState {
   updateScreenshotSettings: (screenshot: Partial<ScreenshotSettings>) => Promise<void>
   updateTheme: (theme: 'light' | 'dark' | 'system') => void
   updateLanguage: (language: 'zh-CN' | 'en-US') => Promise<void>
+  updateFontSize: (fontSize: 'small' | 'default' | 'large' | 'extra-large') => Promise<void>
+  updateVoiceSettings: (voice: Partial<VoiceSettings>) => Promise<void>
+  updateClockSettings: (clock: Partial<ClockSettings>) => Promise<void>
 }
 
 const defaultSettings: AppSettings = {
@@ -23,7 +32,19 @@ const defaultSettings: AppSettings = {
     savePath: ''
   },
   theme: 'system',
-  language: 'zh-CN'
+  language: 'zh-CN',
+  fontSize: 'default',
+  voice: {
+    enabled: true,
+    volume: 0.8,
+    soundTheme: '8bit'
+  },
+  clock: {
+    enabled: true,
+    position: 'bottom-right',
+    size: 'medium',
+    useCustomPosition: false
+  }
 }
 
 export const useSettingsStore = create<SettingsState>()((set, get) => ({
@@ -37,13 +58,37 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
       const response = await apiClient.getSettingsInfo(undefined)
       if (response && response.data) {
         const data = response.data as any
-        const { database, screenshot } = data
-        if (database || screenshot) {
+        const { database, screenshot, fontSize, voice, clock } = data
+        if (database || screenshot || fontSize || voice || clock) {
           set((state) => ({
             settings: {
               ...state.settings,
               ...(database && { database: { path: database.path } }),
-              ...(screenshot && { screenshot: { savePath: screenshot.savePath } })
+              ...(screenshot && { screenshot: { savePath: screenshot.savePath } }),
+              ...(fontSize && { fontSize }),
+              ...(voice && {
+                voice: {
+                  enabled: voice.enabled,
+                  volume: voice.volume,
+                  soundTheme:
+                    voice.soundTheme || voice.language === 'zh-CN' || voice.language === 'en-US'
+                      ? '8bit'
+                      : voice.soundTheme || '8bit',
+                  customSounds: voice.customSounds
+                }
+              }),
+              ...(clock && {
+                clock: {
+                  enabled: clock.enabled,
+                  position: clock.position,
+                  size: clock.size,
+                  customX: clock.customX,
+                  customY: clock.customY,
+                  customWidth: clock.customWidth,
+                  customHeight: clock.customHeight,
+                  useCustomPosition: clock.useCustomPosition
+                }
+              })
             },
             loading: false,
             error: null
@@ -129,6 +174,90 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
       set((state) => ({
         settings: { ...state.settings, language: currentState.settings.language }
       }))
+    }
+  },
+
+  updateFontSize: async (fontSize) => {
+    // Update frontend state immediately for better UX
+    set((state) => ({
+      settings: { ...state.settings, fontSize }
+    }))
+
+    try {
+      await apiClient.updateSettings({
+        fontSize
+      } as any)
+      console.log(`✓ Backend font size updated to: ${fontSize}`)
+    } catch (error) {
+      console.error('Failed to update backend font size:', error)
+      // Rollback frontend state on error
+      const currentState = get()
+      set((state) => ({
+        settings: { ...state.settings, fontSize: currentState.settings.fontSize }
+      }))
+    }
+  },
+
+  updateVoiceSettings: async (voice) => {
+    set({ loading: true, error: null })
+    try {
+      const state = get()
+      const fullVoice = { ...(state.settings.voice || {}), ...voice }
+      await apiClient.updateSettings({
+        voiceEnabled: fullVoice.enabled,
+        voiceVolume: fullVoice.volume,
+        voiceSoundTheme: fullVoice.soundTheme,
+        voiceCustomSounds: fullVoice.customSounds || null
+      } as any)
+      set({
+        settings: {
+          ...state.settings,
+          voice: fullVoice as VoiceSettings
+        },
+        loading: false,
+        error: null
+      })
+      console.log('✓ Notification sound settings updated:', fullVoice)
+    } catch (error) {
+      console.error('Failed to update notification sound settings:', error)
+      set({ error: (error as Error).message, loading: false })
+    }
+  },
+
+  updateClockSettings: async (clock) => {
+    const state = get()
+    const fullClock = { ...(state.settings.clock || {}), ...clock }
+
+    // Update local state immediately for better UX
+    set({
+      settings: {
+        ...state.settings,
+        clock: fullClock as ClockSettings
+      }
+    })
+
+    try {
+      await apiClient.updateSettings({
+        clockEnabled: fullClock.enabled,
+        clockPosition: fullClock.position,
+        clockSize: fullClock.size,
+        clockCustomX: fullClock.customX,
+        clockCustomY: fullClock.customY,
+        clockCustomWidth: fullClock.customWidth,
+        clockCustomHeight: fullClock.customHeight,
+        clockUseCustomPosition: fullClock.useCustomPosition
+      } as any)
+      console.log('✓ Clock settings updated:', fullClock)
+    } catch (error) {
+      console.error('Failed to update clock settings:', error)
+      // Rollback on error
+      set({
+        settings: {
+          ...get().settings,
+          clock: state.settings.clock
+        },
+        error: (error as Error).message
+      })
     }
   }
 }))

@@ -160,7 +160,7 @@ pnpm check-i18n
    ```toml
    # Edit backend/config/config.toml
    [monitoring]
-   capture_interval = 1  # Try lower value
+   capture_interval = 0.2  # Default is 0.2s (5 screenshots/sec)
    ```
 
 ### LLM Connection Failed
@@ -309,7 +309,7 @@ codesign --force --deep --sign "Developer ID" ./target/release/bundle/macos/iDO.
 # 1. Reduce capture interval
 # Edit backend/config/config.toml
 [monitoring]
-capture_interval = 2  # Increase from 1 to 2 seconds
+capture_interval = 1  # Increase from 0.2 to 1+ seconds
 
 # 2. Disable screenshot capture temporarily
 # Settings → Screen Capture → Disable all monitors

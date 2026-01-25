@@ -147,6 +147,46 @@ export async function splitActivityHandler(
 }
 
 /**
+ * Save or update an activity rating
+ *
+ * Supports multi-dimensional ratings:
+ * - focus_level: How focused were you? (1-5)
+ * - productivity: How productive was this session? (1-5)
+ * - importance: How important was this activity? (1-5)
+ * - satisfaction: How satisfied are you with the outcome? (1-5)
+ */
+export async function saveActivityRating(
+    body: Commands["save_activity_rating"]["input"],
+    options?: InvokeOptions
+): Promise<Commands["save_activity_rating"]["output"]> {
+    return await pyInvoke("save_activity_rating", body, options);
+}
+
+/**
+ * Get all ratings for an activity
+ *
+ * Returns ratings for all dimensions that have been rated.
+ */
+export async function getActivityRatings(
+    body: Commands["get_activity_ratings"]["input"],
+    options?: InvokeOptions
+): Promise<Commands["get_activity_ratings"]["output"]> {
+    return await pyInvoke("get_activity_ratings", body, options);
+}
+
+/**
+ * Delete a specific activity rating
+ *
+ * Removes the rating for a specific dimension.
+ */
+export async function deleteActivityRating(
+    body: Commands["delete_activity_rating"]["input"],
+    options?: InvokeOptions
+): Promise<Commands["delete_activity_rating"]["output"]> {
+    return await pyInvoke("delete_activity_rating", body, options);
+}
+
+/**
  * Create new agent task
  */
 export async function createTask(
@@ -516,6 +556,22 @@ export async function deleteEvent(
 }
 
 /**
+ * Get all actions for a specific activity (action-based aggregation drill-down).
+ *
+ * Args:
+ *     body: Request containing event_id (but we'll use it as activity_id)
+ *
+ * Returns:
+ *     Response with list of actions including screenshots
+ */
+export async function getActionsByActivity(
+    body: Commands["get_actions_by_activity"]["input"],
+    options?: InvokeOptions
+): Promise<Commands["get_actions_by_activity"]["output"]> {
+    return await pyInvoke("get_actions_by_activity", body, options);
+}
+
+/**
  * Get recent events
  *
  * @param body - Request parameters including limit and offset
@@ -554,6 +610,45 @@ export async function deleteKnowledge(
 }
 
 /**
+ * Toggle knowledge favorite status
+ *
+ * @param body - Contains knowledge ID
+ * @returns Updated knowledge data with new favorite status
+ */
+export async function toggleKnowledgeFavorite(
+    body: Commands["toggle_knowledge_favorite"]["input"],
+    options?: InvokeOptions
+): Promise<Commands["toggle_knowledge_favorite"]["output"]> {
+    return await pyInvoke("toggle_knowledge_favorite", body, options);
+}
+
+/**
+ * Create knowledge manually
+ *
+ * @param body - Contains title, description, and keywords
+ * @returns Created knowledge data
+ */
+export async function createKnowledge(
+    body: Commands["create_knowledge"]["input"],
+    options?: InvokeOptions
+): Promise<Commands["create_knowledge"]["output"]> {
+    return await pyInvoke("create_knowledge", body, options);
+}
+
+/**
+ * Update knowledge
+ *
+ * @param body - Contains knowledge ID, title, description, and keywords
+ * @returns Updated knowledge data
+ */
+export async function updateKnowledge(
+    body: Commands["update_knowledge"]["input"],
+    options?: InvokeOptions
+): Promise<Commands["update_knowledge"]["output"]> {
+    return await pyInvoke("update_knowledge", body, options);
+}
+
+/**
  * Get todo list
  *
  * @param body - Request parameters, include include_completed
@@ -564,6 +659,19 @@ export async function getTodoList(
     options?: InvokeOptions
 ): Promise<Commands["get_todo_list"]["output"]> {
     return await pyInvoke("get_todo_list", body, options);
+}
+
+/**
+ * Complete todo (mark as completed)
+ *
+ * @param body - Contains todo ID to complete
+ * @returns Completion result
+ */
+export async function completeTodo(
+    body: Commands["complete_todo"]["input"],
+    options?: InvokeOptions
+): Promise<Commands["complete_todo"]["output"]> {
+    return await pyInvoke("complete_todo", body, options);
 }
 
 /**
@@ -678,6 +786,72 @@ export async function getKnowledgeCountByDate(
 }
 
 /**
+ * Create a todo manually
+ *
+ * Manually created todos have no expiration time and source_type='manual'.
+ * They will persist until explicitly deleted or completed.
+ *
+ * @param body - Contains title, description, keywords, and optional scheduling info
+ * @returns Created todo data
+ */
+export async function createTodo(
+    body: Commands["create_todo"]["input"],
+    options?: InvokeOptions
+): Promise<Commands["create_todo"]["output"]> {
+    return await pyInvoke("create_todo", body, options);
+}
+
+/**
+ * Clean up expired AI-generated todos
+ *
+ * Soft deletes todos that:
+ * - Are AI-generated (source_type='ai')
+ * - Have an expires_at timestamp in the past
+ * - Are not already deleted
+ * - Are not completed
+ *
+ * @returns Cleanup result with count of deleted todos
+ */
+export async function cleanupExpiredTodos(
+    body: Commands["cleanup_expired_todos"]["input"],
+    options?: InvokeOptions
+): Promise<Commands["cleanup_expired_todos"]["output"]> {
+    return await pyInvoke("cleanup_expired_todos", body, options);
+}
+
+/**
+ * Get current knowledge analysis status
+ */
+export async function getAnalysisStatus(
+    body: Commands["get_analysis_status"]["input"],
+    options?: InvokeOptions
+): Promise<Commands["get_analysis_status"]["output"]> {
+    return await pyInvoke("get_analysis_status", body, options);
+}
+
+/**
+ * Analyze knowledge entries for similarity and generate merge suggestions.
+ * Uses LLM to detect similar content and propose merges.
+ */
+export async function analyzeKnowledgeMerge(
+    body: Commands["analyze_knowledge_merge"]["input"],
+    options?: InvokeOptions
+): Promise<Commands["analyze_knowledge_merge"]["output"]> {
+    return await pyInvoke("analyze_knowledge_merge", body, options);
+}
+
+/**
+ * Execute approved knowledge merge operations.
+ * Creates merged knowledge entries and soft-deletes sources.
+ */
+export async function executeKnowledgeMerge(
+    body: Commands["execute_knowledge_merge"]["input"],
+    options?: InvokeOptions
+): Promise<Commands["execute_knowledge_merge"]["output"]> {
+    return await pyInvoke("execute_knowledge_merge", body, options);
+}
+
+/**
  * Get available monitors information.
  *
  * Returns information about all available monitors including resolution and position.
@@ -727,7 +901,7 @@ export async function getMonitorsAutoRefreshStatus(
 /**
  * Get screen capture settings.
  *
- * Returns current screen capture settings from config.
+ * Returns current screen capture settings from database.
  */
 export async function getScreenSettings(
     body: Commands["get_screen_settings"]["input"],
@@ -926,6 +1100,237 @@ export async function restartApp(
     options?: InvokeOptions
 ): Promise<Commands["restart_app"]["output"]> {
     return await pyInvoke("restart_app", body, options);
+}
+
+/**
+ * Start a new Pomodoro session
+ *
+ * Args:
+ *     body: Request containing user_intent and duration_minutes
+ *
+ * Returns:
+ *     StartPomodoroResponse with session data
+ *
+ * Raises:
+ *     ValueError: If a Pomodoro session is already active or previous session is still processing
+ */
+export async function startPomodoro(
+    body: Commands["start_pomodoro"]["input"],
+    options?: InvokeOptions
+): Promise<Commands["start_pomodoro"]["output"]> {
+    return await pyInvoke("start_pomodoro", body, options);
+}
+
+/**
+ * End current Pomodoro session
+ *
+ * Args:
+ *     body: Request containing status (completed/abandoned/interrupted)
+ *
+ * Returns:
+ *     EndPomodoroResponse with processing job info
+ *
+ * Raises:
+ *     ValueError: If no active Pomodoro session
+ */
+export async function endPomodoro(
+    body: Commands["end_pomodoro"]["input"],
+    options?: InvokeOptions
+): Promise<Commands["end_pomodoro"]["output"]> {
+    return await pyInvoke("end_pomodoro", body, options);
+}
+
+/**
+ * Get current Pomodoro session status
+ *
+ * Returns:
+ *     GetPomodoroStatusResponse with current session info or None if no active session
+ */
+export async function getPomodoroStatus(
+    body: Commands["get_pomodoro_status"]["input"],
+    options?: InvokeOptions
+): Promise<Commands["get_pomodoro_status"]["output"]> {
+    return await pyInvoke("get_pomodoro_status", body, options);
+}
+
+/**
+ * Manually trigger work phase activity aggregation (for retry)
+ *
+ * This endpoint allows users to manually retry activity aggregation for a specific
+ * work phase if the automatic aggregation failed or was incomplete.
+ *
+ * Args:
+ *     body: Request containing session_id and work_phase number
+ *
+ * Returns:
+ *     EndPomodoroResponse with success status and processing details
+ */
+export async function retryWorkPhaseAggregation(
+    body: Commands["retry_work_phase_aggregation"]["input"],
+    options?: InvokeOptions
+): Promise<Commands["retry_work_phase_aggregation"]["output"]> {
+    return await pyInvoke("retry_work_phase_aggregation", body, options);
+}
+
+/**
+ * Get all work phase records for a session.
+ * Used by frontend to display phase status and retry buttons.
+ */
+export async function getSessionPhases(
+    body: Commands["get_session_phases"]["input"],
+    options?: InvokeOptions
+): Promise<Commands["get_session_phases"]["output"]> {
+    return await pyInvoke("get_session_phases", body, options);
+}
+
+/**
+ * Manually retry LLM focus evaluation for a session.
+ * Independent from phase aggregation retry.
+ */
+export async function retryLlmEvaluation(
+    body: Commands["retry_llm_evaluation"]["input"],
+    options?: InvokeOptions
+): Promise<Commands["retry_llm_evaluation"]["output"]> {
+    return await pyInvoke("retry_llm_evaluation", body, options);
+}
+
+/**
+ * Get Pomodoro focus time goal settings
+ *
+ * Returns:
+ * - daily_focus_goal_minutes: Daily goal in minutes
+ * - weekly_focus_goal_minutes: Weekly goal in minutes
+ */
+export async function getPomodoroGoals(
+    body: Commands["get_pomodoro_goals"]["input"],
+    options?: InvokeOptions
+): Promise<Commands["get_pomodoro_goals"]["output"]> {
+    return await pyInvoke("get_pomodoro_goals", body, options);
+}
+
+/**
+ * Update Pomodoro focus time goal settings
+ *
+ * Args:
+ *     body: Contains daily and/or weekly goal values
+ *
+ * Returns:
+ *     Updated goal settings
+ */
+export async function updatePomodoroGoals(
+    body: Commands["update_pomodoro_goals"]["input"],
+    options?: InvokeOptions
+): Promise<Commands["update_pomodoro_goals"]["output"]> {
+    return await pyInvoke("update_pomodoro_goals", body, options);
+}
+
+/**
+ * Find activities that overlap with session time but aren't linked
+ *
+ * Returns list of activities that could be retroactively linked
+ */
+export async function findUnlinkedActivities(
+    body: Commands["find_unlinked_activities"]["input"],
+    options?: InvokeOptions
+): Promise<Commands["find_unlinked_activities"]["output"]> {
+    return await pyInvoke("find_unlinked_activities", body, options);
+}
+
+/**
+ * Link selected activities to a Pomodoro session
+ *
+ * Updates activity records with pomodoro_session_id and auto-categorizes
+ * work_phase based on the activity's time period
+ */
+export async function linkActivitiesToSession(
+    body: Commands["link_activities_to_session"]["input"],
+    options?: InvokeOptions
+): Promise<Commands["link_activities_to_session"]["output"]> {
+    return await pyInvoke("link_activities_to_session", body, options);
+}
+
+/**
+ * Get available Pomodoro configuration presets
+ *
+ * Returns a list of predefined configurations including:
+ * - Classic Pomodoro (25/5)
+ * - Deep Work (50/10)
+ * - Quick Sprint (15/3)
+ * - Ultra Focus (90/15)
+ * - Balanced Flow (40/8)
+ */
+export async function getPomodoroPresets(
+    body: Commands["get_pomodoro_presets"]["input"],
+    options?: InvokeOptions
+): Promise<Commands["get_pomodoro_presets"]["output"]> {
+    return await pyInvoke("get_pomodoro_presets", body, options);
+}
+
+/**
+ * Get Pomodoro statistics for a specific date
+ *
+ * Returns:
+ * - Number of completed sessions
+ * - Total focus time (minutes)
+ * - Average session duration (minutes)
+ * - List of all sessions for that day
+ */
+export async function getPomodoroStats(
+    body: Commands["get_pomodoro_stats"]["input"],
+    options?: InvokeOptions
+): Promise<Commands["get_pomodoro_stats"]["output"]> {
+    return await pyInvoke("get_pomodoro_stats", body, options);
+}
+
+/**
+ * Get detailed Pomodoro session with activities and focus metrics
+ *
+ * Returns:
+ * - Full session data
+ * - All activities generated during this session (ordered by work phase)
+ * - Calculated focus metrics (overall_focus_score, activity_count, topic_diversity, etc.)
+ */
+export async function getPomodoroSessionDetail(
+    body: Commands["get_pomodoro_session_detail"]["input"],
+    options?: InvokeOptions
+): Promise<Commands["get_pomodoro_session_detail"]["output"]> {
+    return await pyInvoke("get_pomodoro_session_detail", body, options);
+}
+
+/**
+ * Get Pomodoro statistics for a time period (week/month/year)
+ *
+ * Returns:
+ * - Period summary statistics (total sessions, focus hours, daily average, completion rate)
+ * - Daily breakdown data for visualization
+ */
+export async function getPomodoroPeriodStats(
+    body: Commands["get_pomodoro_period_stats"]["input"],
+    options?: InvokeOptions
+): Promise<Commands["get_pomodoro_period_stats"]["output"]> {
+    return await pyInvoke("get_pomodoro_period_stats", body, options);
+}
+
+/**
+ * Delete a Pomodoro session and cascade delete all linked activities
+ *
+ * This operation:
+ * 1. Validates session exists and is not already deleted
+ * 2. Soft deletes all activities linked to this session (cascade)
+ * 3. Soft deletes the session itself
+ * 4. Emits deletion event to notify frontend
+ *
+ * Args:
+ *     body: Request containing session_id
+ *
+ * Returns:
+ *     Response with deletion result and count of cascade-deleted activities
+ */
+export async function deletePomodoroSession(
+    body: Commands["delete_pomodoro_session"]["input"],
+    options?: InvokeOptions
+): Promise<Commands["delete_pomodoro_session"]["output"]> {
+    return await pyInvoke("delete_pomodoro_session", body, options);
 }
 
 /**
@@ -1186,6 +1591,43 @@ export async function readImageFile(
 }
 
 /**
+ * Check health of image persistence system
+ *
+ * Analyzes all actions with screenshots to determine how many have missing
+ * image files on disk. Provides statistics for diagnostics.
+ *
+ * Returns:
+ *     Health check results with statistics
+ */
+export async function checkImagePersistenceHealth(
+    body: Commands["check_image_persistence_health"]["input"],
+    options?: InvokeOptions
+): Promise<Commands["check_image_persistence_health"]["output"]> {
+    return await pyInvoke("check_image_persistence_health", body, options);
+}
+
+/**
+ * Clean up actions with missing image references
+ *
+ * Supports three strategies:
+ * - delete_actions: Soft-delete actions with all images missing
+ * - remove_references: Clear image references, keep action metadata
+ * - dry_run: Report what would be cleaned without making changes
+ *
+ * Args:
+ *     body: Cleanup request with strategy and optional action IDs
+ *
+ * Returns:
+ *     Cleanup results with statistics
+ */
+export async function cleanupBrokenActionImages(
+    body: Commands["cleanup_broken_action_images"]["input"],
+    options?: InvokeOptions
+): Promise<Commands["cleanup_broken_action_images"]["output"]> {
+    return await pyInvoke("cleanup_broken_action_images", body, options);
+}
+
+/**
  * Create new model configuration
  *
  * @param body Model configuration information (includes API key)
@@ -1367,6 +1809,24 @@ export async function getLlmUsageTrend(
     options?: InvokeOptions
 ): Promise<Commands["get_llm_usage_trend"]["output"]> {
     return await pyInvoke("get_llm_usage_trend", body, options);
+}
+
+/**
+ * Permanently delete all soft-deleted items
+ *
+ * This cleanup operation permanently removes items that have been
+ * soft-deleted (deleted = 1) from the database.
+ *
+ * Currently supports:
+ * - Todos
+ *
+ * @returns Cleanup result with counts for each item type
+ */
+export async function cleanupSoftDeletedItems(
+    body: Commands["cleanup_soft_deleted_items"]["input"],
+    options?: InvokeOptions
+): Promise<Commands["cleanup_soft_deleted_items"]["output"]> {
+    return await pyInvoke("cleanup_soft_deleted_items", body, options);
 }
 
 /**

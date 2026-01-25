@@ -75,6 +75,7 @@ class RawAgent:
         records: List[RawRecord],
         keyboard_records: Optional[List[RawRecord]] = None,
         mouse_records: Optional[List[RawRecord]] = None,
+        behavior_analysis: Optional[Dict[str, Any]] = None,
     ) -> List[Dict[str, Any]]:
         """
         Extract scene descriptions from raw records (screenshots)
@@ -83,6 +84,7 @@ class RawAgent:
             records: List of raw records (mainly screenshots)
             keyboard_records: Keyboard event records for timestamp extraction
             mouse_records: Mouse event records for timestamp extraction
+            behavior_analysis: Behavior classification result from BehaviorAnalyzer
 
         Returns:
             List of scene description dictionaries:
@@ -113,9 +115,19 @@ class RawAgent:
             # Build input usage hint from keyboard/mouse records
             input_usage_hint = self._build_input_usage_hint(keyboard_records, mouse_records)
 
+            # NEW: Format behavior context for prompt
+            behavior_context = ""
+            if behavior_analysis:
+                language = self._get_language()
+                from processing.behavior_analyzer import BehaviorAnalyzer
+                analyzer = BehaviorAnalyzer()
+                behavior_context = analyzer.format_behavior_context(
+                    behavior_analysis, language
+                )
+
             # Build messages (including screenshots)
             messages = await self._build_scene_extraction_messages(
-                records, input_usage_hint
+                records, input_usage_hint, behavior_context
             )
 
             # Get configuration parameters
@@ -190,6 +202,7 @@ class RawAgent:
         self,
         records: List[RawRecord],
         input_usage_hint: str,
+        behavior_context: str = "",
     ) -> List[Dict[str, Any]]:
         """
         Build scene extraction messages (including system prompt, user prompt, screenshots)
@@ -197,6 +210,7 @@ class RawAgent:
         Args:
             records: Record list (mainly screenshots)
             input_usage_hint: Keyboard/mouse activity hint
+            behavior_context: Formatted behavior classification context
 
         Returns:
             Message list
@@ -209,6 +223,7 @@ class RawAgent:
             "raw_extraction",
             "user_prompt_template",
             input_usage_hint=input_usage_hint,
+            behavior_context=behavior_context,
         )
 
         # Build message content (text + screenshots)

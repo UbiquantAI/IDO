@@ -79,52 +79,44 @@ export function ConversationList({
   }
 
   return (
-    <div className="flex h-full max-w-xs min-w-[200px] flex-col border-r">
+    <div className="bg-card flex h-full flex-col overflow-hidden rounded-lg border">
+      {/* Header */}
+      <div className="p-6 pb-3">
+        <Button onClick={onNew} className="w-full justify-start gap-2" size="default">
+          <Plus className="h-4 w-4" />
+          {t('chat.newConversation')}
+        </Button>
+      </div>
+
       {/* Conversation list */}
       <div className="flex-1 overflow-y-auto">
         {conversations.length === 0 ? (
           <div className="text-muted-foreground flex h-full flex-col items-center justify-center px-4">
-            <MessageSquare className="mb-2 h-12 w-12 opacity-50" />
+            <MessageSquare className="mb-3 h-12 w-12 opacity-20" />
             <p className="text-center text-sm">{t('chat.noConversations')}</p>
           </div>
         ) : (
-          <div className="space-y-1 p-2">
-            {/* New conversation button */}
-            <div
-              className="hover:bg-accent group flex cursor-pointer items-center gap-3 rounded-lg p-3 transition-all"
-              onClick={onNew}>
-              <div className="bg-primary flex h-8 w-8 shrink-0 items-center justify-center rounded-full">
-                <Plus className="h-4 w-4 text-white" />
-              </div>
-              <div className="flex min-w-0 flex-1 flex-col">
-                <p className="font-medium">{t('chat.newConversation')}</p>
-              </div>
-            </div>
-
+          <div className="space-y-1 p-3">
             {conversations.map((conversation) => (
               <div
                 key={conversation.id}
                 className={cn(
-                  'group hover:bg-accent relative flex cursor-pointer items-center gap-2 rounded-lg p-3 transition-colors',
+                  'group hover:bg-accent relative flex cursor-pointer items-center gap-3 rounded-md p-3 transition-colors',
                   currentConversationId === conversation.id && 'bg-accent'
                 )}
                 onClick={() => onSelect(conversation.id)}>
                 <MessageSquare className="text-muted-foreground h-4 w-4 shrink-0" />
-                <div className="flex min-w-0 flex-1 flex-col">
-                  <div className="flex items-center">
-                    <p className="flex-1 truncate text-sm font-medium">{conversation.title}</p>
-                    <span className="text-muted-foreground ml-2 shrink-0 text-right text-xs">
-                      {formatDate(conversation)}
-                    </span>
-                  </div>
+                <div className="flex min-w-0 flex-1 flex-col gap-1">
+                  <p className="truncate text-sm leading-none font-medium">{conversation.title}</p>
+                  <span className="text-muted-foreground text-xs">{formatDate(conversation)}</span>
                 </div>
                 {/* Delete button */}
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-6 w-6 shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
+                  className="h-7 w-7 shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
                   onClick={(e) => handleDeleteClick(conversation.id, e)}>
-                  <Trash2 className="h-3 w-3" />
+                  <Trash2 className="h-3.5 w-3.5" />
                 </Button>
               </div>
             ))}

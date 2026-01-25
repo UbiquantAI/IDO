@@ -1,16 +1,22 @@
 """
 Unified image filtering and optimization
 Integrates deduplication, content analysis, and compression into a single preprocessing stage
+
+Supports coding scene detection for adaptive thresholds:
+- Coding scenes (IDEs, terminals) use more permissive thresholds
+- This helps capture small but meaningful changes during coding
 """
 
 import base64
 import io
 from collections import deque
+from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
 from core.logger import get_logger
 from core.models import RawRecord, RecordType
 from perception.image_manager import get_image_manager
+from processing.coding_detector import get_coding_detector
 
 logger = get_logger(__name__)
 
@@ -50,6 +56,8 @@ class ImageFilter:
         enable_content_analysis: bool = True,
         # Compression settings
         enable_compression: bool = True,
+        # Periodic sampling settings
+        min_sample_interval: float = 30.0,
     ):
         """
         Initialize unified image filter
@@ -62,6 +70,7 @@ class ImageFilter:
             enable_adaptive_threshold: Enable scene-adaptive thresholds
             enable_content_analysis: Enable content analysis (skip static screens)
             enable_compression: Enable image compression
+            min_sample_interval: Minimum seconds between kept samples in static scenes (default 30)
         """
         self.enable_deduplication = enable_deduplication and IMAGEHASH_AVAILABLE
         self.similarity_threshold = similarity_threshold
@@ -69,6 +78,8 @@ class ImageFilter:
         self.enable_adaptive_threshold = enable_adaptive_threshold
         self.enable_content_analysis = enable_content_analysis
         self.enable_compression = enable_compression
+        self.min_sample_interval = min_sample_interval
+        self.last_kept_timestamp: Optional[datetime] = None
 
         # Initialize hash algorithms with weights
         if hash_algorithms is None:
@@ -79,6 +90,7 @@ class ImageFilter:
         self.hash_cache: deque = deque(maxlen=hash_cache_size)
 
         self.image_manager = get_image_manager()
+        self.coding_detector = get_coding_detector()
 
         # Initialize components
         self._init_content_analyzer()
@@ -207,8 +219,11 @@ class ImageFilter:
 
             # Step 2: Content analysis
             if self.enable_content_analysis and self.content_analyzer:
+                # Check if this is a coding scene for relaxed thresholds
+                is_coding = self.coding_detector.is_coding_record(record.data)
                 has_content, reason = self.content_analyzer.has_significant_content(
-                    img_bytes
+                    img_bytes,
+                    is_coding_scene=is_coding,
                 )
                 if not has_content:
                     self.stats["content_filtered"] += 1
@@ -295,6 +310,18 @@ class ImageFilter:
             return False, 0.0
 
         try:
+            # Periodic sampling: force keep at least one sample every min_sample_interval
+            # This ensures time coverage even in static scenes (reading, watching)
+            force_keep = False
+            if self.last_kept_timestamp is not None:
+                elapsed = (record.timestamp - self.last_kept_timestamp).total_seconds()
+                if elapsed >= self.min_sample_interval:
+                    force_keep = True
+                    logger.debug(
+                        f"Periodic sampling: keeping screenshot after {elapsed:.1f}s "
+                        f"(interval: {self.min_sample_interval}s)"
+                    )
+
             # Load PIL Image
             img = Image.open(io.BytesIO(img_bytes))
 
@@ -314,15 +341,17 @@ class ImageFilter:
                     max_similarity = max(max_similarity, similarity)
 
                 # Detect scene type and get adaptive threshold
-                scene_type = self._detect_scene_type(max_similarity)
+                # Pass record to check for coding scene
+                scene_type = self._detect_scene_type(max_similarity, record)
                 adaptive_threshold = self._get_adaptive_threshold(scene_type)
 
-                # Check if duplicate
-                if max_similarity >= adaptive_threshold:
+                # Check if duplicate (but respect periodic sampling)
+                if max_similarity >= adaptive_threshold and not force_keep:
                     return True, max_similarity
 
-            # Not duplicate, add to cache
+            # Not duplicate (or force kept), add to cache and update timestamp
             self.hash_cache.append((record.timestamp, multi_hash))
+            self.last_kept_timestamp = record.timestamp
             return False, max_similarity
 
         except Exception as e:
@@ -383,8 +412,24 @@ class ImageFilter:
 
         return total_similarity / total_weight if total_weight > 0 else 0.0
 
-    def _detect_scene_type(self, similarity: float) -> str:
-        """Detect scene type based on similarity"""
+    def _detect_scene_type(
+        self, similarity: float, record: Optional[RawRecord] = None
+    ) -> str:
+        """
+        Detect scene type based on similarity and active window context.
+
+        Scene types:
+        - 'coding': IDEs, terminals, code editors (more permissive threshold)
+        - 'static': Almost identical content (aggressive deduplication)
+        - 'video': High similarity with motion (preserve key frames)
+        - 'normal': Regular interactive content (default threshold)
+        """
+        # Check for coding scene first (highest priority)
+        if record and record.data:
+            if self.coding_detector.is_coding_record(record.data):
+                return 'coding'
+
+        # Similarity-based detection
         if similarity >= 0.99:
             return 'static'  # Almost identical (documents, reading)
         elif similarity >= 0.95:
@@ -393,11 +438,22 @@ class ImageFilter:
             return 'normal'  # Regular interactive content
 
     def _get_adaptive_threshold(self, scene_type: str) -> float:
-        """Get adaptive threshold based on scene type"""
+        """
+        Get adaptive threshold based on scene type.
+
+        Thresholds:
+        - coding: 0.92 (more permissive, capture small code changes)
+        - static: 0.85 (aggressive deduplication for static content)
+        - video: 0.98 (preserve key frames)
+        - normal: configured threshold (default 0.88)
+        """
         if not self.enable_adaptive_threshold:
             return self.similarity_threshold
 
-        if scene_type == 'static':
+        if scene_type == 'coding':
+            # More permissive for coding - capture cursor movement, typing
+            return 0.92
+        elif scene_type == 'static':
             return 0.85  # Aggressive deduplication for static content
         elif scene_type == 'video':
             return 0.98  # Preserve key frames in video
@@ -409,8 +465,9 @@ class ImageFilter:
         return self.stats.copy()
 
     def reset_state(self):
-        """Reset deduplication state (clears hash cache)"""
+        """Reset deduplication state (clears hash cache and periodic sampling)"""
         self.hash_cache.clear()
+        self.last_kept_timestamp = None
         self.stats = {
             "total_processed": 0,
             "duplicates_skipped": 0,

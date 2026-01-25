@@ -584,7 +584,7 @@ Each layer is independently configurable:
 # config.toml
 
 [monitoring]  # Perception layer
-capture_interval = 1  # seconds
+capture_interval = 0.2  # seconds (5 screenshots per second)
 window_size = 20  # seconds
 
 [processing]  # Processing layer
