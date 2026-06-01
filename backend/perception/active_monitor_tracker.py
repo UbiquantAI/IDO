@@ -1,8 +1,13 @@
 """
 Active monitor tracker for smart screenshot filtering
 
-Tracks which monitor is currently active based on mouse position,
+Tracks which monitor is currently active based on mouse/keyboard activity,
 enabling smart screenshot capture that only captures the active screen.
+
+Key behavior:
+- Always uses the last known mouse position to determine active monitor
+- Never falls back to capturing all monitors due to inactivity
+- This ensures correct behavior when watching videos (cursor hidden but still on one screen)
 """
 
 import time
@@ -14,19 +19,13 @@ logger = get_logger(__name__)
 
 
 class ActiveMonitorTracker:
-    """Tracks the currently active monitor based on mouse activity"""
+    """Tracks the currently active monitor based on user activity"""
 
-    def __init__(self, inactive_timeout: float = 30.0):
-        """
-        Initialize active monitor tracker
-
-        Args:
-            inactive_timeout: Seconds of inactivity before considering all monitors active
-        """
+    def __init__(self):
+        """Initialize active monitor tracker"""
         self._current_monitor_index: int = 1  # Default to primary monitor
         self._monitors_info: List[Dict] = []
         self._last_activity_time: float = time.time()
-        self._inactive_timeout: float = inactive_timeout
         self._last_mouse_position: Optional[tuple[int, int]] = None
 
     def update_monitors_info(self, monitors: List[Dict]) -> None:
@@ -63,6 +62,16 @@ class ActiveMonitorTracker:
 
         self._last_activity_time = time.time()
         self._last_mouse_position = (x, y)
+
+    def update_from_keyboard(self) -> None:
+        """
+        Update last activity time from keyboard event
+
+        Keeps the tracker aware of user activity even when mouse isn't moving
+        (e.g., watching videos, reading content, typing)
+        """
+        self._last_activity_time = time.time()
+        logger.debug("Activity time updated from keyboard event")
 
     def _get_monitor_from_position(self, x: int, y: int) -> int:
         """
@@ -103,20 +112,14 @@ class ActiveMonitorTracker:
         """
         Get the currently active monitor index
 
+        Always returns the last known active monitor based on mouse position.
+        Never returns "capture all" - maintains single monitor focus even
+        during long periods of inactivity (e.g., watching videos).
+
         Returns:
             Monitor index (1-based)
         """
         return self._current_monitor_index
-
-    def should_capture_all_monitors(self) -> bool:
-        """
-        Check if we should capture all monitors (due to inactivity timeout)
-
-        Returns:
-            True if inactive for too long, False otherwise
-        """
-        inactive_duration = time.time() - self._last_activity_time
-        return inactive_duration >= self._inactive_timeout
 
     def get_stats(self) -> Dict:
         """Get tracker statistics for debugging"""
@@ -126,6 +129,4 @@ class ActiveMonitorTracker:
             "monitors_count": len(self._monitors_info),
             "last_mouse_position": self._last_mouse_position,
             "inactive_duration_seconds": round(inactive_duration, 2),
-            "should_capture_all": self.should_capture_all_monitors(),
-            "inactive_timeout": self._inactive_timeout,
         }

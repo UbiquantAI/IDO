@@ -40,9 +40,6 @@ class ScreenshotCapture(BaseCapture):
         self._last_screenshot_time = 0
         # Per-monitor deduplication state
         self._last_hashes: Dict[int, Optional[str]] = {}
-        self._last_force_save_times: Dict[int, float] = {}
-        # Force save interval: read from settings, default 60 seconds
-        self._force_save_interval = self._get_force_save_interval()
         self._screenshot_count = 0
         self._compression_quality = 90
         self._max_width = 2560
@@ -91,7 +88,7 @@ class ScreenshotCapture(BaseCapture):
         """Load enabled monitor indices from settings, with smart capture support.
 
         Returns:
-            - If smart capture enabled and tracker available: [active_monitor_index]
+            - If smart capture enabled and tracker available: intersection of active monitor and enabled monitors
             - If screen settings exist and some are enabled: list of enabled indices
             - If screen settings exist but none enabled: empty list (respect user's choice)
             - If no screen settings configured or read fails: [1] (primary)
@@ -99,35 +96,41 @@ class ScreenshotCapture(BaseCapture):
         try:
             settings = get_settings()
 
+            # Get configured enabled monitors from settings
+            # Use the proper method to read screen settings from database
+            screens = settings.get_screenshot_screen_settings()
+            if not screens:
+                # Not configured -> default to primary only
+                configured_enabled = [1]
+            else:
+                configured_enabled = [int(s.get("monitor_index")) for s in screens if s.get("is_enabled")]
+                # Deduplicate while preserving order
+                seen = set()
+                result: List[int] = []
+                for i in configured_enabled:
+                    if i not in seen:
+                        seen.add(i)
+                        result.append(i)
+                configured_enabled = result
+
             # Check if smart capture is enabled
             smart_capture_enabled = settings.get("screenshot.smart_capture_enabled", False)
 
             if smart_capture_enabled and self.monitor_tracker:
-                # Check if we should capture all monitors due to inactivity
-                if self.monitor_tracker.should_capture_all_monitors():
-                    logger.debug(
-                        "Inactivity timeout reached, capturing all enabled monitors"
-                    )
-                else:
-                    # Only capture the active monitor
-                    active_index = self.monitor_tracker.get_active_monitor_index()
+                # Smart capture: only capture the active monitor if it's enabled in settings
+                # Always uses last known mouse position, never falls back to "capture all"
+                active_index = self.monitor_tracker.get_active_monitor_index()
+                if active_index in configured_enabled:
                     logger.debug(f"Smart capture: only capturing monitor {active_index}")
                     return [active_index]
+                else:
+                    logger.debug(
+                        f"Smart capture: active monitor {active_index} is not enabled in settings, skipping"
+                    )
+                    return []
 
-            # Fallback to configured screen settings
-            screens = settings.get("screenshot.screen_settings", None)
-            if not isinstance(screens, list) or len(screens) == 0:
-                # Not configured -> default to primary only
-                return [1]
-            enabled = [int(s.get("monitor_index")) for s in screens if s.get("is_enabled")]
-            # Deduplicate while preserving order
-            seen = set()
-            result: List[int] = []
-            for i in enabled:
-                if i not in seen:
-                    seen.add(i)
-                    result.append(i)
-            return result
+            # Return configured enabled monitors (smart capture disabled)
+            return configured_enabled
         except Exception as e:
             logger.warning(f"Failed to read screen settings, fallback to primary: {e}")
             return [1]
@@ -135,7 +138,7 @@ class ScreenshotCapture(BaseCapture):
     def _capture_one_monitor(
         self, sct: MSSBase, monitor_index: int
     ) -> Optional[RawRecord]:
-        """Capture one monitor and emit a record if not duplicate (or force-save interval reached)."""
+        """Capture one monitor and emit a record if not duplicate."""
         try:
             monitor = sct.monitors[monitor_index]
             screenshot = sct.grab(monitor)
@@ -145,23 +148,12 @@ class ScreenshotCapture(BaseCapture):
             img = self._process_image(img)
 
             img_hash = self._calculate_hash(img)
-            current_time = time.time()
             last_hash = self._last_hashes.get(monitor_index)
-            last_force = self._last_force_save_times.get(monitor_index, 0.0)
             is_duplicate = last_hash == img_hash
-            time_since_force_save = current_time - last_force
-            should_force_save = time_since_force_save >= self._force_save_interval
 
-            if is_duplicate and not should_force_save:
+            if is_duplicate:
                 logger.debug(f"Skip duplicate screenshot on monitor {monitor_index}")
                 return None
-
-            if is_duplicate and should_force_save:
-                logger.debug(
-                    f"Force keep duplicate screenshot on monitor {monitor_index} "
-                    f"({time_since_force_save:.1f}s since last save)"
-                )
-                self._last_force_save_times[monitor_index] = current_time
 
             self._last_hashes[monitor_index] = img_hash
             self._screenshot_count += 1
@@ -323,7 +315,9 @@ class ScreenshotCapture(BaseCapture):
             return
 
         current_time = time.time()
-        if current_time - self._last_screenshot_time >= interval:
+        time_since_last = current_time - self._last_screenshot_time
+
+        if time_since_last >= interval:
             self.capture()
             self._last_screenshot_time = current_time
 
@@ -365,23 +359,6 @@ class ScreenshotCapture(BaseCapture):
             "enable_phash": self._enable_phash,
             "tmp_dir": self.tmp_dir,
         }
-
-    def _get_force_save_interval(self) -> float:
-        """Get force save interval from settings
-
-        Returns the interval in seconds after which a screenshot will be force-saved
-        even if it appears to be a duplicate. Defaults to 60 seconds (1 minute).
-        """
-        try:
-            settings = get_settings()
-            interval = settings.get_screenshot_force_save_interval()
-            logger.debug(f"Force save interval: {interval}s")
-            return interval
-        except Exception as e:
-            logger.warning(
-                f"Failed to read force save interval from settings: {e}, using default 60s"
-            )
-            return 60.0  # Default 1 minute
 
     def _ensure_tmp_dir(self) -> None:
         """Ensure tmp directory exists"""

@@ -1,0 +1,179 @@
+/**
+ * Custom Tailwind Animation Utilities
+ * Native CSS animations for better performance and no content flash
+ */
+
+@layer utilities {
+  /* ============================================================================
+   * PAGE TRANSITIONS
+   * ============================================================================ */
+
+  .animate-page-enter {
+    animation: fadeInUp 0.25s ease-out;
+  }
+
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* ============================================================================
+   * CARD HOVER EFFECTS
+   * ============================================================================ */
+
+  .card-hover {
+    @apply transition-all duration-200 ease-out;
+  }
+
+  .card-hover:hover {
+    @apply -translate-y-1 shadow-lg;
+  }
+
+  /* ============================================================================
+   * LIST STAGGER DELAYS
+   * Use with animate-in utilities for staggered list entrances
+   * ============================================================================ */
+
+  .stagger-1 { animation-delay: 0.05s; }
+  .stagger-2 { animation-delay: 0.10s; }
+  .stagger-3 { animation-delay: 0.15s; }
+  .stagger-4 { animation-delay: 0.20s; }
+  .stagger-5 { animation-delay: 0.25s; }
+  .stagger-6 { animation-delay: 0.30s; }
+  .stagger-7 { animation-delay: 0.35s; }
+  .stagger-8 { animation-delay: 0.40s; }
+  .stagger-9 { animation-delay: 0.45s; }
+  .stagger-10 { animation-delay: 0.50s; }
+
+  /* ============================================================================
+   * BUTTON PRESS FEEDBACK
+   * ============================================================================ */
+
+  .button-press {
+    @apply transition-transform duration-75 ease-out active:scale-95;
+  }
+
+  /* ============================================================================
+   * MESSAGE SLIDE ANIMATIONS
+   * For chat messages sliding from left or right
+   * ============================================================================ */
+
+  .slide-in-left {
+    animation: slideFromLeft 0.2s ease-out;
+  }
+
+  .slide-in-right {
+    animation: slideFromRight 0.2s ease-out;
+  }
+
+  @keyframes slideFromLeft {
+    from {
+      opacity: 0;
+      transform: translateX(-20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  @keyframes slideFromRight {
+    from {
+      opacity: 0;
+      transform: translateX(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  /* ============================================================================
+   * ICON BOUNCE
+   * For favorite stars and interactive icons
+   * ============================================================================ */
+
+  .icon-bounce {
+    animation: iconBounce 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  @keyframes iconBounce {
+    0%, 100% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(1.2);
+    }
+  }
+
+  /* ============================================================================
+   * ACCESSIBILITY: REDUCED MOTION
+   * Automatically disable animations when user prefers reduced motion
+   * ============================================================================ */
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-page-enter,
+    .slide-in-left,
+    .slide-in-right,
+    .icon-bounce,
+    [class*="animate-in"],
+    [class*="animate-out"] {
+      animation: none !important;
+      animation-delay: 0 !important;
+    }
+
+    .card-hover:hover {
+      transform: none !important;
+    }
+
+    * {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
+  /* ============================================================================
+   * FADE IN UTILITIES
+   * Simple fade in for general use
+   * ============================================================================ */
+
+  .fade-in {
+    animation: fadeIn 0.2s ease-out;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  /* ============================================================================
+   * SCALE IN UTILITIES
+   * For cards and metrics
+   * ============================================================================ */
+
+  .scale-in {
+    animation: scaleIn 0.3s ease-out;
+  }
+
+  @keyframes scaleIn {
+    from {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+}

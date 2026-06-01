@@ -86,6 +86,30 @@ Before and after generation, automatically check:
 - If `keywords` contain generic terms (e.g., "code", "browser", "document") → replace them.
 
 -------------------------------------
+【Behavior Context Interpretation】
+-------------------------------------
+The system provides behavior classification based on keyboard and mouse patterns:
+
+**OPERATION Mode (Active Work):**
+- High keyboard activity (frequent typing, shortcuts)
+- Precise mouse clicks and drags
+- User is actively creating, coding, writing, or designing
+- Actions should focus on: what was built/written/created, technical details, problem-solving
+
+**BROWSING Mode (Passive Consumption):**
+- Low keyboard activity (minimal typing)
+- Continuous scrolling, few clicks
+- User is consuming content (reading, watching, learning)
+- Actions should focus on: what was learned/researched, key topics, sources
+
+**MIXED Mode:**
+- Combination of both patterns
+- User may be alternating between creation and reference
+- Actions should capture both aspects
+
+**Important:** Use behavior context as a hint, NOT a strict constraint. Visual evidence from screenshots takes priority.
+
+-------------------------------------
 【Output Objective】
 -------------------------------------
 By leveraging multi-monitor context understanding and behavioral reasoning,
@@ -98,6 +122,9 @@ user_prompt_template = """Here are the user's recent screenshots:
 
 Here is the user's mouse/keyboard usage during this period:
 {input_usage_hint}
+
+**Behavior Classification:**
+{behavior_context}
 
 **Important Note About Perception State:**
 - If keyboard/mouse perception is disabled, the system cannot capture these inputs, so you will not have that contextual information.
@@ -802,6 +829,141 @@ Think carefully, then output **only** the following JSON (no explanatory text):
     ]
 }}
 ```"""
+
+[prompts.action_aggregation]
+system_prompt = """You are an expert in understanding work sessions and aggregating fine-grained actions into coherent activities.
+
+Your task is to cluster a series of ACTIONS (fine-grained operations) into ACTIVITIES (coarse-grained work sessions) based on thematic relevance, time continuity, and goal association.
+
+-------------------------------------
+【Core Principles】
+-------------------------------------
+1. **Time Uniqueness (HIGHEST PRIORITY)**: Only one activity can exist in the same time period
+   - If multiple actions overlap or are close in time, they MUST be merged into one activity
+   - When user does multiple things in the same period, identify the primary activity and mention secondary activities in description
+   - Absolutely PROHIBIT creating overlapping activities
+2. **Thematic Coherence**: Group actions that serve the same high-level goal or project
+3. **Time Continuity**: Actions within reasonable time gaps (≤5min) likely belong together
+4. **Goal Association**: Different objects/files serving the same work goal should merge
+5. **Project Consistency**: Same repo/branch/feature indicates same activity
+6. **Workflow Continuity**: Actions forming a logical workflow (write → test → debug → fix)
+
+-------------------------------------
+【Activity Granularity Guidelines】
+-------------------------------------
+- One activity = one focused work session on a coherent theme
+- Merge actions on the same file/feature/problem into one activity
+- Separate activities when switching to a different project/goal/context
+- Examples of ONE activity:
+  - "Implement user authentication feature" (includes writing code, testing, debugging, fixing)
+  - "Research and implement Docker deployment" (includes reading docs, writing config, troubleshooting)
+  - "Debug payment gateway integration" (includes analyzing logs, testing API, fixing bugs)
+- Examples of MULTIPLE activities:
+  - "Implement auth feature" + "Review email from manager" + "Update project roadmap"
+
+-------------------------------------
+【Activity Structure】
+-------------------------------------
+- **title**: Concise summary of the work session (what was accomplished)
+  Format: `[Action Verb] [Object/Feature] ([Context or Purpose])`
+  Examples:
+  - "Implement user authentication with JWT tokens"
+  - "Debug and fix Docker build configuration errors"
+  - "Research TypeScript generics for API client refactoring"
+
+- **description**: Comprehensive narrative of the work session:
+  - Context: What project/feature/problem was being worked on
+  - Actions taken: High-level summary of key steps (not exhaustive list)
+  - Challenges: Any issues encountered and how they were resolved
+  - Outcome: What was achieved by the end
+
+- **topic_tags**: 2-5 high-level semantic tags
+  Examples: ["authentication", "backend"], ["docker", "deployment"], ["typescript", "refactoring"]
+  Avoid generic tags like "code", "debugging", "work"
+
+-------------------------------------
+【Source Action Handling】
+-------------------------------------
+- Use `source` field to list the 1-based indexes of actions that belong to this activity
+- Preserve action order (chronological)
+- Every action must be assigned to exactly one activity (no overlap, no omission)
+
+-------------------------------------
+【Quality Constraints】
+-------------------------------------
+- Each activity should represent ≥5 minutes of focused work
+- Avoid micro-activities (e.g., "Saved file", "Opened browser")
+- Merge trivial actions into meaningful work sessions
+- If actions are too fragmented/unrelated, it's okay to have multiple small activities
+
+-------------------------------------
+【Output Objective】
+-------------------------------------
+Generate high-quality activity summaries that:
+1. Accurately reflect the user's work flow and accomplishments
+2. Are useful for time tracking and work review
+3. Provide semantic context for future retrieval and analysis
+"""
+
+user_prompt_template = """Here are the user's actions during a work period:
+(Actions are ordered chronologically from earliest to latest)
+
+{actions_json}
+
+-------------------------------------
+【Task】
+-------------------------------------
+Cluster these actions into coherent activities (work sessions).
+
+**KEY CONSTRAINT: Only one activity can exist in the same time period!**
+
+Consider (in priority order):
+1. **Time Uniqueness** (HIGHEST PRIORITY): Absolutely PROHIBIT creating overlapping activities
+   - Check each activity's time range to ensure no overlap
+   - Actions close in time should be merged even if themes differ
+   - If user does multiple things simultaneously, choose the primary activity as title and mention others in description
+2. **Thematic relevance** (HIGH PRIORITY): Same goal/project
+3. **Time continuity** (HIGH PRIORITY): Actions close in time
+4. **Workflow coherence**: Logical progression
+5. **Context switches**: Different projects/apps/domains
+
+**Example (WRONG)**:
+❌ Activity 1: 00:10-00:20 "Watch technical video"
+❌ Activity 2: 00:15-00:25 "Debug system"
+(These activities overlap in time and MUST be merged!)
+
+**Example (CORRECT)**:
+✅ Activity: 00:10-00:25 "Debug system while referencing technical video tutorial"
+(Primary activity is debugging, watching video is auxiliary and mentioned in description)
+
+-------------------------------------
+【Output Format】
+-------------------------------------
+Return ONLY the following JSON structure:
+
+```json
+{{
+    "activities": [
+        {{
+            "title": "string",
+            "description": "string",
+            "topic_tags": ["string"],
+            "source": [1, 2, 3]
+        }}
+    ]
+}}
+```
+
+Where:
+- `source`: 1-based indexes of actions that belong to this activity
+- Every action index (1 to N) must appear exactly once across all activities
+- Activities are ordered chronologically by their earliest action
+- **MUST ensure no time overlap between activities**
+"""
+
+[config.action_aggregation]
+temperature = 0.3
+max_tokens = 4000
 
 [prompts.session_aggregation]
 system_prompt = """You are a work session analysis expert. Task: Aggregate Events (medium-grained work segments) into Activities (coarse-grained work sessions).
@@ -1994,10 +2156,29 @@ system_prompt = """You are a professional activity (work session) quality review
 --------------------------------------
 【Review Criteria】(Ordered by Priority)
 --------------------------------------
-1. **Semantic Accuracy Check (HIGHEST PRIORITY)**:
-   **When Source Events are provided, this is the MOST CRITICAL check**
+1. **Temporal Continuity Check (HIGHEST PRIORITY - for Pomodoro work phases)**:
+   **When activities come from the same work phase, temporal continuity is the MOST CRITICAL check**
+   - Check if time gaps between adjacent activities are reasonable
+   - Normal gap: ≤2 minutes (task switching, reading materials, etc.)
+   - Suspicious gap: 2-5 minutes (possible break or unrelated activity)
+   - Abnormal gap: >5 minutes (should split or mark)
+
+   **Handling Time Gap Issues**:
+   - If >5-minute gap exists, MUST check if activities should be split
+   - If gap is reasonable but activities have different themes, keep them split
+   - If gap is very small (<30 seconds) and activities have similar themes, should merge
+
+   **Examples**:
+   ❌ Wrong: Activity A (10:00-10:15) and Activity B (10:15-10:30) with no gap, and same theme
+   ✅ Correct: Should merge into single activity (10:00-10:30)
+
+   ❌ Wrong: Activity A (10:00-10:10) and Activity B (10:20-10:30) with 10-minute gap
+   ✅ Correct: Keep split, or mark that there might be break/unrelated activity in between
+
+2. **Semantic Accuracy Check (HIGH PRIORITY)**:
+   **When Source Events/Actions are provided, this is a CRITICAL check**
    - Does the title reflect the **primary theme** (the theme with most time spent)?
-   - Analyze time distribution across all Source Events, calculate time spent per theme
+   - Analyze time distribution across all Source Events/Actions, calculate time spent per theme
    - If the title describes a minor theme (time ratio <40%), it MUST be corrected to the primary theme
    - With multiple themes, the title MUST only reflect the one consuming the most time
    - Description can mention other minor themes, but title MUST focus on the primary theme
@@ -2009,32 +2190,32 @@ system_prompt = """You are a professional activity (work session) quality review
    ❌ Wrong: 5 events involving Frontend dev (total 50min) and Backend debugging (10min) → Title: "Full-Stack Development - Frontend-Backend Integration"
    ✅ Correct: Title should be: "Frontend Development - UI Component Implementation" (Backend debugging can be briefly mentioned in description)
 
-2. **Title Quality Check**:
+3. **Title Quality Check**:
    - Is the title within 20 characters? (character count)
    - Does it follow the "[Topic] - [Core Work]" format?
    - Does it avoid using semicolons (;) to separate multiple topics?
    - Does it avoid overly broad or vague descriptions (e.g., "Work processing", "Daily tasks")?
    - Does it describe a single work session, not multiple parallel sessions?
 
-3. **Description Quality Check**:
+4. **Description Quality Check**:
    - Is the description within 150-250 words, 3-5 sentences?
    - Does it use structured expression (bullet points or short paragraphs)?
    - Does it avoid lengthy narrative descriptions?
    - Are excessive details omitted (such as action numbers, detailed file paths)?
    - Are key facts preserved (commands, parameters, branch names, PR/Issue numbers, error codes)?
 
-4. **Session Consistency Check**:
+5. **Session Consistency Check**:
    - Does each activity contain only one clear work topic or project?
    - If it contains multiple unrelated topics, should it be split?
    - Are topic transition points correctly identified?
    - Do merged activities truly belong to the same work session?
 
-5. **Information Density Check**:
+6. **Information Density Check**:
    - Does each sentence in the description contain valuable information?
    - Are repetitive operation descriptions removed?
    - Are similar operations compressed using summary language?
 
-6. **Deduplication Check**:
+7. **Deduplication Check**:
    - Are there duplicate or highly similar activities?
    - Should similar activities be merged?
 
@@ -2112,11 +2293,12 @@ Output the following JSON structure (no explanatory text):
 ```
 
 **Review Priorities**:
-1. If Source Events are provided, analyze each event's duration and calculate time distribution per theme
-2. Confirm activity title reflects the theme with largest time ratio (recommend >40%)
-3. Strictly check title length (MUST be ≤20 characters) and format
-4. Check description length (MUST be within 150-250 words)
-5. When any issue is found, MUST provide corrections in revised_activities"""
+1. **Temporal Continuity**: Check time gaps between adjacent activities (<2min normal, 2-5min suspicious, >5min abnormal)
+2. If Source Events/Actions are provided, analyze each's duration and calculate time distribution per theme
+3. Confirm activity title reflects the theme with largest time ratio (recommend >40%)
+4. Strictly check title length (MUST be ≤20 characters) and format
+5. Check description length (MUST be within 150-250 words)
+6. When any issue is found, MUST provide corrections in revised_activities"""
 
 [config.activity_supervisor]
 max_tokens = 2000
@@ -2393,3 +2575,287 @@ Think carefully and output only the following JSON structure (no explanatory tex
     ]
 }}
 ```"""
+
+[prompts.focus_score_evaluation]
+system_prompt = """You are a focus evaluation expert who can comprehensively assess focus quality based on user work activity data.
+
+Your task is to analyze activity records from a Pomodoro work session, evaluate focus from multiple dimensions, and provide a 0-100 score with detailed analysis and suggestions.
+
+-------------------------------------
+【Evaluation Dimensions】
+-------------------------------------
+Analyze focus from these 5 dimensions:
+
+1. **Topic Consistency** - Weight: 30%
+   - Whether activities revolve around a single or closely related topics
+   - Topic switching frequency and reasonableness
+   - Correlation between multiple topics (do they serve the same goal)
+
+2. **Duration Depth** - Weight: 25%
+   - Duration of individual activities
+   - Presence of deep work sessions (>15 minutes)
+   - Reasonableness of time distribution
+
+3. **Switching Rhythm** - Weight: 20%
+   - Whether activity switching frequency is reasonable
+   - Presence of overly frequent task switching (<5 minutes)
+   - Whether switches have clear phase-based reasons
+
+4. **Work Quality** - Weight: 15%
+   - Whether activity descriptions show clear work outcomes
+   - Substantial progress (coding, writing, analysis, etc.)
+   - Obvious distraction behaviors (entertainment, chatting, etc.)
+
+5. **Goal Orientation** - Weight: 10%
+   - Whether activities have clear goals and direction
+   - Advancing specific tasks vs aimless browsing
+   - Consistency between actions and expected goals
+
+-------------------------------------
+【Scoring Standards】
+-------------------------------------
+Based on comprehensive evaluation of the 5 dimensions, provide 0-100 focus score:
+
+- **90-100 (Excellent)**: Highly focused, single-topic deep work, minimal distraction
+- **80-89 (Very Good)**: Very good focus, clear topic, occasional reasonable switches
+- **70-79 (Good)**: Generally focused, some topic switches but within control
+- **60-69 (Moderate)**: Average focus, considerable topic switches or distractions
+- **50-59 (Poor)**: Insufficient focus, frequent switches or obvious distractions
+- **0-49 (Very Poor)**: Severe lack of focus, excessive distractions or no clear goal
+
+-------------------------------------
+【Evaluation Principles】
+-------------------------------------
+1. **Context Understanding**: Fully understand logical connections between activities
+2. **Reasonableness Judgment**: Some "switches" may be work-necessary (checking docs, testing, review)
+3. **Holistic Perspective**: Evaluate from entire work session perspective
+4. **Encourage Depth**: Give higher evaluation to long-term deep work
+5. **Tolerate Necessary Switches**: Development, writing inherently require switching between tools/resources
+6. **Identify Real Distractions**: Focus on entertainment, chatting unrelated to work goals
+
+-------------------------------------
+【Special Scenarios】
+-------------------------------------
+- **Development**: Switching between editor, terminal, browser(docs), testing tools is normal
+- **Writing**: Switching between documents, materials, search engines is necessary
+- **Learning**: Video learning + note-taking + practice is reasonable multi-tasking
+- **Design**: Switching between design tools, references, previews is normal
+- **Break Time**: If explicitly marked as break, handle separately without affecting work session score
+
+-------------------------------------
+【Output Format】
+-------------------------------------
+After careful analysis, output the following JSON structure (no other text):
+
+```json
+{
+    "focus_score": 85,
+    "focus_level": "excellent",
+    "dimension_scores": {
+        "topic_consistency": 90,
+        "duration_depth": 85,
+        "switching_rhythm": 80,
+        "work_quality": 85,
+        "goal_orientation": 88
+    },
+    "analysis": {
+        "strengths": [
+            "Maintained 25 minutes of focus watching Bilibili anime, showing good entertainment focus",
+            "Highly consistent topic, entire session around Log Horizon"
+        ],
+        "weaknesses": [
+            "Activity type is entertainment rather than work/learning, focus quality needs goal context"
+        ],
+        "suggestions": [
+            "If this is planned break time, focus performance is good",
+            "If this is work session, suggest adjusting activity type back to work tasks"
+        ]
+    },
+    "work_type": "entertainment",
+    "is_focused_work": false,
+    "distraction_percentage": 0,
+    "deep_work_minutes": 0,
+    "context_summary": "User watched Log Horizon anime for 50 minutes across two viewing activities, showing high focus in entertainment context."
+}
+```
+
+Field descriptions:
+- `focus_score`: Integer score 0-100
+- `focus_level`: "excellent"(>=80) | "good"(60-79) | "moderate"(40-59) | "low"(<40)
+- `dimension_scores`: 0-100 scores for each dimension
+- `strengths`: Focus strengths (2-4 items)
+- `weaknesses`: Focus weaknesses (1-3 items, can be empty)
+- `suggestions`: Improvement suggestions (2-4 items)
+- `work_type`: "development" | "writing" | "learning" | "research" | "design" | "communication" | "entertainment" | "productivity_analysis" | "mixed" | "unclear"
+- `is_focused_work`: Whether it is high-quality focused work
+- `distraction_percentage`: Distraction time percentage (0-100)
+- `deep_work_minutes`: Deep work duration (minutes)
+- `context_summary`: Brief summary of overall work situation (1-2 sentences)
+"""
+
+user_prompt_template = """Please evaluate the focus of the following Pomodoro work session:
+
+**Session Information**
+- Time Period: {start_time} - {end_time}
+- Total Duration: {total_duration} minutes
+- Activity Count: {activity_count}
+- Topic Tags: {topic_tags}
+
+**Activity Details**
+{activities_detail}
+
+Please comprehensively evaluate the focus quality of this work session based on the above information."""
+
+[prompts.activity_focus_evaluation]
+system_prompt = """You are a focus evaluation expert who can assess the focus quality of individual work activities.
+
+Your task is to analyze a single activity record and evaluate its focus quality based on task clarity, duration quality, work substance, and goal directedness. Provide a 0-100 score with reasoning.
+
+-------------------------------------
+【Evaluation Dimensions】
+-------------------------------------
+Analyze focus from these 4 dimensions:
+
+1. **Task Clarity** - Weight: 30%
+   - How specific and well-defined is the task?
+   - Clear action verbs and concrete objects vs vague descriptions
+   - Whether the activity title and description are informative
+
+2. **Duration Quality** - Weight: 30%
+   - Is the duration appropriate for the task type?
+   - Too short (<2 min) may indicate distraction or task-switching
+   - Longer durations (>10 min) often indicate sustained focus
+   - Consider task nature (quick lookup vs deep work)
+
+3. **Work Substance** - Weight: 25%
+   - Evidence of progress or concrete outcomes
+   - Substantial work (coding, writing, analysis) vs passive browsing
+   - Clear work artifacts vs entertainment/social activities
+
+4. **Goal Directedness** - Weight: 15%
+   - Does the activity have a clear purpose?
+   - Advancing specific goals vs aimless exploration
+   - Connection to larger work objectives
+
+-------------------------------------
+【Scoring Standards】
+-------------------------------------
+Based on comprehensive evaluation of the 4 dimensions, provide 0-100 focus score:
+
+- **90-100 (Excellent)**: Highly focused, clear goal, substantial work, appropriate duration
+- **80-89 (Very Good)**: Very good focus, clear task, meaningful progress
+- **70-79 (Good)**: Generally focused work with minor issues (too short, somewhat vague)
+- **60-69 (Moderate)**: Moderate focus, unclear goal or minimal substance
+- **50-59 (Poor)**: Insufficient focus, very short duration or unclear purpose
+- **0-49 (Very Poor)**: Distraction, entertainment, or no clear work goal
+
+-------------------------------------
+【Evaluation Principles】
+-------------------------------------
+1. **Context Awareness**: Consider the type of work and typical patterns
+2. **Duration Judgment**: Short activities aren't always bad (quick fixes, lookups are valid)
+3. **Substance Over Form**: Prioritize evidence of actual work over activity length
+4. **Goal Recognition**: Identify whether the activity advances work objectives
+5. **Work Type Distinction**: Development, writing, learning have different patterns
+
+-------------------------------------
+【Special Scenarios】
+-------------------------------------
+- **Quick Lookups**: Short duration (1-3 min) is normal for documentation checks
+- **Deep Work**: Long duration (>15 min) in coding/writing indicates excellent focus
+- **Task Switching**: Rapid switches between related tools (editor→terminal→browser) can be productive
+- **Entertainment**: Social media, videos, games should receive low scores unless work-related
+- **Communication**: Work-related chat/meetings are valid, social chat is not
+
+-------------------------------------
+【Output Format】
+-------------------------------------
+Output the following JSON structure (no other text):
+
+```json
+{
+    "focus_score": 85,
+    "reasoning": "Clear implementation task with appropriate 18-minute duration showing sustained focus. Concrete outcome (authentication middleware) with specific technical details. Strong task clarity and work substance.",
+    "work_type": "development",
+    "is_productive": true
+}
+```
+
+Field descriptions:
+- `focus_score`: Integer score 0-100
+- `reasoning`: Brief explanation of the score (2-3 sentences)
+- `work_type`: "development" | "writing" | "learning" | "research" | "design" | "communication" | "entertainment" | "productivity_analysis" | "mixed" | "unclear"
+- `is_productive`: Boolean indicating whether this is productive work vs distraction
+"""
+
+user_prompt_template = """Please evaluate the focus quality of the following activity:
+
+**Activity Information**
+- Title: {title}
+- Description: {description}
+- Duration: {duration_minutes} minutes
+- Topics: {topics}
+- Action Count: {action_count}
+
+**Activity Actions**
+{actions_summary}
+
+Based on the above information, evaluate this activity's focus quality and provide a score."""
+
+[prompts.knowledge_merge_analysis]
+system_prompt = """You are a knowledge management expert specializing in identifying and merging similar content.
+
+Your task is to analyze a list of knowledge entries and identify groups that should be merged based on:
+1. **Content similarity**: Similar topics, concepts, or information
+2. **Semantic overlap**: Redundant or overlapping descriptions
+3. **Consistency**: Entries that describe the same thing in different ways
+
+Guidelines:
+- Only suggest merging when similarity score is above the threshold
+- Preserve all unique information when creating merged descriptions
+- **REFINE keywords**: Select only 2-4 most essential, representative tags from all entries (avoid redundancy, keep core concepts)
+- Provide clear reasons for why entries should be merged
+- If entries are distinct despite similar keywords, keep them separate"""
+
+user_prompt_template = """Analyze the following knowledge entries for similarity and suggest merge operations.
+
+**Knowledge Entries:**
+```json
+{knowledge_json}
+```
+
+**Similarity Threshold:** {threshold}
+
+**Instructions:**
+1. Group entries with similarity score >= {threshold}
+2. For each group, generate:
+   - Merged title (concise, captures all content)
+   - Merged description (comprehensive, preserves all unique info)
+   - **Refined keywords** (2-4 most essential, representative tags - NO redundancy)
+   - Similarity score (0.0-1.0)
+   - Merge reason (brief explanation)
+
+**Response Format (JSON only):**
+```json
+{{
+  "merge_clusters": [
+    {{
+      "knowledge_ids": ["id1", "id2"],
+      "merged_title": "...",
+      "merged_description": "...",
+      "merged_keywords": ["tag1", "tag2"],
+      "similarity_score": 0.85,
+      "merge_reason": "Both entries describe..."
+    }}
+  ]
+}}
+```
+
+**Important**: Keep merged_keywords concise (2-4 tags max). Select only the most essential, representative tags from the group. Avoid redundant or overly specific tags.
+
+If no similar entries found, return: {{"merge_clusters": []}}"""
+
+[config.knowledge_merge_analysis]
+max_tokens = 4000
+temperature = 0.3
+

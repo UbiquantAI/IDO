@@ -114,7 +114,6 @@ export function PendingTodoList({ todos, onExecuteInChat, onDelete, onComplete, 
         {/* Slideable Card */}
         <div className={cn('relative transition-transform duration-300 ease-out', isExpanded && '-translate-x-42')}>
           <Card
-            onPointerDown={(e) => handlePointerDown(e, todo)}
             className={cn(
               'border-l-primary gap-2 border-l-4 py-3 transition-all hover:shadow-md',
               isExpanded ? 'rounded-r-none' : ''
@@ -122,6 +121,7 @@ export function PendingTodoList({ todos, onExecuteInChat, onDelete, onComplete, 
             <div className="flex min-h-9 items-center gap-1 px-2 py-1.5">
               {/* Drag handle */}
               <div
+                onPointerDown={(e) => handlePointerDown(e, todo)}
                 className={cn(
                   'text-muted-foreground -ml-1 flex shrink-0 items-center rounded px-1 py-2 transition-colors',
                   isExpanded ? 'pointer-events-none opacity-0' : 'hover:bg-accent hover:text-foreground cursor-move'

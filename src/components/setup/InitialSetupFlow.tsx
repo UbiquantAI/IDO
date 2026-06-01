@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { PermissionItem } from '@/components/permissions/PermissionItem'
+import { GoalsSetupStep } from '@/components/setup/GoalsSetupStep'
 
 import { useSetupStore, type SetupStep } from '@/lib/stores/setup'
 import { useModelsStore } from '@/lib/stores/models'
@@ -19,7 +20,7 @@ import { getMonitors, getScreenSettings, updateScreenSettings, captureAllPreview
 import type { MonitorInfo, ScreenSetting } from '@/lib/types/settings'
 import { ScreenCard } from '@/components/settings/ScreenCard'
 
-const STEP_ORDER: SetupStep[] = ['welcome', 'screens', 'model', 'permissions', 'complete']
+const STEP_ORDER: SetupStep[] = ['welcome', 'screens', 'model', 'permissions', 'goals', 'complete']
 
 const CURRENCIES = ['USD', 'CNY', 'EUR', 'GBP', 'JPY']
 
@@ -338,15 +339,15 @@ function ModelsList({
         const canSelect = !!model.lastTestStatus
         return (
           <div key={model.id} className="bg-card rounded-xl border p-4 shadow-sm">
-            <div className="flex items-start justify-between">
-              <div>
-                <h3 className="text-lg font-semibold">{model.name}</h3>
-                <p className="text-muted-foreground text-sm">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <h3 className="truncate text-lg font-semibold">{model.name}</h3>
+                <p className="text-muted-foreground truncate text-sm">
                   {model.provider} · {model.model}
                 </p>
               </div>
               {isActive ? (
-                <Badge variant="outline" className="border-green-500 text-green-400">
+                <Badge variant="outline" className="shrink-0 border-green-500 text-green-400">
                   {t('setup.model.active')}
                 </Badge>
               ) : (
@@ -355,42 +356,43 @@ function ModelsList({
                   variant="secondary"
                   onClick={() => onSelect(model.id)}
                   disabled={!canSelect}
+                  className="shrink-0"
                   title={!canSelect ? (t('models.testReminder') as string) : undefined}>
                   {t('setup.model.setActive')}
                 </Button>
               )}
             </div>
 
-            <div className="mt-4 flex gap-2">
+            <div className="mt-4 flex flex-wrap gap-2">
               <Button
                 size="sm"
                 variant="outline"
                 onClick={() => onTest(model.id)}
                 disabled={testingId === model.id}
-                className="gap-2">
+                className="gap-1.5">
                 {testingId === model.id ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 ) : (
-                  <RefreshCw className="h-4 w-4" />
+                  <RefreshCw className="h-3.5 w-3.5" />
                 )}
-                {t('setup.model.test')}
+                <span className="hidden sm:inline">{t('setup.model.test')}</span>
               </Button>
-              <Button size="sm" variant="outline" onClick={() => onEdit(model)} className="gap-2">
-                <Edit className="h-4 w-4" />
-                {t('models.editButton') || 'Edit'}
+              <Button size="sm" variant="outline" onClick={() => onEdit(model)} className="gap-1.5">
+                <Edit className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">{t('models.editButton') || 'Edit'}</span>
               </Button>
               <Button
                 size="sm"
                 variant="destructive"
                 onClick={() => onDelete(model)}
                 disabled={deletingId === model.id}
-                className="gap-2">
+                className="gap-1.5">
                 {deletingId === model.id ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 ) : (
-                  <Trash2 className="h-4 w-4" />
+                  <Trash2 className="h-3.5 w-3.5" />
                 )}
-                {t('models.deleteModel') || 'Delete model'}
+                <span className="hidden sm:inline">{t('models.deleteModel') || 'Delete model'}</span>
               </Button>
             </div>
           </div>
@@ -568,6 +570,27 @@ function ModelSetupStep({ onContinue }: { onContinue: () => void }) {
         <p className="text-muted-foreground text-base">{t('setup.model.description')}</p>
       </div>
 
+      {/* 已配置的模型列表 - 移到最上方 */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold">{t('setup.model.listTitle')}</h3>
+          <Button variant="ghost" size="sm" onClick={() => fetchModels()} disabled={loading}>
+            <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} />
+          </Button>
+        </div>
+        <ModelsList
+          models={models}
+          activeModelId={activeModel?.id ?? null}
+          onSelect={handleSelectModel}
+          onTest={handleTestModel}
+          onEdit={handleEditModel}
+          onDelete={handleDeleteModel}
+          testingId={testingModelId}
+          deletingId={deletingId}
+        />
+      </div>
+
+      {/* 创建/编辑模型表单 */}
       <div className="space-y-4">
         <h3 className="text-lg font-semibold">{t('setup.model.formTitle')}</h3>
         <div className="grid gap-4 md:grid-cols-2">
@@ -656,25 +679,6 @@ function ModelSetupStep({ onContinue }: { onContinue: () => void }) {
             {t('models.apiKeyEditHint') || 'Leave empty to keep existing API key'}
           </p>
         ) : null}
-      </div>
-
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold">{t('setup.model.listTitle')}</h3>
-          <Button variant="ghost" size="sm" onClick={() => fetchModels()} disabled={loading}>
-            <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} />
-          </Button>
-        </div>
-        <ModelsList
-          models={models}
-          activeModelId={activeModel?.id ?? null}
-          onSelect={handleSelectModel}
-          onTest={handleTestModel}
-          onEdit={handleEditModel}
-          onDelete={handleDeleteModel}
-          testingId={testingModelId}
-          deletingId={deletingId}
-        />
       </div>
 
       <div className="flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
@@ -833,6 +837,7 @@ export function InitialSetupFlow() {
   const markScreensStepDone = useSetupStore((state) => state.markScreensStepDone)
   const markModelStepDone = useSetupStore((state) => state.markModelStepDone)
   const markPermissionsStepDone = useSetupStore((state) => state.markPermissionsStepDone)
+  const markGoalsStepDone = useSetupStore((state) => state.markGoalsStepDone)
   const completeAndAcknowledge = useSetupStore((state) => state.completeAndAcknowledge)
   const skipForNow = useSetupStore((state) => state.skipForNow)
 
@@ -869,6 +874,7 @@ export function InitialSetupFlow() {
       screens: t('setup.steps.screens'),
       model: t('setup.steps.model'),
       permissions: t('setup.steps.permissions'),
+      goals: t('setup.steps.goals'),
       complete: t('setup.steps.complete')
     }),
     [t]
@@ -884,6 +890,8 @@ export function InitialSetupFlow() {
         return <ModelSetupStep onContinue={markModelStepDone} />
       case 'permissions':
         return <PermissionsSetupStep onContinue={markPermissionsStepDone} />
+      case 'goals':
+        return <GoalsSetupStep onContinue={markGoalsStepDone} />
       case 'complete':
         return <CompletionStep onFinish={completeAndAcknowledge} />
       default:

@@ -82,7 +82,8 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: path.resolve(__dirname, 'index.html'),
-        live2d: path.resolve(__dirname, 'live2d.html')
+        live2d: path.resolve(__dirname, 'live2d.html'),
+        clock: path.resolve(__dirname, 'clock.html')
       },
       output: {
         manualChunks: (id) => {

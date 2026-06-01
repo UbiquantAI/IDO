@@ -2,6 +2,7 @@ import '@/styles/index.css'
 import '@/lib/i18n'
 import { Outlet } from 'react-router'
 import { useEffect, useState } from 'react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
 import { LoadingPage } from '@/components/shared/LoadingPage'
@@ -16,6 +17,7 @@ import { useFriendlyChat } from '@/hooks/useFriendlyChat'
 import { useMonitorAutoSync } from '@/hooks/useMonitorAutoSync'
 import { isTauri } from '@/lib/utils/tauri'
 import { syncLive2dWindow } from '@/lib/live2d/windowManager'
+import { useClockSync } from '@/lib/clock/clockSync'
 import { useSetupStore } from '@/lib/stores/setup'
 import { useTray } from '@/hooks/useTray'
 import { QuitConfirmDialog } from '@/components/tray/QuitConfirmDialog'
@@ -25,6 +27,20 @@ import { InitialSetupFlow } from '@/components/setup/InitialSetupFlow'
 import { useWindowCloseHandler } from '@/hooks/useWindowCloseHandler'
 import { syncLanguageWithBackend } from '@/lib/i18n'
 import { getSettingsInfo } from '@/lib/client/apiClient'
+import { useSettingsStore } from '@/lib/stores/settings'
+import { FloatingPomodoroPanel, FloatingPomodoroTrigger } from '@/components/pomodoro/floating'
+import { usePomodoroStateSync } from '@/hooks/usePomodoroStateSync'
+
+// Create a client for React Query
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      retry: 1,
+      staleTime: 5 * 60 * 1000 // 5 minutes
+    }
+  }
+})
 
 function App() {
   const isWindowsUA = () => {
@@ -44,6 +60,7 @@ function App() {
   const [tauriReady, setTauriReady] = useState<boolean>(typeof window !== 'undefined' && '__TAURI__' in window)
   const { isTauriApp, status, errorMessage, retry } = useBackendLifecycle()
   const fetchLive2d = useLive2dStore((state) => state.fetch)
+  const fetchSettings = useSettingsStore((state) => state.fetchSettings)
 
   // Setup flow state - used to hide global guides during initial setup
   const isSetupActive = useSetupStore((s) => s.isActive)
@@ -53,6 +70,12 @@ function App() {
   // Initialize friendly chat event listeners
   useFriendlyChat()
   useMonitorAutoSync()
+
+  // Initialize clock sync (independent of Pomodoro page)
+  useClockSync()
+
+  // Initialize global pomodoro state sync (keeps FloatingPomodoroTrigger in sync)
+  usePomodoroStateSync()
 
   // Initialize system tray
   useTray()
@@ -92,16 +115,17 @@ function App() {
       try {
         console.log('[App] Starting unified initialization sequence')
 
-        // Step 1: Sync frontend language with backend language setting
+        // Step 1: Load all settings (language, fontSize, etc.) from backend
         // This ensures consistency on first startup
         try {
+          await fetchSettings()
           const settingsResponse = await getSettingsInfo(undefined)
           const data = settingsResponse?.data as any
           if (data?.language) {
             await syncLanguageWithBackend(data.language as string)
           }
         } catch (error) {
-          console.error('[App] Failed to sync language with backend:', error)
+          console.error('[App] Failed to sync settings with backend:', error)
         }
 
         if (cancelled) {
@@ -135,7 +159,7 @@ function App() {
     return () => {
       cancelled = true
     }
-  }, [checkAndActivateSetup, fetchLive2d, isTauriApp, status])
+  }, [checkAndActivateSetup, fetchLive2d, fetchSettings, isTauriApp, status])
 
   const renderContent = () => {
     if (!isTauriApp || status === 'ready') {
@@ -159,25 +183,30 @@ function App() {
 
   return (
     <ErrorBoundary>
-      <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
-        <div
-          className={`bg-background h-screen w-screen overflow-hidden ${
-            isWindows ? 'rounded-2xl border border-black/10 shadow-xl dark:border-white/10' : ''
-          }`}>
-          {/* Global drag region for all platforms */}
-          {tauriReady ? <Titlebar /> : null}
-          {renderContent()}
-          {/* Initial Setup Flow - Welcome/Onboarding */}
-          <InitialSetupFlow />
-          {/* Hide the PermissionsGuide while the initial setup overlay is active and not yet acknowledged */}
-          {(!isSetupActive || hasAcknowledged) && <PermissionsGuide />}
-          {/* Quit confirmation dialog for tray */}
-          <QuitConfirmDialog />
-          {/* Exit loading overlay */}
-          <ExitOverlay />
-          <Toaster position="top-right" richColors closeButton visibleToasts={3} duration={3000} expand={false} />
-        </div>
-      </ThemeProvider>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
+          <div
+            className={`bg-background h-screen w-screen overflow-hidden ${
+              isWindows ? 'rounded-2xl border border-black/10 shadow-xl dark:border-white/10' : ''
+            }`}>
+            {/* Global drag region for all platforms */}
+            {tauriReady ? <Titlebar /> : null}
+            {renderContent()}
+            {/* Initial Setup Flow - Welcome/Onboarding */}
+            <InitialSetupFlow />
+            {/* Hide the PermissionsGuide while the initial setup overlay is active and not yet acknowledged */}
+            {(!isSetupActive || hasAcknowledged) && <PermissionsGuide />}
+            {/* Quit confirmation dialog for tray */}
+            <QuitConfirmDialog />
+            {/* Exit loading overlay */}
+            <ExitOverlay />
+            {/* Global Floating Pomodoro */}
+            <FloatingPomodoroTrigger />
+            <FloatingPomodoroPanel />
+            <Toaster position="top-right" richColors closeButton visibleToasts={3} duration={3000} expand={false} />
+          </div>
+        </ThemeProvider>
+      </QueryClientProvider>
     </ErrorBoundary>
   )
 }

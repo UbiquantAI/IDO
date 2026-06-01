@@ -174,15 +174,15 @@ def register_fastapi_routes(app: "FastAPI", prefix: str = "/api") -> None:
             }
 
             if method == "GET":
-                app.get(**route_params)(func)  # type: ignore
+                app.get(**route_params)(func)
             elif method == "POST":
-                app.post(**route_params)(func)  # type: ignore
+                app.post(**route_params)(func)
             elif method == "PUT":
-                app.put(**route_params)(func)  # type: ignore
+                app.put(**route_params)(func)
             elif method == "DELETE":
-                app.delete(**route_params)(func)  # type: ignore
+                app.delete(**route_params)(func)
             elif method == "PATCH":
-                app.patch(**route_params)(func)  # type: ignore
+                app.patch(**route_params)(func)
             else:
                 logger.warning(f"Unknown HTTP method: {method} for {handler_name}")
                 continue
@@ -206,11 +206,18 @@ def register_fastapi_routes(app: "FastAPI", prefix: str = "/api") -> None:
 # ruff: noqa: E402
 from . import (
     activities,
+    activity_ratings,
     agents,
     chat,
     events,
     insights,
+    knowledge_merge,
     monitoring,
+    pomodoro,
+    pomodoro_goals,
+    pomodoro_linking,
+    pomodoro_presets,
+    pomodoro_stats,
     processing,
     resources,
     system,
@@ -222,11 +229,15 @@ __all__ = [
     "register_fastapi_routes",
     "get_registered_handlers",
     "activities",
+    "activity_ratings",
     "agents",
     "chat",
     "events",
     "insights",
     "monitoring",
+    "pomodoro",
+    "pomodoro_presets",
+    "pomodoro_stats",
     "processing",
     "resources",
     "system",
