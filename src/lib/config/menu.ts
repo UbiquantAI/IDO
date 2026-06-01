@@ -1,4 +1,4 @@
-import { LucideIcon, Clock, BookOpen, CheckSquare, NotebookPen, BarChart, Settings, MessageSquare } from 'lucide-react'
+import { LucideIcon, Timer, BookOpen, CheckSquare, NotebookPen, BarChart, Settings, MessageSquare } from 'lucide-react'
 
 export interface MenuItem {
   id: string
@@ -13,12 +13,19 @@ export interface MenuItem {
 
 export const MENU_ITEMS: MenuItem[] = [
   {
-    id: 'activity',
-    labelKey: 'menu.activity',
-    icon: Clock,
-    path: '/activity',
+    id: 'pomodoro',
+    labelKey: 'menu.pomodoro',
+    icon: Timer,
+    path: '/pomodoro',
     position: 'main'
   },
+  // {
+  //   id: 'activity',
+  //   labelKey: 'menu.activity',
+  //   icon: Clock,
+  //   path: '/activity',
+  //   position: 'main'
+  // },
   {
     id: 'ai-summary-knowledge',
     labelKey: 'menu.aiSummaryKnowledge',

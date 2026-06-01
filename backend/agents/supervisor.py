@@ -421,12 +421,14 @@ class ActivitySupervisor(BaseSupervisor):
         Args:
             content: List of activity items to validate
             **kwargs: Additional context
-                - source_events: Optional list of source events for semantic validation
+                - source_events: Optional list of source events for semantic validation (deprecated)
+                - source_actions: Optional list of source actions for semantic and temporal validation (preferred)
 
         Returns:
             SupervisorResult with validation results
         """
         source_events = kwargs.get("source_events")
+        source_actions = kwargs.get("source_actions")
 
         if not content:
             return SupervisorResult(
@@ -439,9 +441,48 @@ class ActivitySupervisor(BaseSupervisor):
 
             activities_json = json.dumps(content, ensure_ascii=False, indent=2, default=str)
 
-            # Build source events section if provided
+            # Build source section (prefer actions over events)
             source_events_section = ""
-            if source_events:
+            if source_actions:
+                # Enrich actions with duration for better analysis
+                enriched_actions = []
+                for action in source_actions:
+                    action_copy = action.copy()
+                    start = action.get("start_time") or action.get("timestamp")
+                    end = action.get("end_time")
+
+                    if start and end:
+                        # Calculate duration
+                        if isinstance(start, str):
+                            start = datetime.fromisoformat(start)
+                        if isinstance(end, str):
+                            end = datetime.fromisoformat(end)
+
+                        duration = (end - start).total_seconds()
+                        action_copy["duration_seconds"] = int(duration)
+                        action_copy["duration_display"] = self._format_duration(duration)
+                    elif start:
+                        # Action with only timestamp (no end time)
+                        action_copy["duration_seconds"] = 0
+                        action_copy["duration_display"] = "instant"
+
+                    enriched_actions.append(action_copy)
+
+                source_actions_json = json.dumps(
+                    enriched_actions, ensure_ascii=False, indent=2, default=str
+                )
+                source_events_section = f"""
+【Source Actions for Semantic and Temporal Validation】
+The following are the source actions that were aggregated into the activities above.
+Each action includes its duration and timestamp. Use these to:
+1. Calculate time distribution across different themes
+2. Identify the dominant theme (most time spent)
+3. Verify that activity titles reflect the dominant theme, not minor topics
+4. **Check temporal continuity**: Calculate time gaps between actions and ensure adjacent activities have reasonable time intervals
+
+{source_actions_json}
+"""
+            elif source_events:
                 # Enrich events with duration for better analysis
                 enriched_events = []
                 for event in source_events:

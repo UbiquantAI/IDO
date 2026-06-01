@@ -16,54 +16,68 @@
 @import './toast.css';
 @import './code-block.css';
 @import './live2d.css';
+@import './animations.css';
 
 @layer components {
-    .settings-section [data-slot='card'] {
-        @apply border-0 bg-transparent shadow-none rounded-none px-0 py-0;
-    }
+  .settings-section [data-slot='card'] {
+    @apply rounded-none border-0 bg-transparent px-0 py-0 shadow-none;
+  }
 
-    .settings-section [data-slot='card-header'],
-    .settings-section [data-slot='card-content'],
-    .settings-section [data-slot='card-footer'] {
-        @apply px-0;
-    }
+  .settings-section [data-slot='card-header'],
+  .settings-section [data-slot='card-content'],
+  .settings-section [data-slot='card-footer'] {
+    @apply px-0;
+  }
 
-    .settings-section [data-slot='card-header'] {
-        @apply pb-3;
-    }
+  .settings-section [data-slot='card-header'] {
+    @apply pb-3;
+  }
 
-    .settings-section [data-slot='card-content'] {
-        @apply pt-0;
-    }
+  .settings-section [data-slot='card-content'] {
+    @apply pt-0;
+  }
 }
 
 /* Third-party libraries */
 @import 'react-datepicker/dist/react-datepicker.css';
 
 @layer base {
-    * {
-        @apply border-border outline-ring/50;
-    }
+  * {
+    @apply border-border outline-ring/50;
+  }
 
-    body {
-        @apply bg-background text-foreground;
-    }
+  body {
+    @apply bg-background text-foreground;
+  }
 }
 
 @layer utilities {
-    @keyframes status-blink {
-
-        0%,
-        100% {
-            opacity: 1;
-        }
-
-        50% {
-            opacity: 0.3;
-        }
+  @keyframes status-blink {
+    0%,
+    100% {
+      opacity: 1;
     }
 
-    .animate-status-blink {
-        animation: status-blink 1.5s ease-in-out infinite;
+    50% {
+      opacity: 0.3;
     }
+  }
+
+  .animate-status-blink {
+    animation: status-blink 1.5s ease-in-out infinite;
+  }
+
+  @keyframes shimmer {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(100%);
+    }
+  }
+
+  .skeleton-shimmer {
+    background: linear-gradient(90deg, transparent 0%, oklch(var(--accent-foreground) / 0.08) 50%, transparent 100%);
+    animation: shimmer 2s infinite;
+  }
 }

@@ -8,7 +8,7 @@ import { languages } from '@/locales'
 
 export function AppearanceSettings() {
   const { t, i18n } = useTranslation()
-  const { theme, setTheme } = useTheme()
+  const { theme, setTheme, fontSize, setFontSize } = useTheme()
   const updateLanguage = useSettingsStore((state) => state.updateLanguage)
 
   const handleLanguageChange = (value: string) => {
@@ -18,6 +18,10 @@ export function AppearanceSettings() {
 
   const handleThemeChange = (value: string) => {
     setTheme(value as 'light' | 'dark' | 'system')
+  }
+
+  const handleFontSizeChange = (value: string) => {
+    setFontSize(value as 'small' | 'default' | 'large' | 'extra-large')
   }
 
   return (
@@ -55,6 +59,22 @@ export function AppearanceSettings() {
                   {lang.name}
                 </SelectItem>
               ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Font size settings */}
+        <div className="space-y-2">
+          <Label htmlFor="font-size">{t('settings.fontSize')}</Label>
+          <Select value={fontSize} onValueChange={handleFontSizeChange}>
+            <SelectTrigger id="font-size">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="small">{t('settings.fontSizeSmall')}</SelectItem>
+              <SelectItem value="default">{t('settings.fontSizeDefault')}</SelectItem>
+              <SelectItem value="large">{t('settings.fontSizeLarge')}</SelectItem>
+              <SelectItem value="extra-large">{t('settings.fontSizeExtraLarge')}</SelectItem>
             </SelectContent>
           </Select>
         </div>

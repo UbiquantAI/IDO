@@ -4,7 +4,7 @@ Request models for PyTauri commands
 """
 
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 from pydantic import Field
 
@@ -252,11 +252,37 @@ class UpdateSettingsRequest(BaseModel):
     @property databasePath - Path to the database file (optional).
     @property screenshotSavePath - Path to save screenshots (optional).
     @property language - Application language (zh or en) (optional).
+    @property fontSize - Application font size (small, default, large, extra-large) (optional).
+    @property voiceEnabled - Enable voice reminders (optional).
+    @property voiceVolume - Voice volume (0.0-1.0) (optional).
+    @property voiceLanguage - Voice language (zh-CN or en-US) (optional).
+    @property voiceId - Voice ID (optional).
+    @property clockEnabled - Enable desktop clock (optional).
+    @property clockPosition - Clock position (bottom-right, bottom-left, top-right, top-left) (optional).
+    @property clockSize - Clock size (small, medium, large) (optional).
+    @property clockCustomX - Custom X position in screen coordinates (optional).
+    @property clockCustomY - Custom Y position in screen coordinates (optional).
+    @property clockCustomWidth - Custom window width (optional).
+    @property clockCustomHeight - Custom window height (optional).
+    @property clockUseCustomPosition - Whether to use custom position instead of preset position (optional).
     """
 
     database_path: Optional[str] = None
     screenshot_save_path: Optional[str] = None
     language: Optional[str] = None
+    font_size: Optional[str] = None
+    voice_enabled: Optional[bool] = None
+    voice_volume: Optional[float] = None
+    voice_sound_theme: Optional[str] = None
+    voice_custom_sounds: Optional[dict] = None
+    clock_enabled: Optional[bool] = None
+    clock_position: Optional[str] = None
+    clock_size: Optional[str] = None
+    clock_custom_x: Optional[int] = None
+    clock_custom_y: Optional[int] = None
+    clock_custom_width: Optional[int] = None
+    clock_custom_height: Optional[int] = None
+    clock_use_custom_position: Optional[bool] = None
 
 
 class UpdateLive2DSettingsRequest(BaseModel):
@@ -620,6 +646,17 @@ class ReadImageFileRequest(BaseModel):
     file_path: str
 
 
+class CleanupBrokenActionsRequest(BaseModel):
+    """Request parameters for cleaning up actions with missing images.
+
+    @property strategy - Cleanup strategy: delete_actions, remove_references, or dry_run.
+    @property actionIds - Optional list of specific action IDs to process.
+    """
+
+    strategy: Literal["delete_actions", "remove_references", "dry_run"]
+    action_ids: Optional[List[str]] = None
+
+
 # ============================================================================
 # Three-Layer Architecture Request Models (Activities → Events → Actions)
 # ============================================================================
@@ -822,3 +859,105 @@ class DeleteDiariesByDateRequest(BaseModel):
 
     start_date: str = Field(..., pattern=r"^\d{4}-\d{2}-\d{2}$")
     end_date: str = Field(..., pattern=r"^\d{4}-\d{2}-\d{2}$")
+
+
+class ToggleKnowledgeFavoriteRequest(BaseModel):
+    """Request parameters for toggling knowledge favorite status.
+
+    @property id - Knowledge ID to toggle favorite status
+    """
+
+    id: str
+
+
+class CreateKnowledgeRequest(BaseModel):
+    """Request parameters for manually creating knowledge.
+
+    @property title - Knowledge title
+    @property description - Knowledge description
+    @property keywords - List of keywords/tags
+    """
+
+    title: str = Field(..., min_length=1, max_length=500)
+    description: str = Field(..., min_length=1)
+    keywords: List[str] = Field(default_factory=list)
+
+
+class UpdateKnowledgeRequest(BaseModel):
+    """Request parameters for updating knowledge.
+
+    @property id - Knowledge ID to update
+    @property title - Knowledge title
+    @property description - Knowledge description
+    @property keywords - List of keywords/tags
+    """
+
+    id: str
+    title: str = Field(..., min_length=1, max_length=500)
+    description: str = Field(..., min_length=1)
+    keywords: List[str] = Field(default_factory=list)
+
+
+class AnalyzeKnowledgeMergeRequest(BaseModel):
+    """Request parameters for analyzing knowledge similarity and generating merge suggestions.
+
+    @property filter_by_keyword - Only analyze knowledge with this keyword (None = all)
+    @property include_favorites - Whether to include favorite knowledge in analysis
+    @property similarity_threshold - Similarity threshold for merging (0.0-1.0)
+    """
+
+    filter_by_keyword: Optional[str] = None
+    include_favorites: bool = True
+    similarity_threshold: float = Field(default=0.7, ge=0.0, le=1.0)
+
+
+class MergeGroup(BaseModel):
+    """Represents a user-confirmed merge group.
+
+    @property group_id - Unique identifier for this merge group
+    @property knowledge_ids - List of knowledge IDs to merge
+    @property merged_title - Title for the merged knowledge
+    @property merged_description - Description for the merged knowledge
+    @property merged_keywords - Keywords for the merged knowledge
+    @property merge_reason - Optional reason for merging
+    @property keep_favorite - Whether to keep favorite status if any source is favorite
+    """
+
+    group_id: str
+    knowledge_ids: List[str]
+    merged_title: str = Field(..., min_length=1, max_length=500)
+    merged_description: str = Field(..., min_length=1)
+    merged_keywords: List[str] = Field(default_factory=list)
+    merge_reason: Optional[str] = None
+    keep_favorite: bool = True
+
+
+class ExecuteKnowledgeMergeRequest(BaseModel):
+    """Request parameters for executing approved knowledge merge operations.
+
+    @property merge_groups - List of merge groups to execute
+    """
+
+    merge_groups: List[MergeGroup]
+
+
+# ============ Todo Requests ============
+
+
+class CreateTodoRequest(BaseModel):
+    """Request parameters for manually creating a todo.
+
+    @property title - Todo title (required)
+    @property description - Todo description (required)
+    @property keywords - List of keywords/tags (optional)
+    @property scheduled_date - Optional scheduled date (YYYY-MM-DD format)
+    @property scheduled_time - Optional scheduled time (HH:MM format)
+    @property scheduled_end_time - Optional scheduled end time (HH:MM format)
+    """
+
+    title: str = Field(..., min_length=1, max_length=500)
+    description: str = Field(..., min_length=1)
+    keywords: List[str] = Field(default_factory=list)
+    scheduled_date: Optional[str] = Field(None, pattern=r"^\d{4}-\d{2}-\d{2}$")
+    scheduled_time: Optional[str] = Field(None, pattern=r"^\d{2}:\d{2}$")
+    scheduled_end_time: Optional[str] = Field(None, pattern=r"^\d{2}:\d{2}$")

@@ -316,6 +316,7 @@ export default function ActivityView() {
 
       {/* Main Content: Timeline */}
       <div className="flex-1 overflow-y-auto px-6 py-4">
+        {/* Timeline Content */}
         {isLoading ? (
           <div className="flex h-full items-center justify-center">
             <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />

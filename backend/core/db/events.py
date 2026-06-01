@@ -29,6 +29,7 @@ class EventsRepository(BaseRepository):
         end_time: str,
         source_action_ids: List[str],
         version: int = 1,
+        pomodoro_session_id: Optional[str] = None,
     ) -> None:
         """Save or update an event"""
         try:
@@ -37,8 +38,8 @@ class EventsRepository(BaseRepository):
                     """
                     INSERT OR REPLACE INTO events (
                         id, title, description, start_time, end_time,
-                        source_action_ids, version, created_at, deleted
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, 0)
+                        source_action_ids, version, pomodoro_session_id, created_at, deleted
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, 0)
                     """,
                     (
                         event_id,
@@ -48,10 +49,11 @@ class EventsRepository(BaseRepository):
                         end_time,
                         json.dumps(source_action_ids),
                         version,
+                        pomodoro_session_id,
                     ),
                 )
                 conn.commit()
-                logger.debug(f"Saved event: {event_id}")
+                logger.debug(f"Saved event: {event_id}" + (f" (session: {pomodoro_session_id})" if pomodoro_session_id else ""))
         except Exception as e:
             logger.error(f"Failed to save event {event_id}: {e}", exc_info=True)
             raise

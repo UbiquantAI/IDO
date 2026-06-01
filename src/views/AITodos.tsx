@@ -5,13 +5,17 @@ import { toast } from 'sonner'
 import { useInsightsStore } from '@/lib/stores/insights'
 import { PendingTodoList } from '@/components/insights/PendingTodoList'
 import { TodoCalendarView } from '@/components/insights/TodoCalendarView'
+import { TodoCardsView } from '@/components/insights/TodoCardsView'
 import { TodosDetailDialog } from '@/components/insights/TodosDetailDialog'
+import { ViewModeToggle } from '@/components/insights/ViewModeToggle'
 import { LoadingPage } from '@/components/shared/LoadingPage'
-import { Bot } from 'lucide-react'
+import { Bot, ListTodo, Plus, X } from 'lucide-react'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { ScrollToTop } from '@/components/shared/ScrollToTop'
 import { emitTodoToChat } from '@/lib/events/eventBus'
 import { PageHeader } from '@/components/layout/PageHeader'
+import { PageLayout } from '@/components/layout/PageLayout'
+import { Button } from '@/components/ui/button'
 import type { InsightTodo, RecurrenceRule } from '@/lib/services/insights'
 import {
   registerTodoDropHandler,
@@ -20,10 +24,17 @@ import {
   type TodoDragTarget
 } from '@/lib/drag/todoDragController'
 import { useTodoSync } from '@/hooks/useTodoSync'
+import { CreateTodoDialog } from '@/components/insights/CreateTodoDialog'
+import { TodoCategorySidebar } from '@/components/insights/TodoCategorySidebar'
+
+type ViewMode = 'calendar' | 'cards'
 
 export default function AITodosView() {
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
+
+  // View mode state
+  const [viewMode, setViewMode] = useState<ViewMode>('cards')
 
   // Enable TODO auto-sync
   useTodoSync()
@@ -41,14 +52,22 @@ export default function AITodosView() {
   const getTodosByDate = useInsightsStore((state) => state.getTodosByDate)
 
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
+  const [selectedTodoId, setSelectedTodoId] = useState<string | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [createDialogOpen, setCreateDialogOpen] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
 
   // Get fresh todos for dialog from store (not a snapshot)
-  const dialogTodos = selectedDate ? getTodosByDate(selectedDate) : []
+  const dialogTodos = selectedDate
+    ? getTodosByDate(selectedDate)
+    : selectedTodoId
+      ? todos.filter((t) => t.id === selectedTodoId)
+      : []
 
   useEffect(() => {
-    void refreshTodos(false) // Only load incomplete todos
+    void refreshTodos(true) // Load all todos including completed ones
   }, [refreshTodos])
 
   const pendingTodos = getPendingTodos()
@@ -72,19 +91,22 @@ export default function AITodosView() {
       try {
         await completeTodo(todo.id)
         toast.success(t('insights.todoCompleted', 'Todo completed'))
-        // Check if dialog should close (no more todos for this date)
+        // Check if dialog should close (no more todos for this date or single todo)
         if (selectedDate) {
           const remainingTodos = getTodosByDate(selectedDate).filter((t) => t.id !== todo.id)
           if (remainingTodos.length === 0) {
             setDialogOpen(false)
           }
+        } else if (selectedTodoId === todo.id) {
+          // If this was a single todo dialog, close it
+          setDialogOpen(false)
         }
       } catch (error) {
         console.error('Failed to complete todo:', error)
         toast.error(t('insights.completeFailed', 'Failed to complete todo'))
       }
     },
-    [completeTodo, getTodosByDate, selectedDate, t]
+    [completeTodo, getTodosByDate, selectedDate, selectedTodoId, t]
   )
 
   // Handle unscheduling a todo
@@ -92,7 +114,7 @@ export default function AITodosView() {
     async (todo: InsightTodo) => {
       try {
         await unscheduleTodo(todo.id)
-        toast.success(t('insights.todoUnscheduled', 'Todo unscheduled'))
+        toast.success(t('insights.todoUnscheduledMessage', 'Todo unscheduled'))
         setDialogOpen(false)
       } catch (error) {
         console.error('Failed to unschedule todo:', error)
@@ -168,6 +190,20 @@ export default function AITodosView() {
       toast.error(t('insights.deleteFailed', 'Failed to delete todo'))
     }
   }
+
+  // Handle clicking a todo card to open details
+  const handleTodoClick = useCallback((todo: InsightTodo) => {
+    if (todo.scheduledDate) {
+      // For scheduled todos, show all todos on that date
+      setSelectedDate(todo.scheduledDate)
+      setSelectedTodoId(null)
+    } else {
+      // For unscheduled todos, show only this todo
+      setSelectedDate(null)
+      setSelectedTodoId(todo.id)
+    }
+    setDialogOpen(true)
+  }, [])
 
   // Handle dragging todos onto the calendar
   const formatScheduledLabel = useCallback(
@@ -253,55 +289,140 @@ export default function AITodosView() {
   }
 
   return (
-    <div className="flex h-full">
-      {/* Left column: calendar */}
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <PageHeader
-          title={t('insights.calendar', 'Calendar')}
-          description={t('insights.calendarDesc', 'Drag todos to the calendar to schedule execution time')}
-        />
-        <div className="flex-1 overflow-hidden">
-          <TodoCalendarView todos={scheduledTodos} selectedDate={selectedDate} onDateSelect={handleDateClick} />
-        </div>
-      </div>
+    <PageLayout stickyHeader maxWidth="5xl">
+      <PageHeader
+        title={t('insights.pendingTodos', 'Pending Todos')}
+        description={t('insights.todosGeneratedFromActivities')}
+        actions={
+          <div className="flex items-center gap-2">
+            <Button size="sm" onClick={() => setCreateDialogOpen(true)}>
+              <Plus className="mr-1 h-4 w-4" />
+              {t('insights.createTodo', 'Create Todo')}
+            </Button>
+            <ViewModeToggle viewMode={viewMode} onViewModeChange={setViewMode} />
+          </div>
+        }
+      />
 
-      {/* Middle column: pending section */}
-      <div className="flex w-80 flex-col border-l">
-        <div className="px-4 py-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="font-semibold">{t('insights.pendingTodos', 'Pending todos')}</h2>
-              <p className="text-muted-foreground text-xs">
-                {pendingTodos.length} {t('insights.todosCount', 'todos')}
-              </p>
-            </div>
+      {viewMode === 'cards' ? (
+        <div className="animate-in fade-in slide-in-from-bottom-2 flex h-full flex-1 gap-6 overflow-hidden px-6 pb-6 duration-300">
+          {/* Left Sidebar - Categories */}
+          <TodoCategorySidebar
+            todos={todos}
+            selectedCategory={selectedCategory}
+            onCategoryChange={setSelectedCategory}
+          />
+
+          {/* Main Content */}
+          <div className="flex flex-1 flex-col overflow-hidden">
+            <TodoCardsView
+              todos={todos}
+              selectedCategory={selectedCategory}
+              onComplete={handleCompleteTodo}
+              onDelete={handleDeleteTodo}
+              onExecuteInChat={handleExecuteInChat}
+              onTodoClick={handleTodoClick}
+            />
           </div>
         </div>
+      ) : (
+        <div className="animate-in fade-in slide-in-from-bottom-2 flex h-full flex-1 gap-6 overflow-hidden px-6 pb-6 duration-300">
+          {/* Left column: calendar */}
+          <div className="flex flex-1 flex-col overflow-hidden">
+            <TodoCalendarView todos={scheduledTodos} selectedDate={selectedDate} onDateSelect={handleDateClick} />
+          </div>
 
-        <div ref={scrollContainerRef} className="flex-1 overflow-x-hidden overflow-y-auto">
-          {pendingTodos.length === 0 ? (
-            <EmptyState
-              icon={Bot}
-              title={t('insights.noPendingTodos', 'No pending todos')}
-              description={t(
-                'insights.todosGeneratedFromActivities',
-                'AI will automatically generate todos from your activities'
+          {/* Right column: pending section - hidden on small screens */}
+          <div className="hidden w-80 shrink-0 flex-col overflow-hidden rounded-lg border xl:flex">
+            <div className="shrink-0 border-b px-4 py-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="font-semibold">{t('insights.pendingTodos', 'Pending todos')}</h2>
+                  <p className="text-muted-foreground text-xs">
+                    {pendingTodos.length} {t('insights.todosCount', 'todos')}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div ref={scrollContainerRef} className="flex-1 overflow-y-auto">
+              {pendingTodos.length === 0 ? (
+                <EmptyState
+                  icon={Bot}
+                  title={t('insights.noPendingTodos', 'No pending todos')}
+                  description={t(
+                    'insights.todosGeneratedFromActivities',
+                    'AI will automatically generate todos from your activities'
+                  )}
+                />
+              ) : (
+                <PendingTodoList
+                  todos={pendingTodos}
+                  onExecuteInChat={handleExecuteInChat}
+                  onDelete={handleDeleteTodo}
+                  onComplete={handleCompleteTodo}
+                  onSchedule={handleUpdateSchedule}
+                />
               )}
-            />
-          ) : (
-            <PendingTodoList
-              todos={pendingTodos}
-              onExecuteInChat={handleExecuteInChat}
-              onDelete={handleDeleteTodo}
-              onComplete={handleCompleteTodo}
-              onSchedule={handleUpdateSchedule}
-            />
+            </div>
+            <ScrollToTop containerRef={scrollContainerRef} />
+          </div>
+
+          {/* Floating button to open sidebar on small screens */}
+          <Button
+            className="bg-primary text-primary-foreground fixed right-6 bottom-6 h-14 w-14 rounded-full shadow-lg xl:hidden"
+            size="icon"
+            onClick={() => setSidebarOpen(true)}>
+            <ListTodo className="h-6 w-6" />
+          </Button>
+
+          {/* Overlay sidebar for small screens */}
+          {sidebarOpen && (
+            <>
+              {/* Backdrop */}
+              <div className="fixed inset-0 z-40 bg-black/50 xl:hidden" onClick={() => setSidebarOpen(false)} />
+
+              {/* Sidebar */}
+              <div className="bg-background fixed top-0 right-0 bottom-0 z-50 flex w-80 flex-col shadow-xl xl:hidden">
+                <div className="flex shrink-0 items-center justify-between border-b px-4 py-3">
+                  <div>
+                    <h2 className="font-semibold">{t('insights.pendingTodos', 'Pending todos')}</h2>
+                    <p className="text-muted-foreground text-xs">
+                      {pendingTodos.length} {t('insights.todosCount', 'todos')}
+                    </p>
+                  </div>
+                  <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(false)}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+
+                <div className="flex-1 overflow-y-auto">
+                  {pendingTodos.length === 0 ? (
+                    <EmptyState
+                      icon={Bot}
+                      title={t('insights.noPendingTodos', 'No pending todos')}
+                      description={t(
+                        'insights.todosGeneratedFromActivities',
+                        'AI will automatically generate todos from your activities'
+                      )}
+                    />
+                  ) : (
+                    <PendingTodoList
+                      todos={pendingTodos}
+                      onExecuteInChat={handleExecuteInChat}
+                      onDelete={handleDeleteTodo}
+                      onComplete={handleCompleteTodo}
+                      onSchedule={handleUpdateSchedule}
+                    />
+                  )}
+                </div>
+              </div>
+            </>
           )}
         </div>
-        <ScrollToTop containerRef={scrollContainerRef} />
-      </div>
+      )}
 
-      {/* Todos Detail Dialog */}
+      {/* Todos Detail Dialog - shared between both views */}
       <TodosDetailDialog
         todos={dialogTodos}
         open={dialogOpen}
@@ -312,6 +433,13 @@ export default function AITodosView() {
         onUpdateSchedule={handleUpdateSchedule}
         onSendToChat={handleExecuteInChat}
       />
-    </div>
+
+      {/* Create Todo Dialog */}
+      <CreateTodoDialog
+        open={createDialogOpen}
+        onOpenChange={setCreateDialogOpen}
+        onSuccess={() => refreshTodos(true)}
+      />
+    </PageLayout>
   )
 }

@@ -3,7 +3,7 @@ Response models for API handlers
 Provides strongly typed response models for better type safety and auto-generation
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from models.base import BaseModel, OperationResponse, TimedOperationResponse
 
@@ -197,6 +197,39 @@ class ImageOptimizationStatsResponse(OperationResponse):
     config: Optional[Dict[str, Any]] = None
 
 
+class ImagePersistenceHealthData(BaseModel):
+    """Data model for image persistence health check"""
+
+    total_actions: int
+    actions_with_screenshots: int
+    actions_all_images_ok: int
+    actions_partial_missing: int
+    actions_all_missing: int
+    total_image_references: int
+    images_found: int
+    images_missing: int
+    missing_rate_percent: float
+    memory_cache_current_size: int
+    memory_cache_max_size: int
+    memory_ttl_seconds: int
+    actions_with_issues: List[Dict[str, Any]]
+
+
+class ImagePersistenceHealthResponse(OperationResponse):
+    """Response containing image persistence health check results"""
+
+    data: Optional[ImagePersistenceHealthData] = None
+
+
+class CleanupBrokenActionsResponse(OperationResponse):
+    """Response after cleaning up broken action images"""
+
+    actions_processed: int = 0
+    actions_deleted: int = 0
+    references_removed: int = 0
+    images_removed: int = 0
+
+
 class UpdateImageOptimizationConfigResponse(OperationResponse):
     """Response after updating image optimization configuration"""
 
@@ -255,6 +288,9 @@ class SettingsInfoData(BaseModel):
     database: Dict[str, str]
     screenshot: Dict[str, str]
     language: str
+    font_size: str = "default"
+    voice: Optional[Dict[str, Any]] = None
+    clock: Optional[Dict[str, Any]] = None
     image: Dict[str, Any]
 
 
@@ -343,3 +379,311 @@ class CompleteInitialSetupResponse(TimedOperationResponse):
     pass
 
 
+# Pomodoro Feature Response Models
+class PomodoroSessionData(BaseModel):
+    """Pomodoro session data with rounds support"""
+
+    session_id: str
+    user_intent: str
+    start_time: str
+    elapsed_minutes: int
+    planned_duration_minutes: int
+    associated_todo_id: Optional[str] = None
+    associated_todo_title: Optional[str] = None
+    # Rounds configuration
+    work_duration_minutes: int = 25
+    break_duration_minutes: int = 5
+    total_rounds: int = 4
+    current_round: int = 1
+    current_phase: Literal["work", "break", "completed"] = "work"
+    phase_start_time: Optional[str] = None
+    completed_rounds: int = 0
+    # Calculated fields for frontend
+    remaining_phase_seconds: Optional[int] = None
+    pure_work_duration_minutes: int = 0  # completed_rounds × work_duration_minutes (excludes breaks)
+
+
+class StartPomodoroResponse(TimedOperationResponse):
+    """Response after starting a Pomodoro session"""
+
+    data: Optional[PomodoroSessionData] = None
+
+
+class EndPomodoroData(BaseModel):
+    """End Pomodoro session result data"""
+
+    session_id: str
+    status: str  # Session status (completed, abandoned, etc.)
+    actual_work_minutes: int  # Actual work duration in minutes
+    raw_records_count: int = 0  # Number of raw records captured
+    processing_job_id: Optional[str] = None  # Deprecated, always None now
+    message: str = ""  # Optional message for user
+
+
+class EndPomodoroResponse(TimedOperationResponse):
+    """Response after ending a Pomodoro session"""
+
+    data: Optional[EndPomodoroData] = None
+
+
+class GetPomodoroStatusResponse(TimedOperationResponse):
+    """Response for getting current Pomodoro session status"""
+
+    data: Optional[PomodoroSessionData] = None
+
+
+# Pomodoro Session Detail Models (with activities and focus metrics)
+
+
+class PomodoroActivityData(BaseModel):
+    """Activity data for Pomodoro session detail view"""
+
+    id: str
+    title: str
+    description: str
+    start_time: str
+    end_time: str
+    session_duration_minutes: int
+    work_phase: Optional[int] = None  # Which work round (1-4)
+    focus_score: Optional[float] = None  # Focus metric (0.0-1.0)
+    topic_tags: List[str] = []
+    source_event_ids: List[str] = []  # Deprecated, for backward compatibility
+    source_action_ids: List[str] = []  # NEW: Primary source for action-based aggregation
+    aggregation_mode: str = "action_based"  # NEW: 'event_based' or 'action_based'
+
+
+class PhaseTimelineItem(BaseModel):
+    """Single phase in timeline (work or break)"""
+
+    phase_type: Literal["work", "break"]
+    phase_number: int  # 1-based round number
+    start_time: str
+    end_time: str
+    duration_minutes: int
+
+
+class FocusMetrics(BaseModel):
+    """Focus metrics for a Pomodoro session"""
+
+    overall_focus_score: float  # Weighted average focus score (0.0-1.0)
+    activity_count: int  # Number of activities in session
+    topic_diversity: int  # Number of unique topics
+    average_activity_duration: float  # Average duration per activity (minutes)
+    focus_level: str  # Human-readable level: excellent/good/moderate/low
+
+
+class LLMFocusAnalysis(BaseModel):
+    """Detailed focus analysis from LLM evaluation"""
+
+    strengths: List[str]  # Focus strengths (2-4 items)
+    weaknesses: List[str]  # Focus weaknesses (1-3 items)
+    suggestions: List[str]  # Improvement suggestions (2-4 items)
+
+
+class LLMFocusDimensionScores(BaseModel):
+    """Detailed dimension scores from LLM evaluation"""
+
+    topic_consistency: int  # 0-100 score for topic consistency
+    duration_depth: int  # 0-100 score for duration depth
+    switching_rhythm: int  # 0-100 score for switching rhythm
+    work_quality: int  # 0-100 score for work quality
+    goal_orientation: int  # 0-100 score for goal orientation
+
+
+class LLMFocusEvaluation(BaseModel):
+    """Complete LLM-based focus evaluation result"""
+
+    focus_score: int  # 0-100 integer score
+    focus_level: Literal["excellent", "good", "moderate", "low"]  # Focus quality level
+    dimension_scores: LLMFocusDimensionScores  # Detailed dimension scores
+    analysis: LLMFocusAnalysis  # Detailed analysis
+    work_type: Literal[
+        "development",
+        "writing",
+        "learning",
+        "research",
+        "design",
+        "communication",
+        "entertainment",
+        "productivity_analysis",
+        "mixed",
+        "unclear",
+    ]  # Type of work activity
+    is_focused_work: bool  # Whether it's high-quality focused work
+    distraction_percentage: int  # Distraction time percentage (0-100)
+    deep_work_minutes: float  # Deep work duration (minutes)
+    context_summary: str  # Overall work summary
+
+
+class PomodoroSessionDetailData(BaseModel):
+    """Detailed Pomodoro session with activities and focus metrics"""
+
+    session: Dict[str, Any]  # Full session data
+    activities: List[PomodoroActivityData]
+    focus_metrics: FocusMetrics  # Calculated focus metrics
+    llm_focus_evaluation: Optional[LLMFocusEvaluation] = None  # LLM-based detailed evaluation
+    phase_timeline: List[PhaseTimelineItem] = []  # Work/break phase timeline
+
+
+class GetPomodoroSessionDetailRequest(BaseModel):
+    """Request to get detailed Pomodoro session information"""
+
+    session_id: str
+
+
+class GetPomodoroSessionDetailResponse(TimedOperationResponse):
+    """Response with detailed Pomodoro session data"""
+
+    data: Optional[PomodoroSessionDetailData] = None
+
+
+class DeletePomodoroSessionRequest(BaseModel):
+    """Request to delete a Pomodoro session"""
+
+    session_id: str
+
+
+class DeletePomodoroSessionData(BaseModel):
+    """Data returned after deleting a session"""
+
+    session_id: str
+    deleted_activities_count: int
+
+
+class DeletePomodoroSessionResponse(TimedOperationResponse):
+    """Response after deleting a Pomodoro session"""
+
+    data: Optional[DeletePomodoroSessionData] = None
+
+
+# Knowledge responses
+class KnowledgeData(BaseModel):
+    """Knowledge item data"""
+
+    id: str
+    title: str
+    description: str
+    keywords: List[str]
+    created_at: Optional[str] = None
+    source_action_id: Optional[str] = None
+    favorite: bool = False
+    deleted: bool = False
+
+
+class ToggleKnowledgeFavoriteResponse(TimedOperationResponse):
+    """Response after toggling knowledge favorite status"""
+
+    data: Optional[KnowledgeData] = None
+
+
+class CreateKnowledgeResponse(TimedOperationResponse):
+    """Response after creating knowledge"""
+
+    data: Optional[KnowledgeData] = None
+
+
+class UpdateKnowledgeResponse(TimedOperationResponse):
+    """Response after updating knowledge"""
+
+    data: Optional[KnowledgeData] = None
+
+
+class MergeSuggestion(BaseModel):
+    """Represents a suggested merge of similar knowledge entries"""
+
+    group_id: str
+    knowledge_ids: List[str]
+    merged_title: str
+    merged_description: str
+    merged_keywords: List[str]
+    similarity_score: float
+    merge_reason: str
+    estimated_tokens: int
+
+
+class AnalyzeKnowledgeMergeResponse(TimedOperationResponse):
+    """Response after analyzing knowledge for merge suggestions"""
+
+    suggestions: List[MergeSuggestion]
+    total_estimated_tokens: int
+    analyzed_count: int
+    suggested_merge_count: int
+
+
+class MergeResult(BaseModel):
+    """Result of executing a merge operation"""
+
+    group_id: str
+    merged_knowledge_id: str
+    deleted_knowledge_ids: List[str]
+    success: bool
+    error: Optional[str] = None
+
+
+class ExecuteKnowledgeMergeResponse(TimedOperationResponse):
+    """Response after executing knowledge merge operations"""
+
+    results: List[MergeResult]
+    total_merged: int
+    total_deleted: int
+
+
+# ==================== Pomodoro Work Phases ====================
+
+
+class WorkPhaseInfo(BaseModel):
+    """Work phase status information"""
+
+    phase_id: str
+    phase_number: int
+    status: str  # pending/processing/completed/failed
+    processing_error: Optional[str] = None
+    retry_count: int
+    phase_start_time: str
+    phase_end_time: Optional[str] = None
+    activity_count: int
+
+
+class GetSessionPhasesResponse(TimedOperationResponse):
+    """Response for get_session_phases endpoint"""
+
+    data: Optional[List[WorkPhaseInfo]] = None
+
+
+# ============ Todo Responses ============
+
+
+class TodoData(BaseModel):
+    """Todo data for API responses"""
+
+    id: str
+    title: str
+    description: str
+    keywords: List[str]
+    created_at: Optional[str] = None
+    completed: bool = False
+    deleted: bool = False
+    scheduled_date: Optional[str] = None
+    scheduled_time: Optional[str] = None
+    scheduled_end_time: Optional[str] = None
+    recurrence_rule: Optional[Dict[str, Any]] = None
+    expires_at: Optional[str] = None
+    source_type: str = "ai"
+
+
+class CreateTodoResponse(TimedOperationResponse):
+    """Response for creating a todo manually"""
+
+    data: Optional[TodoData] = None
+
+
+class CleanupExpiredTodosResponse(TimedOperationResponse):
+    """Response for cleanup_expired_todos endpoint"""
+
+    data: Optional[Dict[str, int]] = None
+
+
+class CleanupSoftDeletedResponse(TimedOperationResponse):
+    """Response for cleanup_soft_deleted endpoint"""
+
+    data: Optional[Dict[str, int]] = None

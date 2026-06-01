@@ -162,7 +162,8 @@ class ImageAnalyzer:
         self,
         img_bytes: bytes,
         min_contrast: float = 50.0,
-        min_activity: float = 10.0
+        min_activity: float = 10.0,
+        is_coding_scene: bool = False,
     ) -> Tuple[bool, str]:
         """
         Determine if image has significant content worth processing
@@ -171,11 +172,18 @@ class ImageAnalyzer:
             img_bytes: Image data
             min_contrast: Minimum contrast threshold
             min_activity: Minimum edge activity threshold
+            is_coding_scene: Whether this is from a coding environment
+                           (relaxed thresholds for dark themes)
 
         Returns:
             (should_include, reason)
         """
         metrics = self.analyze(img_bytes)
+
+        # Adjust thresholds for coding scenes (dark themes, minimal visual changes)
+        if is_coding_scene:
+            min_contrast = 25.0  # Lower for dark-themed IDEs
+            min_activity = 5.0   # Lower for typing (small pixel changes)
 
         # Rule 1: High contrast = potentially meaningful interface change
         if metrics["contrast"] > min_contrast:
@@ -187,7 +195,11 @@ class ImageAnalyzer:
             self.stats["motion_detected"] += 1
             return True, "Motion detected"
 
-        # Rule 3: Low contrast and no motion = possibly blank/waiting screen
+        # Rule 3: For coding scenes, check complexity (text patterns)
+        if is_coding_scene and metrics["complexity"] > 15.0:
+            return True, "Coding content detected"
+
+        # Rule 4: Low contrast and no motion = possibly blank/waiting screen
         if metrics["contrast"] < 20:
             self.stats["static_skipped"] += 1
             return False, "Static/blank content"
